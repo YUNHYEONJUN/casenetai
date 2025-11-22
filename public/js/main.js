@@ -20,6 +20,8 @@ audioFileInput.addEventListener('change', function(e) {
     if (file) {
         selectedFile = file;
         fileNameDisplay.textContent = `선택된 파일: ${file.name} (${formatFileSize(file.size)})`;
+        fileNameDisplay.style.color = 'var(--success-color)';
+        fileNameDisplay.style.fontWeight = '600';
         checkFormValid();
     }
 });
@@ -47,12 +49,22 @@ fileLabel.addEventListener('drop', function(e) {
     const files = e.dataTransfer.files;
     if (files.length > 0) {
         const file = files[0];
-        // 파일 타입 체크
-        const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm', 'video/mp4'];
-        if (allowedTypes.some(type => file.type.includes(type.split('/')[1]))) {
-            audioFileInput.files = files;
+        // 파일 타입 및 확장자 체크
+        const allowedExtensions = /\.(mp3|wav|m4a|ogg|webm|mp4)$/i;
+        const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm', 'video/mp4', 'audio/m4a'];
+        
+        const hasValidExtension = allowedExtensions.test(file.name);
+        const hasValidType = allowedTypes.some(type => file.type === type || file.type.includes(type.split('/')[1]));
+        
+        if (hasValidExtension || hasValidType) {
+            // input 요소에 파일 설정
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            audioFileInput.files = dataTransfer.files;
+            
             selectedFile = file;
             fileNameDisplay.textContent = `선택된 파일: ${file.name} (${formatFileSize(file.size)})`;
+            fileNameDisplay.style.color = 'var(--success-color)';
             checkFormValid();
         } else {
             alert('지원하지 않는 파일 형식입니다. MP3, WAV, M4A, OGG, WebM, MP4 파일만 업로드 가능합니다.');
@@ -67,6 +79,22 @@ consultationTypeSelect.addEventListener('change', checkFormValid);
 function checkFormValid() {
     const isValid = consultationTypeSelect.value !== '' && selectedFile !== null;
     uploadBtn.disabled = !isValid;
+    
+    // 디버깅 로그
+    console.log('📋 폼 검증:', {
+        상담유형: consultationTypeSelect.value || '미선택',
+        파일: selectedFile ? selectedFile.name : '미선택',
+        버튼활성화: isValid
+    });
+    
+    // 버튼 상태 시각적 피드백
+    if (isValid) {
+        uploadBtn.style.opacity = '1';
+        uploadBtn.style.cursor = 'pointer';
+    } else {
+        uploadBtn.style.opacity = '0.6';
+        uploadBtn.style.cursor = 'not-allowed';
+    }
 }
 
 // 파일 크기 포맷팅
