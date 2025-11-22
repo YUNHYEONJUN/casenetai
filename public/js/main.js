@@ -235,6 +235,13 @@ function displayReport(report) {
             </div>
         </div>
 
+        <div class="report-section" style="background: #fffbea; border-left: 4px solid #fbbf24;">
+            <h4>📋 상담 요약</h4>
+            <div class="report-field">
+                <div class="report-field-value" style="font-size: 1.05em; line-height: 1.6; white-space: pre-wrap;">${report.상담요약 || '정보 없음'}</div>
+            </div>
+        </div>
+
         <div class="report-section">
             <h4>■ 2. 신고자/내담자 정보</h4>
             <div class="report-field">
@@ -503,6 +510,10 @@ Provided by WellPartners (웰파트너스)
 상담유형: ${consultationTypeText[currentReport.기본정보.상담유형] || currentReport.기본정보.상담유형}
 접수번호: ${currentReport.기본정보.접수번호}
 상담원: ${currentReport.기본정보.상담원 || '미입력'}
+
+📋 상담 요약
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${currentReport.상담요약 || '정보 없음'}
 
 ■ 2. 신고자/내담자 정보
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
