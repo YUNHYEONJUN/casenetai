@@ -1,11 +1,54 @@
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // OpenAI 클라이언트 초기화
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+// Whisper API 파일 크기 제한 (25MB)
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+
+/**
+ * 파일 크기 확인
+ * @param {string} filePath - 파일 경로
+ * @returns {number} - 파일 크기 (bytes)
+ */
+function getFileSize(filePath) {
+  const stats = fs.statSync(filePath);
+  return stats.size;
+}
+
+/**
+ * 오디오 파일 압축
+ * @param {string} inputPath - 입력 파일 경로
+ * @returns {Promise<string>} - 압축된 파일 경로
+ */
+async function compressAudio(inputPath) {
+  const outputPath = inputPath.replace(/\.[^.]+$/, '_compressed.mp3');
+  
+  try {
+    console.log(`[압축] 오디오 파일 압축 시작: ${inputPath}`);
+    
+    // ffmpeg를 사용하여 압축 (비트레이트 낮춤)
+    execSync(
+      `ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -b:a 32k "${outputPath}" -y`,
+      { stdio: 'ignore' }
+    );
+    
+    const originalSize = getFileSize(inputPath);
+    const compressedSize = getFileSize(outputPath);
+    
+    console.log(`[압축] 완료. 원본: ${(originalSize / 1024 / 1024).toFixed(2)}MB → 압축: ${(compressedSize / 1024 / 1024).toFixed(2)}MB`);
+    
+    return outputPath;
+  } catch (error) {
+    console.error('[압축] 오류:', error.message);
+    throw new Error(`파일 압축 실패: ${error.message}`);
+  }
+}
 
 /**
  * 음성 파일을 텍스트로 변환 (STT)
@@ -13,10 +56,29 @@ const openai = new OpenAI({
  * @returns {Promise<string>} - 변환된 텍스트
  */
 async function transcribeAudio(audioFilePath) {
+  let processFilePath = audioFilePath;
+  let needsCleanup = false;
+  
   try {
     console.log(`[STT] 음성 파일 변환 시작: ${audioFilePath}`);
     
-    const audioFile = fs.createReadStream(audioFilePath);
+    // 파일 크기 확인
+    const fileSize = getFileSize(audioFilePath);
+    console.log(`[STT] 파일 크기: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+    
+    // 25MB 초과 시 압축
+    if (fileSize > MAX_FILE_SIZE) {
+      console.log(`[STT] 파일이 25MB를 초과합니다. 압축을 진행합니다...`);
+      processFilePath = await compressAudio(audioFilePath);
+      needsCleanup = true;
+      
+      const compressedSize = getFileSize(processFilePath);
+      if (compressedSize > MAX_FILE_SIZE) {
+        throw new Error('압축 후에도 파일이 너무 큽니다. 파일을 더 작게 나누어 업로드해주세요.');
+      }
+    }
+    
+    const audioFile = fs.createReadStream(processFilePath);
     
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
@@ -26,9 +88,22 @@ async function transcribeAudio(audioFilePath) {
     });
 
     console.log(`[STT] 변환 완료. 텍스트 길이: ${transcription.length}자`);
+    
+    // 압축 파일 정리
+    if (needsCleanup && fs.existsSync(processFilePath)) {
+      fs.unlinkSync(processFilePath);
+      console.log(`[STT] 압축 파일 삭제: ${processFilePath}`);
+    }
+    
     return transcription;
   } catch (error) {
     console.error('[STT] 오류:', error.message);
+    
+    // 압축 파일 정리
+    if (needsCleanup && processFilePath && fs.existsSync(processFilePath)) {
+      fs.unlinkSync(processFilePath);
+    }
+    
     throw new Error(`음성 변환 실패: ${error.message}`);
   }
 }
