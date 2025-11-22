@@ -3,9 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-// OpenAI 클라이언트 초기화
+// OpenAI 클라이언트 초기화 (타임아웃 설정 증가)
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 5 * 60 * 1000, // 5분 타임아웃
+  maxRetries: 3 // 재시도 3회
 });
 
 // Whisper API 파일 크기 제한 (25MB)
@@ -78,13 +80,57 @@ async function transcribeAudio(audioFilePath) {
       }
     }
     
-    const audioFile = fs.createReadStream(processFilePath);
+    console.log(`[STT] Whisper API 호출 시작...`);
     
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
-      language: 'ko', // 한국어 설정
-      response_format: 'text'
+    // FormData를 사용한 직접 HTTP 요청 (더 안정적)
+    const FormData = require('form-data');
+    const https = require('https');
+    
+    const form = new FormData();
+    form.append('file', fs.createReadStream(processFilePath));
+    form.append('model', 'whisper-1');
+    form.append('language', 'ko');
+    form.append('response_format', 'text');
+    
+    const transcription = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.openai.com',
+        port: 443,
+        path: '/v1/audio/transcriptions',
+        method: 'POST',
+        headers: {
+          ...form.getHeaders(),
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        timeout: 5 * 60 * 1000 // 5분 타임아웃
+      };
+      
+      const req = https.request(options, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve(data);
+          } else {
+            reject(new Error(`API 오류: ${res.statusCode} - ${data}`));
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        reject(error);
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('요청 타임아웃'));
+      });
+      
+      form.pipe(req);
     });
 
     console.log(`[STT] 변환 완료. 텍스트 길이: ${transcription.length}자`);
@@ -97,7 +143,12 @@ async function transcribeAudio(audioFilePath) {
     
     return transcription;
   } catch (error) {
-    console.error('[STT] 오류:', error.message);
+    console.error('[STT] 오류 상세:', {
+      message: error.message,
+      type: error.constructor.name,
+      code: error.code,
+      status: error.status
+    });
     
     // 압축 파일 정리
     if (needsCleanup && processFilePath && fs.existsSync(processFilePath)) {
