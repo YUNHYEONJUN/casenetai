@@ -163,37 +163,20 @@ uploadBtn.addEventListener('click', async function() {
             throw new Error('파일 업로드에 실패했습니다.');
         }
 
-        const uploadResult = await uploadResponse.json();
+        const result = await uploadResponse.json();
         
-        // 진행 상황 업데이트
-        progressBar.style.width = '60%';
-        progressText.textContent = '음성을 텍스트로 변환 중...';
-
-        // 잠시 대기 (실제로는 STT 처리 시간)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // 진행 상황 업데이트
-        progressBar.style.width = '90%';
-        progressText.textContent = '상담일지 생성 중...';
-
-        // 상담일지 생성
-        const reportResponse = await fetch('/api/generate-report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                filename: uploadResult.filename,
-                consultationType: consultationTypeSelect.value
-            })
-        });
-
-        if (!reportResponse.ok) {
-            throw new Error('상담일지 생성에 실패했습니다.');
+        console.log('서버 응답:', result);
+        
+        // 서버가 이미 모든 처리를 완료함
+        if (result.success && result.report) {
+            currentReport = result.report;
+        } else if (result.warning) {
+            // Mock 모드인 경우
+            console.warn('Mock 모드:', result.warning);
+            currentReport = result.report;
+        } else {
+            throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
         }
-
-        const reportResult = await reportResponse.json();
-        currentReport = reportResult.report;
 
         // 진행 상황 완료
         progressBar.style.width = '100%';
@@ -215,9 +198,13 @@ uploadBtn.addEventListener('click', async function() {
         console.error('오류 발생:', error);
         alert('처리 중 오류가 발생했습니다: ' + error.message);
         progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
         uploadBtn.disabled = false;
+        uploadBtn.textContent = '다시 시도하기';
     }
 });
+
+// 긴 요청을 위한 타임아웃 설정 없음 (서버가 처리할 때까지 대기)
 
 // 상담일지 표시
 function displayReport(report) {
