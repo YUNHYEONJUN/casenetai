@@ -22,6 +22,7 @@ audioFileInput.addEventListener('change', function(e) {
         fileNameDisplay.textContent = `선택된 파일: ${file.name} (${formatFileSize(file.size)})`;
         fileNameDisplay.style.color = 'var(--success-color)';
         fileNameDisplay.style.fontWeight = '600';
+        console.log('✅ 파일 선택됨:', file.name);
         checkFormValid();
     }
 });
@@ -77,8 +78,28 @@ consultationTypeSelect.addEventListener('change', checkFormValid);
 
 // 폼 유효성 검사
 function checkFormValid() {
-    const isValid = consultationTypeSelect.value !== '' && selectedFile !== null;
+    const hasType = consultationTypeSelect.value !== '';
+    const hasFile = selectedFile !== null;
+    const isValid = hasType && hasFile;
+    
     uploadBtn.disabled = !isValid;
+    
+    // 상태 메시지 표시
+    const statusMessage = document.getElementById('statusMessage');
+    if (!isValid) {
+        statusMessage.style.display = 'block';
+        if (!hasType && !hasFile) {
+            statusMessage.innerHTML = '<strong>⚠️ 버튼을 활성화하려면:</strong><br>1️⃣ 상담 유형을 선택하세요<br>2️⃣ 음성 파일을 업로드하세요';
+        } else if (!hasType) {
+            statusMessage.innerHTML = '<strong>⚠️ 상담 유형을 선택해주세요</strong>';
+            statusMessage.style.background = '#fff3cd';
+        } else if (!hasFile) {
+            statusMessage.innerHTML = '<strong>⚠️ 음성 파일을 업로드해주세요</strong>';
+            statusMessage.style.background = '#fff3cd';
+        }
+    } else {
+        statusMessage.style.display = 'none';
+    }
     
     // 디버깅 로그
     console.log('📋 폼 검증:', {
@@ -91,9 +112,13 @@ function checkFormValid() {
     if (isValid) {
         uploadBtn.style.opacity = '1';
         uploadBtn.style.cursor = 'pointer';
+        uploadBtn.style.background = 'var(--primary-color)';
+        uploadBtn.textContent = '✅ 상담일지 생성하기';
     } else {
         uploadBtn.style.opacity = '0.6';
         uploadBtn.style.cursor = 'not-allowed';
+        uploadBtn.style.background = 'var(--secondary-color)';
+        uploadBtn.textContent = '상담일지 생성하기';
     }
 }
 
@@ -407,4 +432,10 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             });
         }
     });
+});
+
+// 페이지 로드 시 초기 상태 체크
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 페이지 로드 완료');
+    checkFormValid();
 });
