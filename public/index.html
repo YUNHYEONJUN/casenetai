@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaseNetAI - 노인보호전문기관 업무자동화 시스템</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>CaseNetAI</h1>
+                    <p class="tagline">노인보호전문기관 업무자동화 시스템</p>
+                </div>
+                <nav class="nav">
+                    <a href="https://wellpartners.co.kr" target="_blank" class="nav-link">웰파트너스</a>
+                    <a href="#about" class="nav-link">서비스 소개</a>
+                    <a href="#features" class="nav-link">주요 기능</a>
+                    <a href="#upload" class="nav-link">상담일지 생성</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- 히어로 섹션 -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2 class="hero-title">상담 녹음을 자동으로 상담일지로</h2>
+                <p class="hero-subtitle">AI 기술로 노인보호전문기관의 상담일지 작성을 자동화합니다</p>
+                <a href="#upload" class="btn btn-primary btn-large">지금 시작하기</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 서비스 소개 -->
+    <section id="about" class="section about">
+        <div class="container">
+            <h2 class="section-title">서비스 소개</h2>
+            <div class="about-content">
+                <div class="about-card">
+                    <div class="about-icon">🎯</div>
+                    <h3>정확한 기록</h3>
+                    <p>노인보호전문기관 업무수행지침에 따른 정확한 상담일지 양식</p>
+                </div>
+                <div class="about-card">
+                    <div class="about-icon">⚡</div>
+                    <h3>시간 절약</h3>
+                    <p>수작업 기록 시간을 90% 이상 단축</p>
+                </div>
+                <div class="about-card">
+                    <div class="about-icon">🔒</div>
+                    <h3>안전한 보안</h3>
+                    <p>개인정보 보호를 위한 철저한 보안 시스템</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 주요 기능 -->
+    <section id="features" class="section features">
+        <div class="container">
+            <h2 class="section-title">주요 기능</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-number">01</div>
+                    <h3>음성 파일 업로드</h3>
+                    <p>전화상담, 방문상담, 내방상담의 녹음 파일을 업로드합니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">02</div>
+                    <h3>자동 텍스트 변환</h3>
+                    <p>AI 음성인식 기술로 녹음 내용을 정확하게 텍스트로 변환합니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">03</div>
+                    <h3>상담일지 자동 생성</h3>
+                    <p>변환된 텍스트를 분석하여 표준 양식의 상담일지를 자동으로 생성합니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">04</div>
+                    <h3>검토 및 수정</h3>
+                    <p>생성된 상담일지를 검토하고 필요한 부분을 수정할 수 있습니다</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 업로드 섹션 -->
+    <section id="upload" class="section upload-section">
+        <div class="container">
+            <h2 class="section-title">상담일지 자동 생성</h2>
+            <div class="upload-container">
+                <div class="upload-form">
+                    <div class="form-group">
+                        <label for="consultationType">상담 유형</label>
+                        <select id="consultationType" class="form-control">
+                            <option value="">선택해주세요</option>
+                            <option value="phone">전화상담</option>
+                            <option value="visit">방문상담</option>
+                            <option value="office">내방상담</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="audioFile">녹음 파일 업로드</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="audioFile" accept="audio/*,video/mp4" class="file-input">
+                            <label for="audioFile" class="file-label">
+                                <span class="file-icon">📁</span>
+                                <span class="file-text">파일을 선택하거나 드래그하세요</span>
+                                <span class="file-info">지원 형식: MP3, WAV, M4A, OGG, WebM, MP4 (최대 100MB)</span>
+                            </label>
+                        </div>
+                        <div id="fileName" class="file-name"></div>
+                    </div>
+
+                    <button id="uploadBtn" class="btn btn-primary btn-large" disabled>
+                        상담일지 생성하기
+                    </button>
+
+                    <div id="progressContainer" class="progress-container" style="display: none;">
+                        <div class="progress-bar">
+                            <div id="progressBar" class="progress-fill"></div>
+                        </div>
+                        <p id="progressText" class="progress-text">파일 업로드 중...</p>
+                    </div>
+                </div>
+
+                <!-- 결과 표시 영역 -->
+                <div id="resultContainer" class="result-container" style="display: none;">
+                    <div class="result-header">
+                        <h3>생성된 상담일지</h3>
+                        <div class="result-actions">
+                            <button id="editBtn" class="btn btn-secondary">수정</button>
+                            <button id="downloadBtn" class="btn btn-primary">다운로드</button>
+                        </div>
+                    </div>
+                    <div id="reportContent" class="report-content">
+                        <!-- 상담일지 내용이 여기에 표시됩니다 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <h3>CaseNetAI</h3>
+                    <p>Powered by <a href="https://wellpartners.co.kr" target="_blank">WellPartners</a></p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">이용약관</a>
+                    <a href="#">개인정보처리방침</a>
+                    <a href="#">고객센터</a>
+                </div>
+                <div class="footer-copyright">
+                    <p>&copy; 2025 WellPartners. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
