@@ -85,6 +85,15 @@ async function transcribeAudio(audioFilePath) {
     // FormData를 사용한 직접 HTTP 요청 (더 안정적)
     const FormData = require('form-data');
     const https = require('https');
+    const http = require('http');
+    
+    // Keep-Alive 에이전트 생성 (연결 재사용)
+    const agent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000,
+      maxSockets: 1,
+      timeout: 10 * 60 * 1000 // 10분
+    });
     
     const form = new FormData();
     form.append('file', fs.createReadStream(processFilePath));
@@ -102,17 +111,25 @@ async function transcribeAudio(audioFilePath) {
           ...form.getHeaders(),
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
         },
-        timeout: 5 * 60 * 1000 // 5분 타임아웃
+        agent: agent,
+        timeout: 10 * 60 * 1000 // 10분 타임아웃
       };
       
       const req = https.request(options, (res) => {
+        console.log(`[STT] 응답 상태: ${res.statusCode}`);
         let data = '';
+        let receivedBytes = 0;
         
         res.on('data', (chunk) => {
           data += chunk;
+          receivedBytes += chunk.length;
+          if (receivedBytes % 1024 === 0) {
+            console.log(`[STT] 수신 중: ${(receivedBytes / 1024).toFixed(1)}KB`);
+          }
         });
         
         res.on('end', () => {
+          console.log(`[STT] 응답 완료: ${receivedBytes} bytes`);
           if (res.statusCode === 200) {
             resolve(data);
           } else {
@@ -122,14 +139,26 @@ async function transcribeAudio(audioFilePath) {
       });
       
       req.on('error', (error) => {
+        console.error('[STT] 요청 오류:', error.message);
         reject(error);
       });
       
       req.on('timeout', () => {
+        console.error('[STT] 타임아웃 발생 (10분 초과)');
         req.destroy();
-        reject(new Error('요청 타임아웃'));
+        reject(new Error('요청 타임아웃 (10분 초과)'));
       });
       
+      // 업로드 진행 상황
+      let uploadedBytes = 0;
+      form.on('data', (chunk) => {
+        uploadedBytes += chunk.length;
+        if (uploadedBytes % (1024 * 1024) === 0) {
+          console.log(`[STT] 업로드 중: ${(uploadedBytes / 1024 / 1024).toFixed(1)}MB`);
+        }
+      });
+      
+      console.log('[STT] 파일 전송 시작...');
       form.pipe(req);
     });
 
