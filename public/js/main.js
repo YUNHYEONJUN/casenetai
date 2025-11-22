@@ -216,7 +216,7 @@ function displayReport(report) {
 
     const html = `
         <div class="report-section">
-            <h4>1. 기본정보</h4>
+            <h4>■ 1. 기본정보</h4>
             <div class="report-field">
                 <div class="report-field-label">상담일자</div>
                 <div class="report-field-value">${report.기본정보.상담일자}</div>
@@ -236,90 +236,229 @@ function displayReport(report) {
         </div>
 
         <div class="report-section">
-            <h4>2. 피해노인 정보</h4>
+            <h4>■ 2. 신고자/내담자 정보</h4>
             <div class="report-field">
-                <div class="report-field-label">성명</div>
-                <div class="report-field-value">${report.피해노인정보.성명 || '미입력'}</div>
+                <div class="report-field-label">신고자명</div>
+                <div class="report-field-value">${report.신고자정보?.신고자명 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">성별/연령</div>
-                <div class="report-field-value">${report.피해노인정보.성별 || '미입력'} / ${report.피해노인정보.연령 || '미입력'}세</div>
+                <div class="report-field-label">피해노인과의 관계</div>
+                <div class="report-field-value">${report.신고자정보?.관계 || '미입력'}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연락처</div>
-                <div class="report-field-value">${report.피해노인정보.연락처 || '미입력'}</div>
+                <div class="report-field-value">${report.신고자정보?.연락처 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">주소</div>
-                <div class="report-field-value">${report.피해노인정보.주소 || '미입력'}</div>
+                <div class="report-field-label">신고 경위</div>
+                <div class="report-field-value">${report.신고자정보?.신고경위 || '미입력'}</div>
             </div>
         </div>
 
         <div class="report-section">
-            <h4>3. 행위자 정보</h4>
+            <h4>■ 3. 피해노인(클라이언트) 정보</h4>
+            <h5>▶ 인적사항</h5>
             <div class="report-field">
                 <div class="report-field-label">성명</div>
-                <div class="report-field-value">${report.행위자정보.성명 || '미입력'}</div>
+                <div class="report-field-value">${report.피해노인정보?.성명 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">관계</div>
-                <div class="report-field-value">${report.행위자정보.관계 || '미입력'}</div>
+                <div class="report-field-label">성별</div>
+                <div class="report-field-value">${report.피해노인정보?.성별 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">생년월일</div>
+                <div class="report-field-value">${report.피해노인정보?.생년월일 || '미입력'}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연령</div>
-                <div class="report-field-value">${report.행위자정보.연령 || '미입력'}세</div>
+                <div class="report-field-value">${report.피해노인정보?.연령 || '미입력'}세</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연락처</div>
-                <div class="report-field-value">${report.행위자정보.연락처 || '미입력'}</div>
+                <div class="report-field-value">${report.피해노인정보?.연락처 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">주소</div>
+                <div class="report-field-value">${report.피해노인정보?.주소 || '미입력'}</div>
+            </div>
+            
+            <h5>▶ 건강상태</h5>
+            <div class="report-field">
+                <div class="report-field-label">신체적 건강</div>
+                <div class="report-field-value">${report.피해노인정보?.건강상태?.신체 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">정신적 건강</div>
+                <div class="report-field-value">${report.피해노인정보?.건강상태?.정신 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">복용 약물</div>
+                <div class="report-field-value">${report.피해노인정보?.건강상태?.복용약물 || '없음'}</div>
+            </div>
+            
+            <h5>▶ 경제상태</h5>
+            <div class="report-field">
+                <div class="report-field-label">경제 상황</div>
+                <div class="report-field-value">${report.피해노인정보?.경제상태 || '미입력'}</div>
+            </div>
+            
+            <h5>▶ 가족관계</h5>
+            <div class="report-field">
+                <div class="report-field-label">가족 구성 및 관계</div>
+                <div class="report-field-value">${report.피해노인정보?.가족관계 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">주 돌봄 제공자</div>
+                <div class="report-field-value">${report.피해노인정보?.주돌봄제공자 || '없음'}</div>
             </div>
         </div>
 
         <div class="report-section">
-            <h4>4. 상담내용</h4>
+            <h4>■ 4. 행위자(학대의심자) 정보</h4>
             <div class="report-field">
-                <div class="report-field-label">신고경위</div>
-                <div class="report-field-value">${report.상담내용.신고경위 || '미입력'}</div>
+                <div class="report-field-label">성명</div>
+                <div class="report-field-value">${report.행위자정보?.성명 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">학대유형</div>
-                <div class="report-field-value">${report.상담내용.학대유형 || '미입력'}</div>
+                <div class="report-field-label">피해노인과의 관계</div>
+                <div class="report-field-value">${report.행위자정보?.관계 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">학대내용</div>
-                <div class="report-field-value">${report.상담내용.학대내용 || '미입력'}</div>
+                <div class="report-field-label">성별</div>
+                <div class="report-field-value">${report.행위자정보?.성별 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">피해노인 상태</div>
-                <div class="report-field-value">${report.상담내용.피해노인상태 || '미입력'}</div>
+                <div class="report-field-label">연령</div>
+                <div class="report-field-value">${report.행위자정보?.연령 || '미입력'}세</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">현장상황</div>
-                <div class="report-field-value">${report.상담내용.현장상황 || '미입력'}</div>
-            </div>
-        </div>
-
-        <div class="report-section">
-            <h4>5. 조치사항</h4>
-            <div class="report-field">
-                <div class="report-field-label">즉시조치 내용</div>
-                <div class="report-field-value">${report.조치사항.즉시조치내용 || '미입력'}</div>
+                <div class="report-field-label">연락처</div>
+                <div class="report-field-value">${report.행위자정보?.연락처 || '미입력'}</div>
             </div>
             <div class="report-field">
-                <div class="report-field-label">연계기관</div>
-                <div class="report-field-value">${report.조치사항.연계기관 || '미입력'}</div>
-            </div>
-            <div class="report-field">
-                <div class="report-field-label">향후계획</div>
-                <div class="report-field-value">${report.조치사항.향후계획 || '미입력'}</div>
+                <div class="report-field-label">특성</div>
+                <div class="report-field-value">${report.행위자정보?.특성 || '미입력'}</div>
             </div>
         </div>
 
         <div class="report-section">
-            <h4>6. 특이사항</h4>
+            <h4>■ 5. 학대 의심 내용</h4>
+            <div class="report-field">
+                <div class="report-field-label">학대 유형</div>
+                <div class="report-field-value">${report.학대내용?.학대유형 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">발생 시기</div>
+                <div class="report-field-value">${report.학대내용?.발생시기 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">발생 장소</div>
+                <div class="report-field-value">${report.학대내용?.발생장소 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">구체적 행위 (5W1H)</div>
+                <div class="report-field-value">${report.학대내용?.구체적행위 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">심각성 정도</div>
+                <div class="report-field-value">${report.학대내용?.심각성 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">학대 증거</div>
+                <div class="report-field-value">${report.학대내용?.증거 || '없음'}</div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h4>■ 6. 피해노인의 현재 상태</h4>
+            <div class="report-field">
+                <div class="report-field-label">신체 상태</div>
+                <div class="report-field-value">${report.현재상태?.신체상태 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">정서 상태</div>
+                <div class="report-field-value">${report.현재상태?.정서상태 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">생활 환경</div>
+                <div class="report-field-value">${report.현재상태?.생활환경 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">위험도</div>
+                <div class="report-field-value">${report.현재상태?.위험도 || '미입력'}</div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h4>■ 7. 현장조사 내용</h4>
+            <div class="report-field">
+                <div class="report-field-label">실시 여부</div>
+                <div class="report-field-value">${report.현장조사?.실시여부 ? '실시함' : '실시 안 함'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">방문 일시</div>
+                <div class="report-field-value">${report.현장조사?.방문일시 || '해당없음'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">관찰 내용</div>
+                <div class="report-field-value">${report.현장조사?.관찰내용 || '해당없음'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">면담 내용</div>
+                <div class="report-field-value">${report.현장조사?.면담내용 || '해당없음'}</div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h4>■ 8. 즉시 조치사항</h4>
+            <div class="report-field">
+                <div class="report-field-label">응급 조치</div>
+                <div class="report-field-value">${report.즉시조치?.응급조치 || '없음'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">분리 보호</div>
+                <div class="report-field-value">${report.즉시조치?.분리보호 || '없음'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">의료 연계</div>
+                <div class="report-field-value">${report.즉시조치?.의료연계 || '없음'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">기타 조치</div>
+                <div class="report-field-value">${report.즉시조치?.기타조치 || '없음'}</div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h4>■ 9. 향후 계획</h4>
+            <div class="report-field">
+                <div class="report-field-label">단기 계획</div>
+                <div class="report-field-value">${report.향후계획?.단기계획 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">장기 계획</div>
+                <div class="report-field-value">${report.향후계획?.장기계획 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">모니터링 계획</div>
+                <div class="report-field-value">${report.향후계획?.모니터링 || '미입력'}</div>
+            </div>
+            <div class="report-field">
+                <div class="report-field-label">연계 기관</div>
+                <div class="report-field-value">${report.향후계획?.연계기관 || '없음'}</div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h4>■ 10. 상담원 의견 및 특이사항</h4>
+            <div class="report-field">
+                <div class="report-field-label">상담원 종합 의견</div>
+                <div class="report-field-value">${report.상담원의견 || '미입력'}</div>
+            </div>
             <div class="report-field">
                 <div class="report-field-label">특이사항</div>
-                <div class="report-field-value">${report.특이사항 || '미입력'}</div>
+                <div class="report-field-value">${report.특이사항 || '없음'}</div>
             </div>
         </div>
     `;
@@ -345,7 +484,7 @@ downloadBtn.addEventListener('click', function() {
         return;
     }
 
-    // 간단한 텍스트 형식으로 다운로드
+    // 상담 유형 텍스트 변환
     const consultationTypeText = {
         'phone': '전화상담',
         'visit': '방문상담',
@@ -353,46 +492,120 @@ downloadBtn.addEventListener('click', function() {
     };
 
     const text = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 노인보호전문기관 상담일지
-========================================
+Provided by WellPartners (웰파트너스)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[1. 기본정보]
+■ 1. 기본정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 상담일자: ${currentReport.기본정보.상담일자}
 상담유형: ${consultationTypeText[currentReport.기본정보.상담유형] || currentReport.기본정보.상담유형}
 접수번호: ${currentReport.기본정보.접수번호}
 상담원: ${currentReport.기본정보.상담원 || '미입력'}
 
-[2. 피해노인 정보]
-성명: ${currentReport.피해노인정보.성명 || '미입력'}
-성별: ${currentReport.피해노인정보.성별 || '미입력'}
-연령: ${currentReport.피해노인정보.연령 || '미입력'}세
-연락처: ${currentReport.피해노인정보.연락처 || '미입력'}
-주소: ${currentReport.피해노인정보.주소 || '미입력'}
+■ 2. 신고자/내담자 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+신고자명: ${currentReport.신고자정보?.신고자명 || '미입력'}
+피해노인과의 관계: ${currentReport.신고자정보?.관계 || '미입력'}
+연락처: ${currentReport.신고자정보?.연락처 || '미입력'}
+신고 경위:
+${currentReport.신고자정보?.신고경위 || '미입력'}
 
-[3. 행위자 정보]
-성명: ${currentReport.행위자정보.성명 || '미입력'}
-관계: ${currentReport.행위자정보.관계 || '미입력'}
-연령: ${currentReport.행위자정보.연령 || '미입력'}세
-연락처: ${currentReport.행위자정보.연락처 || '미입력'}
+■ 3. 피해노인(클라이언트) 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ 인적사항
+성명: ${currentReport.피해노인정보?.성명 || '미입력'}
+성별: ${currentReport.피해노인정보?.성별 || '미입력'}
+생년월일: ${currentReport.피해노인정보?.생년월일 || '미입력'}
+연령: ${currentReport.피해노인정보?.연령 || '미입력'}세
+연락처: ${currentReport.피해노인정보?.연락처 || '미입력'}
+주소: ${currentReport.피해노인정보?.주소 || '미입력'}
 
-[4. 상담내용]
-신고경위: ${currentReport.상담내용.신고경위 || '미입력'}
-학대유형: ${currentReport.상담내용.학대유형 || '미입력'}
-학대내용: ${currentReport.상담내용.학대내용 || '미입력'}
-피해노인 상태: ${currentReport.상담내용.피해노인상태 || '미입력'}
-현장상황: ${currentReport.상담내용.현장상황 || '미입력'}
+▶ 건강상태
+신체적 건강: ${currentReport.피해노인정보?.건강상태?.신체 || '미입력'}
+정신적 건강: ${currentReport.피해노인정보?.건강상태?.정신 || '미입력'}
+복용 약물: ${currentReport.피해노인정보?.건강상태?.복용약물 || '없음'}
 
-[5. 조치사항]
-즉시조치 내용: ${currentReport.조치사항.즉시조치내용 || '미입력'}
-연계기관: ${currentReport.조치사항.연계기관 || '미입력'}
-향후계획: ${currentReport.조치사항.향후계획 || '미입력'}
+▶ 경제상태
+${currentReport.피해노인정보?.경제상태 || '미입력'}
 
-[6. 특이사항]
-${currentReport.특이사항 || '미입력'}
+▶ 가족관계
+${currentReport.피해노인정보?.가족관계 || '미입력'}
+주 돌봄 제공자: ${currentReport.피해노인정보?.주돌봄제공자 || '없음'}
 
-========================================
+■ 4. 행위자(학대의심자) 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+성명: ${currentReport.행위자정보?.성명 || '미입력'}
+피해노인과의 관계: ${currentReport.행위자정보?.관계 || '미입력'}
+성별: ${currentReport.행위자정보?.성별 || '미입력'}
+연령: ${currentReport.행위자정보?.연령 || '미입력'}세
+연락처: ${currentReport.행위자정보?.연락처 || '미입력'}
+특성 (직업, 경제상태, 음주/약물, 정신질환 등):
+${currentReport.행위자정보?.특성 || '미입력'}
+
+■ 5. 학대 의심 내용
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+학대 유형: ${currentReport.학대내용?.학대유형 || '미입력'}
+발생 시기 (빈도): ${currentReport.학대내용?.발생시기 || '미입력'}
+발생 장소: ${currentReport.학대내용?.발생장소 || '미입력'}
+심각성 정도: ${currentReport.학대내용?.심각성 || '미입력'}
+학대 증거: ${currentReport.학대내용?.증거 || '없음'}
+
+▶ 구체적 행위 (5W1H 원칙):
+${currentReport.학대내용?.구체적행위 || '미입력'}
+
+■ 6. 피해노인의 현재 상태
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+신체 상태: ${currentReport.현재상태?.신체상태 || '미입력'}
+정서 상태: ${currentReport.현재상태?.정서상태 || '미입력'}
+생활 환경: ${currentReport.현재상태?.생활환경 || '미입력'}
+위험도 평가: ${currentReport.현재상태?.위험도 || '미입력'}
+
+■ 7. 현장조사 내용
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+실시 여부: ${currentReport.현장조사?.실시여부 ? '실시함' : '실시 안 함'}
+방문 일시: ${currentReport.현장조사?.방문일시 || '해당없음'}
+
+▶ 관찰 내용:
+${currentReport.현장조사?.관찰내용 || '해당없음'}
+
+▶ 면담 내용:
+${currentReport.현장조사?.면담내용 || '해당없음'}
+
+■ 8. 즉시 조치사항
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+응급 조치: ${currentReport.즉시조치?.응급조치 || '없음'}
+분리 보호: ${currentReport.즉시조치?.분리보호 || '없음'}
+의료 연계: ${currentReport.즉시조치?.의료연계 || '없음'}
+기타 조치: ${currentReport.즉시조치?.기타조치 || '없음'}
+
+■ 9. 향후 계획
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ 단기 계획:
+${currentReport.향후계획?.단기계획 || '미입력'}
+
+▶ 장기 계획:
+${currentReport.향후계획?.장기계획 || '미입력'}
+
+▶ 모니터링 계획:
+${currentReport.향후계획?.모니터링 || '미입력'}
+
+▶ 연계 기관:
+${currentReport.향후계획?.연계기관 || '없음'}
+
+■ 10. 상담원 의견 및 특이사항
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ 상담원 종합 의견:
+${currentReport.상담원의견 || '미입력'}
+
+▶ 특이사항:
+${currentReport.특이사항 || '없음'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 생성일시: ${new Date().toLocaleString('ko-KR')}
 시스템: CaseNetAI by WellPartners
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     `.trim();
 
     // 파일 다운로드
