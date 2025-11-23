@@ -245,7 +245,7 @@ function displayReport(report) {
         <div class="report-section" style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px;">
             <h4 style="margin-bottom: 15px;">📝 상담 내용 정리</h4>
             <div class="report-field">
-                <div class="report-field-value" style="font-size: 1.0em; line-height: 2.0; white-space: pre-wrap; padding: 10px 0;">${report.상담내용정리 || '정보 없음'}</div>
+                <div class="report-field-value" style="font-size: 1.0em; line-height: 2.5; white-space: pre-wrap; padding: 10px 0;">${report.상담내용정리 || '정보 없음'}</div>
             </div>
         </div>
 
