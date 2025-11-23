@@ -491,157 +491,54 @@ editBtn.addEventListener('click', function() {
     // TODO: 수정 모드 구현
 });
 
-// 다운로드 버튼
-downloadBtn.addEventListener('click', function() {
+// 다운로드 버튼 - 워드 파일로 다운로드
+downloadBtn.addEventListener('click', async function() {
     if (!currentReport) {
         alert('다운로드할 상담일지가 없습니다.');
         return;
     }
 
-    // 상담 유형 텍스트 변환
-    const consultationTypeText = {
-        'phone': '전화상담',
-        'visit': '방문상담',
-        'office': '내방상담'
-    };
+    try {
+        // 버튼 비활성화 및 로딩 표시
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = '워드 파일 생성 중...';
+        
+        // 서버에 워드 파일 생성 요청
+        const response = await fetch('/api/download-word', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ report: currentReport })
+        });
 
-    const text = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-노인보호전문기관 상담일지
-Provided by WellPartners (웰파트너스)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (!response.ok) {
+            throw new Error('워드 파일 생성에 실패했습니다.');
+        }
 
-■ 1. 기본정보
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-상담일자: ${currentReport.기본정보.상담일자}
-상담유형: ${consultationTypeText[currentReport.기본정보.상담유형] || currentReport.기본정보.상담유형}
-접수번호: ${currentReport.기본정보.접수번호}
-상담원: ${currentReport.기본정보.상담원 || '미입력'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 상담 요약
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${currentReport.상담요약 || '정보 없음'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 상담 내용 정리 (시간순 서술)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${currentReport.상담내용정리 || '정보 없음'}
-
-■ 2. 신고자/내담자 정보
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-신고자명: ${currentReport.신고자정보?.신고자명 || '미입력'}
-피해노인과의 관계: ${currentReport.신고자정보?.관계 || '미입력'}
-연락처: ${currentReport.신고자정보?.연락처 || '미입력'}
-신고 경위:
-${currentReport.신고자정보?.신고경위 || '미입력'}
-
-■ 3. 피해노인(클라이언트) 정보
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-▶ 인적사항
-성명: ${currentReport.피해노인정보?.성명 || '미입력'}
-성별: ${currentReport.피해노인정보?.성별 || '미입력'}
-생년월일: ${currentReport.피해노인정보?.생년월일 || '미입력'}
-연령: ${currentReport.피해노인정보?.연령 || '미입력'}세
-연락처: ${currentReport.피해노인정보?.연락처 || '미입력'}
-주소: ${currentReport.피해노인정보?.주소 || '미입력'}
-
-▶ 건강상태
-신체적 건강: ${currentReport.피해노인정보?.건강상태?.신체 || '미입력'}
-정신적 건강: ${currentReport.피해노인정보?.건강상태?.정신 || '미입력'}
-복용 약물: ${currentReport.피해노인정보?.건강상태?.복용약물 || '없음'}
-
-▶ 경제상태
-${currentReport.피해노인정보?.경제상태 || '미입력'}
-
-▶ 가족관계
-${currentReport.피해노인정보?.가족관계 || '미입력'}
-주 돌봄 제공자: ${currentReport.피해노인정보?.주돌봄제공자 || '없음'}
-
-■ 4. 행위자(학대의심자) 정보
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-성명: ${currentReport.행위자정보?.성명 || '미입력'}
-피해노인과의 관계: ${currentReport.행위자정보?.관계 || '미입력'}
-성별: ${currentReport.행위자정보?.성별 || '미입력'}
-연령: ${currentReport.행위자정보?.연령 || '미입력'}세
-연락처: ${currentReport.행위자정보?.연락처 || '미입력'}
-특성 (직업, 경제상태, 음주/약물, 정신질환 등):
-${currentReport.행위자정보?.특성 || '미입력'}
-
-■ 5. 학대 의심 내용
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-학대 유형: ${currentReport.학대내용?.학대유형 || '미입력'}
-발생 시기 (빈도): ${currentReport.학대내용?.발생시기 || '미입력'}
-발생 장소: ${currentReport.학대내용?.발생장소 || '미입력'}
-심각성 정도: ${currentReport.학대내용?.심각성 || '미입력'}
-학대 증거: ${currentReport.학대내용?.증거 || '없음'}
-
-▶ 구체적 행위 (5W1H 원칙):
-${currentReport.학대내용?.구체적행위 || '미입력'}
-
-■ 6. 피해노인의 현재 상태
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-신체 상태: ${currentReport.현재상태?.신체상태 || '미입력'}
-정서 상태: ${currentReport.현재상태?.정서상태 || '미입력'}
-생활 환경: ${currentReport.현재상태?.생활환경 || '미입력'}
-위험도 평가: ${currentReport.현재상태?.위험도 || '미입력'}
-
-■ 7. 현장조사 내용
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-실시 여부: ${currentReport.현장조사?.실시여부 ? '실시함' : '실시 안 함'}
-방문 일시: ${currentReport.현장조사?.방문일시 || '해당없음'}
-
-▶ 관찰 내용:
-${currentReport.현장조사?.관찰내용 || '해당없음'}
-
-▶ 면담 내용:
-${currentReport.현장조사?.면담내용 || '해당없음'}
-
-■ 8. 즉시 조치사항
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-응급 조치: ${currentReport.즉시조치?.응급조치 || '없음'}
-분리 보호: ${currentReport.즉시조치?.분리보호 || '없음'}
-의료 연계: ${currentReport.즉시조치?.의료연계 || '없음'}
-기타 조치: ${currentReport.즉시조치?.기타조치 || '없음'}
-
-■ 9. 향후 계획
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-▶ 단기 계획:
-${currentReport.향후계획?.단기계획 || '미입력'}
-
-▶ 장기 계획:
-${currentReport.향후계획?.장기계획 || '미입력'}
-
-▶ 모니터링 계획:
-${currentReport.향후계획?.모니터링 || '미입력'}
-
-▶ 연계 기관:
-${currentReport.향후계획?.연계기관 || '없음'}
-
-■ 10. 상담원 의견 및 특이사항
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-▶ 상담원 종합 의견:
-${currentReport.상담원의견 || '미입력'}
-
-▶ 특이사항:
-${currentReport.특이사항 || '없음'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-생성일시: ${new Date().toLocaleString('ko-KR')}
-시스템: CaseNetAI by WellPartners
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    `.trim();
-
-    // 파일 다운로드
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `상담일지_${currentReport.기본정보.접수번호}_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        // 워드 파일 다운로드
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `상담일지_${currentReport.기본정보.접수번호}_${currentReport.기본정보.상담일자}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        // 버튼 복구
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = '📥 워드 파일 다운로드';
+        
+    } catch (error) {
+        console.error('다운로드 오류:', error);
+        alert('워드 파일 다운로드 중 오류가 발생했습니다: ' + error.message);
+        
+        // 버튼 복구
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = '📥 워드 파일 다운로드';
+    }
 });
 
 // 스무스 스크롤
