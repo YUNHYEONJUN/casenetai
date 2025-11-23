@@ -6,8 +6,8 @@ const { execSync } = require('child_process');
 // OpenAI 클라이언트 초기화 (타임아웃 설정 증가)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 5 * 60 * 1000, // 5분 타임아웃
-  maxRetries: 3 // 재시도 3회
+  timeout: 10 * 60 * 1000, // 10분 타임아웃
+  maxRetries: 2 // 재시도 2회
 });
 
 // Whisper API 파일 크기 제한 (25MB)
@@ -90,9 +90,9 @@ async function transcribeAudio(audioFilePath) {
     // Keep-Alive 에이전트 생성 (연결 재사용)
     const agent = new https.Agent({
       keepAlive: true,
-      keepAliveMsecs: 30000,
+      keepAliveMsecs: 60000,
       maxSockets: 1,
-      timeout: 10 * 60 * 1000 // 10분
+      timeout: 15 * 60 * 1000 // 15분
     });
     
     const form = new FormData();
@@ -112,7 +112,7 @@ async function transcribeAudio(audioFilePath) {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
         },
         agent: agent,
-        timeout: 10 * 60 * 1000 // 10분 타임아웃
+        timeout: 15 * 60 * 1000 // 15분 타임아웃
       };
       
       const req = https.request(options, (res) => {
@@ -144,9 +144,10 @@ async function transcribeAudio(audioFilePath) {
       });
       
       req.on('timeout', () => {
-        console.error('[STT] 타임아웃 발생 (10분 초과)');
+        console.error('[STT] 타임아웃 발생 (15분 초과)');
+        console.error('[STT] 파일 크기가 너무 크거나 OpenAI API가 응답하지 않습니다.');
         req.destroy();
-        reject(new Error('요청 타임아웃 (10분 초과)'));
+        reject(new Error('요청 타임아웃 (15분 초과) - 파일이 너무 크거나 OpenAI API 응답 지연'));
       });
       
       // 업로드 진행 상황
