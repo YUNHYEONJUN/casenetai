@@ -50,7 +50,30 @@ const anonymizationLimiter = rateLimit({
 });
 
 // Middleware
-app.use(cors());
+// CORS 설정 - 보안 강화
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 허용할 도메인 목록
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://casenetai.com',
+      'https://www.casenetai.com',
+      process.env.ALLOWED_ORIGIN // 환경 변수로 추가 도메인 설정 가능
+    ].filter(Boolean);
+    
+    // origin이 undefined인 경우 (같은 도메인) 또는 허용 목록에 있는 경우 허용
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+    }
+  },
+  credentials: true, // 쿠키 등 인증 정보 허용
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); // JSON 페이로드 크기 제한
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));

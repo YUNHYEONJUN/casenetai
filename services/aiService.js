@@ -897,12 +897,14 @@ async function analyzeCounselingTranscript(transcript, consultationType) {
 }
 
 /**
- * 접수번호 생성
+ * 접수번호 생성 (안전한 난수 사용)
  * @returns {string} - 접수번호 (형식: 2025-0001)
  */
 function generateCaseNumber() {
+  const crypto = require('crypto');
   const year = new Date().getFullYear();
-  const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  // crypto.randomBytes()를 사용하여 안전한 난수 생성
+  const randomNum = crypto.randomInt(0, 10000).toString().padStart(4, '0');
   return `${year}-${randomNum}`;
 }
 
