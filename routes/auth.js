@@ -3,6 +3,7 @@
  */
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const authService = require('../services/authService');
 const { authenticateToken } = require('../middleware/auth');
@@ -11,6 +12,17 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
+
+// 로그인 시도 제한 (브루트포스 공격 방어)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 5, // 최대 5회 시도
+  skipSuccessfulRequests: true, // 성공한 요청은 카운트 안함
+  message: {
+    success: false,
+    error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
+  }
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 회원가입
@@ -37,11 +49,24 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    // 비밀번호 길이 검증
-    if (password.length < 6) {
+    // 비밀번호 강도 검증
+    if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        error: '비밀번호는 6자 이상이어야 합니다'
+        error: '비밀번호는 최소 8자 이상이어야 합니다'
+      });
+    }
+    
+    // 비밀번호 복잡도 검증 (영문, 숫자, 특수문자 중 2가지 이상)
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const complexityCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+    
+    if (complexityCount < 2) {
+      return res.status(400).json({
+        success: false,
+        error: '비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다'
       });
     }
     
@@ -69,7 +94,7 @@ router.post('/register', async (req, res) => {
 // 로그인
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     

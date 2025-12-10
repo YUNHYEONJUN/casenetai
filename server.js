@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -11,11 +12,51 @@ const { optionalAuth } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Rate Limiting (DDoS 방어)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 일반 API Rate Limiter (15분당 100회)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 100, // 최대 100회 요청
+  message: {
+    success: false,
+    error: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 로그인 Rate Limiter (15분당 5회 - 무차별 대입 공격 방어)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
+  },
+  skipSuccessfulRequests: true, // 성공한 요청은 카운트하지 않음
+});
+
+// 익명화 API Rate Limiter (1분당 10회 - 과도한 사용 방지)
+const anonymizationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    error: '익명화 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'
+  },
+});
+
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' })); // JSON 페이로드 크기 제한
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
+
+// 전역 Rate Limiter 적용
+app.use('/api/', apiLimiter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 인증 & 결제 & 관리자 & 피드백 & 분석 라우터

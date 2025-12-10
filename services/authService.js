@@ -8,8 +8,9 @@ const jwt = require('jsonwebtoken');
 const { getDB } = require('../database/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production';
-const JWT_EXPIRES_IN = '7d'; // 7일
-const SALT_ROUNDS = 10;
+const JWT_EXPIRES_IN = '1h'; // 1시간 (보안 강화)
+const REFRESH_TOKEN_EXPIRES_IN = '7d'; // 7일
+const SALT_ROUNDS = 12; // 보안 강화 (10 → 12)
 
 class AuthService {
   
@@ -110,16 +111,16 @@ class AuthService {
         { expiresIn: JWT_EXPIRES_IN }
       );
       
-      // Refresh Token 생성 (30일)
+      // Refresh Token 생성
       const refreshToken = jwt.sign(
         { userId: user.id },
         JWT_SECRET,
-        { expiresIn: '30d' }
+        { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
       );
       
-      // 세션 저장
+      // 세션 저장 (Access Token 만료 시간에 맞춤)
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      expiresAt.setHours(expiresAt.getHours() + 1); // 1시간
       
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
