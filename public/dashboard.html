@@ -140,6 +140,31 @@
             window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
         }
 
+        // System Admin 자동 리다이렉션
+        async function checkUserRoleAndRedirect() {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user.role === 'system_admin') {
+                        // System Admin은 전용 대시보드로 리다이렉트
+                        window.location.href = '/system-admin-dashboard.html';
+                        return true;
+                    }
+                }
+                return false;
+            } catch (error) {
+                console.error('역할 확인 실패:', error);
+                return false;
+            }
+        }
+
+        // 페이지 로드 시 역할 확인
+        checkUserRoleAndRedirect();
+
         // API 호출 헬퍼
         async function apiCall(url, options = {}) {
             const headers = {

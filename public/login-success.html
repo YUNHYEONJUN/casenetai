@@ -61,6 +61,7 @@
         const token = urlParams.get('token');
         const refreshToken = urlParams.get('refreshToken');
         const provider = urlParams.get('provider');
+        const role = urlParams.get('role');
         const serviceType = urlParams.get('service') || 'elderly_protection';
         
         if (token && refreshToken) {
@@ -69,14 +70,23 @@
             localStorage.setItem('refreshToken', refreshToken);
             localStorage.setItem('authProvider', provider || 'oauth');
             
-            console.log('✅ OAuth 로그인 성공:', provider);
+            console.log('✅ OAuth 로그인 성공:', provider, '| Role:', role);
             
-            // 서비스 타입에 따라 리다이렉트
+            // 역할에 따라 리다이렉트
             setTimeout(() => {
-                if (serviceType === 'elderly_protection') {
-                    window.location.href = '/elderly-protection.html';
-                } else {
+                if (role === 'system_admin') {
+                    // System Admin → 최고 관리자 대시보드
+                    window.location.href = '/system-admin-dashboard.html';
+                } else if (role === 'org_admin') {
+                    // Organization Admin → 기관 관리자 대시보드 (추후 구현)
                     window.location.href = '/dashboard.html';
+                } else {
+                    // 일반 사용자 → 서비스 타입에 따라
+                    if (serviceType === 'elderly_protection') {
+                        window.location.href = '/elderly-protection.html';
+                    } else {
+                        window.location.href = '/dashboard.html';
+                    }
                 }
             }, 1000);
         } else {
