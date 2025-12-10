@@ -210,17 +210,28 @@ class CreditService {
           throw new Error('크레딧이 부족합니다');
         }
         
-        // 크레딧 차감
-        const newBalance = credit.balance - cost;
-        
-        await db.run(
+        // 크레딧 원자적 차감 (Race Condition 방지)
+        // UPDATE ... WHERE 조건에 잔액 체크를 포함하여 원자성 보장
+        const result = await db.run(
           `UPDATE credits 
-           SET balance = ?,
+           SET balance = balance - ?,
                total_used = total_used + ?,
                updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = ?`,
-          [newBalance, cost, userId]
+           WHERE user_id = ? AND balance >= ?`,
+          [cost, cost, userId, cost]
         );
+        
+        // 업데이트된 행이 없으면 동시 요청으로 인한 잔액 부족
+        if (result.changes === 0) {
+          throw new Error('크레딧이 부족하거나 동시 요청이 발생했습니다');
+        }
+        
+        // 업데이트 후 잔액 조회
+        const updatedCredit = await db.get(
+          'SELECT balance FROM credits WHERE user_id = ?',
+          [userId]
+        );
+        const newBalance = updatedCredit.balance;
         
         await db.run(
           `INSERT INTO transactions (user_id, type, amount, balance_after, description, audio_duration_minutes)

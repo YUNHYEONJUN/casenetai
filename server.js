@@ -103,7 +103,9 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    // 경로 탐색 공격 방지: basename으로 파일명만 추출
+    const safeExtname = path.extname(path.basename(file.originalname));
+    cb(null, file.fieldname + '-' + uniqueSuffix + safeExtname);
   }
 });
 
@@ -516,7 +518,9 @@ const documentStorage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'doc-' + uniqueSuffix + path.extname(file.originalname));
+    // 경로 탐색 공격 방지: basename으로 파일명만 추출
+    const safeExtname = path.extname(path.basename(file.originalname));
+    cb(null, 'doc-' + uniqueSuffix + safeExtname);
   }
 });
 
