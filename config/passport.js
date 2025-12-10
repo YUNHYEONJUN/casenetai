@@ -71,13 +71,13 @@ passport.use(new KakaoStrategy({
       await db.beginTransaction();
       
       try {
-        // 사용자 생성
+        // 사용자 생성 (기본 role = 'user', is_approved = 0)
         const result = await db.run(
           `INSERT INTO users (
             oauth_provider, oauth_id, oauth_nickname, 
             name, email, profile_image, 
-            service_type, role
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            service_type, role, is_active, is_approved
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             'kakao',
             profile.id,
@@ -86,7 +86,9 @@ passport.use(new KakaoStrategy({
             profile._json?.kakao_account?.email || null,
             profile._json?.kakao_account?.profile?.profile_image_url || null,
             'elderly_protection',  // 기본 서비스
-            'user'
+            'user',                // 기본 역할
+            1,                     // is_active = true
+            0                      // is_approved = false (기관 승인 대기)
           ]
         );
         
@@ -104,7 +106,7 @@ passport.use(new KakaoStrategy({
         // 생성된 사용자 조회
         user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
         
-        console.log('✅ 카카오 회원가입 완료:', user.oauth_nickname);
+        console.log('✅ 카카오 회원가입 완료 (승인 대기):', user.oauth_nickname);
         return done(null, user);
         
       } catch (err) {
@@ -155,13 +157,13 @@ passport.use(new NaverStrategy({
       await db.beginTransaction();
       
       try {
-        // 사용자 생성
+        // 사용자 생성 (기본 role = 'user', is_approved = 0)
         const result = await db.run(
           `INSERT INTO users (
             oauth_provider, oauth_id, oauth_nickname,
             name, email, profile_image,
-            service_type, role
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            service_type, role, is_active, is_approved
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             'naver',
             profile.id,
@@ -170,7 +172,9 @@ passport.use(new NaverStrategy({
             profile.email || null,
             profile.profileImage || null,
             'elderly_protection',  // 기본 서비스
-            'user'
+            'user',                // 기본 역할
+            1,                     // is_active = true
+            0                      // is_approved = false (기관 승인 대기)
           ]
         );
         
@@ -188,7 +192,7 @@ passport.use(new NaverStrategy({
         // 생성된 사용자 조회
         user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
         
-        console.log('✅ 네이버 회원가입 완료:', user.oauth_nickname);
+        console.log('✅ 네이버 회원가입 완료 (승인 대기):', user.oauth_nickname);
         return done(null, user);
         
       } catch (err) {

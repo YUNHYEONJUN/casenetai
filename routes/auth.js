@@ -91,10 +91,12 @@ router.post('/register', async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 로그인
+// 로그인 (DEPRECATED - 소셜 로그인으로 대체)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 router.post('/login', loginLimiter, async (req, res) => {
+  // ⚠️ DEPRECATED: 이 엔드포인트는 곧 제거될 예정입니다
+  // 소셜 로그인(카카오/네이버)을 사용해주세요
   try {
     const { email, password } = req.body;
     
@@ -202,9 +204,14 @@ router.get('/kakao/callback',
   }),
   async (req, res) => {
     try {
-      // JWT 토큰 생성
+      // JWT 토큰 생성 (role 포함)
       const token = jwt.sign(
-        { userId: req.user.id, email: req.user.email || req.user.oauth_nickname },
+        { 
+          userId: req.user.id, 
+          email: req.user.email || req.user.oauth_nickname,
+          role: req.user.role,
+          organizationId: req.user.organization_id
+        },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
       );
@@ -230,10 +237,13 @@ router.get('/kakao/callback',
         [req.user.id]
       );
       
-      console.log('✅ 카카오 로그인 완료:', req.user.oauth_nickname);
+      console.log('✅ 카카오 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      
+      // 승인 상태 확인
+      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=kakao`);
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=kakao&role=${req.user.role}&approval=${approvalStatus}`);
       
     } catch (error) {
       console.error('❌ 카카오 콜백 오류:', error);
@@ -259,9 +269,14 @@ router.get('/naver/callback',
   }),
   async (req, res) => {
     try {
-      // JWT 토큰 생성
+      // JWT 토큰 생성 (role 포함)
       const token = jwt.sign(
-        { userId: req.user.id, email: req.user.email || req.user.oauth_nickname },
+        { 
+          userId: req.user.id, 
+          email: req.user.email || req.user.oauth_nickname,
+          role: req.user.role,
+          organizationId: req.user.organization_id
+        },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
       );
@@ -287,10 +302,13 @@ router.get('/naver/callback',
         [req.user.id]
       );
       
-      console.log('✅ 네이버 로그인 완료:', req.user.oauth_nickname);
+      console.log('✅ 네이버 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      
+      // 승인 상태 확인
+      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=naver`);
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=naver&role=${req.user.role}&approval=${approvalStatus}`);
       
     } catch (error) {
       console.error('❌ 네이버 콜백 오류:', error);

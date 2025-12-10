@@ -82,7 +82,7 @@ app.use(express.static('public'));
 app.use('/api/', apiLimiter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 인증 & 결제 & 관리자 & 피드백 & 분석 라우터
+// 인증 & 결제 & 관리자 & 피드백 & 분석 & 3단계 권한 라우터
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const authRouter = require('./routes/auth');
 const paymentRouter = require('./routes/payment');
@@ -90,11 +90,21 @@ const adminRouter = require('./routes/admin');
 const feedbackRouter = require('./routes/feedback');
 const analyticsRouter = require('./routes/analytics');
 
+// 3단계 권한 시스템 라우터
+const systemAdminRouter = require('./routes/system-admin');
+const orgAdminRouter = require('./routes/org-admin');
+const joinRequestsRouter = require('./routes/join-requests');
+
 app.use('/api/auth', authRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/analytics', analyticsRouter);
+
+// 3단계 권한 시스템 API
+app.use('/api/system-admin', systemAdminRouter);
+app.use('/api/org-admin', orgAdminRouter);
+app.use('/api/join-requests', joinRequestsRouter);
 
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({
