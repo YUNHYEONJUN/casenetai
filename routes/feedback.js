@@ -194,7 +194,24 @@ router.get('/admin/all', isAdmin, async (req, res) => {
  */
 router.post('/admin/respond/:id', isAdmin, async (req, res) => {
   try {
+    // Null safety 체크
+    if (!req.params.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Feedback ID가 필요합니다.'
+      });
+    }
+    
     const feedbackId = parseInt(req.params.id);
+    
+    // 유효한 숫자인지 확인
+    if (isNaN(feedbackId)) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 Feedback ID입니다.'
+      });
+    }
+    
     const { response } = req.body;
 
     if (!response) {

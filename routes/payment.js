@@ -169,6 +169,14 @@ router.get('/history', authenticateToken, async (req, res) => {
 
 router.get('/bonus/:amount', (req, res) => {
   try {
+    // Null safety 체크
+    if (!req.params.amount) {
+      return res.status(400).json({
+        success: false,
+        error: '금액이 필요합니다.'
+      });
+    }
+    
     const amount = parseInt(req.params.amount);
     
     if (isNaN(amount) || amount < 0) {

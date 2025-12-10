@@ -11,6 +11,14 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const usageTrackingService = require('../services/usageTrackingService');
 const { getDB } = require('../database/db');
 
+// 유틸리티 함수: 안전한 parseInt with validation
+function safeParseInt(value, defaultValue, min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) {
+  if (value === undefined || value === null) return defaultValue;
+  const parsed = parseInt(value);
+  if (isNaN(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
 // 관리자 인증 미들웨어 적용
 router.use(authenticateToken);
 router.use(requireAdmin);
