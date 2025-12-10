@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 대시보드 - CaseNetAI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .stat-unit {
+      font-size: 16px;
+      color: #999;
+      margin-left: 5px;
+    }
+
+    .organizations-table {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #f8f9fa;
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    tr:hover {
+      background: #f8f9fa;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      transition: width 0.3s ease;
+    }
+
+    .progress-fill.warning {
+      background: linear-gradient(90deg, #f093fb, #f5576c);
+    }
+
+    .progress-fill.danger {
+      background: linear-gradient(90deg, #fa709a, #fee140);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .badge-danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    select, input {
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 50px;
+      color: #999;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>관리자 대시보드</h1>
+      <p class="subtitle">전국 노인보호전문기관 사용량 모니터링</p>
+    </div>
+
+    <div id="error-message" style="display: none;" class="error"></div>
+
+    <div class="stats-grid" id="stats-grid">
+      <div class="loading">통계 로딩 중...</div>
+    </div>
+
+    <div class="organizations-table">
+      <h2 style="margin-bottom: 20px;">기관별 사용 현황</h2>
+      
+      <div class="filter-bar">
+        <select id="month-filter">
+          <option value="">월 선택</option>
+        </select>
+        <select id="region-filter">
+          <option value="">전체 지역</option>
+        </select>
+        <input type="text" id="search-filter" placeholder="기관명 검색">
+        <button onclick="loadDashboard()">새로고침</button>
+      </div>
+
+      <table id="organizations-table">
+        <thead>
+          <tr>
+            <th>기관명</th>
+            <th>지역</th>
+            <th>할당 시간</th>
+            <th>사용 시간</th>
+            <th>남은 시간</th>
+            <th>사용률</th>
+            <th>요청 수</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="organizations-tbody">
+          <tr><td colspan="8" class="loading">데이터 로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // 현재 년월
+    const now = new Date();
+    let currentYear = now.getFullYear();
+    let currentMonth = now.getMonth() + 1;
+
+    // 월 필터 초기화
+    function initMonthFilter() {
+      const select = document.getElementById('month-filter');
+      for (let i = 0; i < 12; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const option = document.createElement('option');
+        option.value = `${year}-${month}`;
+        option.textContent = `${year}년 ${month}월`;
+        if (i === 0) option.selected = true;
+        select.appendChild(option);
+      }
+    }
+
+    // 대시보드 로드
+    async function loadDashboard() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('로그인이 필요합니다');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        // 필터 값
+        const monthFilter = document.getElementById('month-filter').value;
+        if (monthFilter) {
+          [currentYear, currentMonth] = monthFilter.split('-').map(Number);
+        }
+
+        // 대시보드 데이터 가져오기
+        const response = await fetch(`/api/admin/dashboard/overview?year=${currentYear}&month=${currentMonth}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('대시보드 데이터를 가져올 수 없습니다');
+        }
+
+        const data = await response.json();
+        
+        // 통계 렌더링
+        renderStats(data);
+        
+        // 기관 테이블 렌더링
+        renderOrganizations(data.usage.organizations);
+
+        // 에러 메시지 숨기기
+        document.getElementById('error-message').style.display = 'none';
+
+      } catch (error) {
+        console.error('대시보드 로드 실패:', error);
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // 통계 카드 렌더링
+    function renderStats(data) {
+      const statsHtml = `
+        <div class="stat-card">
+          <div class="stat-label">전체 기관 수</div>
+          <div class="stat-value">${data.usage.totalOrganizations}<span class="stat-unit">개</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">총 할당 시간</div>
+          <div class="stat-value">${data.usage.totalQuotaHours.toFixed(1)}<span class="stat-unit">시간</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">총 사용 시간</div>
+          <div class="stat-value">${data.usage.totalUsedHours.toFixed(1)}<span class="stat-unit">시간</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">남은 시간</div>
+          <div class="stat-value">${data.usage.totalRemainingHours.toFixed(1)}<span class="stat-unit">시간</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">평균 사용률</div>
+          <div class="stat-value">${data.usage.averageUsagePercent}<span class="stat-unit">%</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">총 익명화 요청</div>
+          <div class="stat-value">${data.usage.totalRequests}<span class="stat-unit">건</span></div>
+        </div>
+      `;
+      
+      document.getElementById('stats-grid').innerHTML = statsHtml;
+    }
+
+    // 기관 테이블 렌더링
+    function renderOrganizations(organizations) {
+      // 필터 적용
+      const regionFilter = document.getElementById('region-filter').value;
+      const searchFilter = document.getElementById('search-filter').value.toLowerCase();
+
+      let filtered = organizations;
+      
+      if (regionFilter) {
+        filtered = filtered.filter(org => org.region === regionFilter);
+      }
+      
+      if (searchFilter) {
+        filtered = filtered.filter(org => 
+          org.organization_name.toLowerCase().includes(searchFilter)
+        );
+      }
+
+      // 지역 필터 옵션 업데이트 (처음만)
+      const regionSelect = document.getElementById('region-filter');
+      if (regionSelect.options.length === 1) {
+        const regions = [...new Set(organizations.map(org => org.region))].sort();
+        regions.forEach(region => {
+          const option = document.createElement('option');
+          option.value = region;
+          option.textContent = region;
+          regionSelect.appendChild(option);
+        });
+      }
+
+      // 테이블 렌더링
+      const tbody = document.getElementById('organizations-tbody');
+      
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">데이터가 없습니다</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(org => {
+        const usagePercent = org.quota_hours > 0 ? (org.used_hours / org.quota_hours * 100).toFixed(1) : 0;
+        const isWarning = usagePercent >= 80 && usagePercent < 100;
+        const isDanger = usagePercent >= 100;
+        
+        let statusBadge;
+        if (org.used_hours === 0) {
+          statusBadge = '<span class="badge badge-warning">미사용</span>';
+        } else if (isDanger) {
+          statusBadge = '<span class="badge badge-danger">초과</span>';
+        } else if (isWarning) {
+          statusBadge = '<span class="badge badge-warning">주의</span>';
+        } else {
+          statusBadge = '<span class="badge badge-success">정상</span>';
+        }
+
+        return `
+          <tr>
+            <td><strong>${org.organization_name || '(미등록)'}</strong></td>
+            <td>${org.region || '-'}</td>
+            <td>${org.quota_hours.toFixed(1)}시간</td>
+            <td>${org.used_hours.toFixed(2)}시간</td>
+            <td>${org.remaining_hours.toFixed(2)}시간</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-fill ${isWarning ? 'warning' : ''} ${isDanger ? 'danger' : ''}" 
+                     style="width: ${Math.min(usagePercent, 100)}%"></div>
+              </div>
+              <small>${usagePercent}%</small>
+            </td>
+            <td>${org.request_count || 0}건</td>
+            <td>${statusBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 초기화
+    initMonthFilter();
+    loadDashboard();
+
+    // 필터 변경 시 자동 리로드
+    document.getElementById('region-filter').addEventListener('change', () => {
+      loadDashboard();
+    });
+
+    document.getElementById('search-filter').addEventListener('input', () => {
+      loadDashboard();
+    });
+  </script>
+</body>
+</html>

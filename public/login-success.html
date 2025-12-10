@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 처리 중 - CaseNetAI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #0ea5e9 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        .loading-container {
+            text-align: center;
+            color: white;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        h2 {
+            font-size: 24px;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+        
+        p {
+            font-size: 16px;
+            opacity: 0.9;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <h2>로그인 처리 중...</h2>
+        <p>잠시만 기다려주세요.</p>
+    </div>
+    
+    <script>
+        // URL에서 토큰 추출
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const refreshToken = urlParams.get('refreshToken');
+        const provider = urlParams.get('provider');
+        const serviceType = urlParams.get('service') || 'elderly_protection';
+        
+        if (token && refreshToken) {
+            // localStorage에 토큰 저장
+            localStorage.setItem('token', token);
+            localStorage.setItem('refreshToken', refreshToken);
+            localStorage.setItem('authProvider', provider || 'oauth');
+            
+            console.log('✅ OAuth 로그인 성공:', provider);
+            
+            // 서비스 타입에 따라 리다이렉트
+            setTimeout(() => {
+                if (serviceType === 'elderly_protection') {
+                    window.location.href = '/elderly-protection.html';
+                } else {
+                    window.location.href = '/dashboard.html';
+                }
+            }, 1000);
+        } else {
+            // 토큰이 없으면 에러
+            console.error('❌ 토큰이 없습니다');
+            alert('로그인에 실패했습니다. 다시 시도해주세요.');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

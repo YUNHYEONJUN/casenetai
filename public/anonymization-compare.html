@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>익명화 방식 비교 - CaseNetAI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .main-card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      margin-bottom: 30px;
+    }
+
+    .upload-section {
+      margin-bottom: 30px;
+    }
+
+    .upload-area {
+      border: 3px dashed #667eea;
+      border-radius: 15px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #f8f9ff;
+    }
+
+    .upload-area:hover {
+      border-color: #764ba2;
+      background: #f0f2ff;
+    }
+
+    .upload-area.dragging {
+      border-color: #764ba2;
+      background: #e8eaff;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .sample-text-area {
+      margin-top: 20px;
+    }
+
+    .sample-text-area textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .compare-button {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: 20px;
+    }
+
+    .compare-button:hover {
+      transform: translateY(-2px);
+    }
+
+    .compare-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .results {
+      display: none;
+    }
+
+    .results.active {
+      display: block;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .method-card {
+      background: #f8f9ff;
+      border-radius: 15px;
+      padding: 25px;
+      border: 2px solid #e0e0e0;
+    }
+
+    .method-card.best {
+      border-color: #667eea;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+    }
+
+    .method-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .method-name {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .badge-best {
+      background: #667eea;
+      color: white;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: #333;
+    }
+
+    .text-comparison {
+      margin-top: 30px;
+    }
+
+    .text-box {
+      background: #f8f9ff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .text-box h3 {
+      margin-bottom: 15px;
+      color: #667eea;
+    }
+
+    .text-content {
+      white-space: pre-wrap;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .recommendation {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 15px;
+      margin-top: 30px;
+    }
+
+    .recommendation h3 {
+      margin-bottom: 15px;
+      font-size: 1.5rem;
+    }
+
+    .recommendation-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .recommendation-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .recommendation-list li:last-child {
+      border-bottom: none;
+    }
+
+    .back-button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 30px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+
+    .back-button:hover {
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+      .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .main-card {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔬 익명화 방식 A/B 비교 테스트</h1>
+      <p>룰 기반 vs AI vs CLOVA - 어떤 방식이 가장 정확할까요?</p>
+    </div>
+
+    <div class="main-card">
+      <!-- 업로드 섹션 -->
+      <div class="upload-section" id="uploadSection">
+        <h2>1️⃣ 테스트할 문서 선택</h2>
+        <div class="upload-area" id="uploadArea">
+          <input type="file" id="fileInput" class="file-input" accept=".txt,.docx,.pdf">
+          <p style="font-size: 1.2rem; margin-bottom: 10px;">📄 파일을 드래그하거나 클릭하여 업로드</p>
+          <p style="color: #666;">지원 형식: TXT, DOCX, PDF</p>
+        </div>
+
+        <div class="sample-text-area">
+          <h3>또는 직접 텍스트 입력</h3>
+          <textarea id="sampleText" placeholder="예시: 2024년 11월 5일, 김철수(가명) 님의 딸 박영희씨가 전화(010-1234-5678)로 아버지가 요양원에서 학대당한다고 신고했습니다..."></textarea>
+        </div>
+
+        <button class="compare-button" id="compareButton">🚀 세 가지 방식 모두 비교하기</button>
+      </div>
+
+      <!-- 로딩 -->
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p style="font-size: 1.2rem; color: #667eea; font-weight: 600;">분석 중...</p>
+        <p style="color: #666; margin-top: 10px;">룰 기반, AI, CLOVA 방식으로 동시에 처리하고 있습니다.</p>
+      </div>
+
+      <!-- 결과 -->
+      <div class="results" id="results">
+        <h2>📊 비교 결과</h2>
+        
+        <div class="comparison-grid" id="comparisonGrid">
+          <!-- JavaScript로 동적 생성 -->
+        </div>
+
+        <div class="text-comparison">
+          <h2>📝 익명화 결과 비교</h2>
+          <div id="textComparison">
+            <!-- JavaScript로 동적 생성 -->
+          </div>
+        </div>
+
+        <div class="recommendation" id="recommendation">
+          <!-- JavaScript로 동적 생성 -->
+        </div>
+
+        <a href="/" class="back-button">← 메인으로 돌아가기</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const sampleText = document.getElementById('sampleText');
+    const compareButton = document.getElementById('compareButton');
+    const uploadSection = document.getElementById('uploadSection');
+    const loading = document.getElementById('loading');
+    const results = document.getElementById('results');
+    const comparisonGrid = document.getElementById('comparisonGrid');
+    const textComparison = document.getElementById('textComparison');
+    const recommendation = document.getElementById('recommendation');
+
+    let selectedFile = null;
+
+    // 파일 드래그 앤 드롭
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragging');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragging');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragging');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        selectedFile = files[0];
+        uploadArea.innerHTML = `<p style="color: #667eea; font-size: 1.2rem;">✅ ${selectedFile.name}</p>`;
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        selectedFile = e.target.files[0];
+        uploadArea.innerHTML = `<p style="color: #667eea; font-size: 1.2rem;">✅ ${selectedFile.name}</p>`;
+      }
+    });
+
+    // 비교 실행
+    compareButton.addEventListener('click', async () => {
+      const text = sampleText.value.trim();
+      
+      if (!selectedFile && !text) {
+        alert('파일을 업로드하거나 텍스트를 입력해주세요.');
+        return;
+      }
+
+      // UI 전환
+      uploadSection.style.display = 'none';
+      loading.classList.add('active');
+      results.classList.remove('active');
+
+      try {
+        let response;
+
+        if (selectedFile) {
+          // 파일 업로드
+          const formData = new FormData();
+          formData.append('document', selectedFile);
+          formData.append('method', 'compare');
+
+          const token = localStorage.getItem('token');
+          if (!token) {
+            alert('로그인이 필요합니다.');
+            window.location.href = '/login.html';
+            return;
+          }
+
+          response = await fetch('/api/anonymize-document', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+        } else {
+          // 텍스트 직접 테스트 (로그인 불필요)
+          response = await fetch('/api/anonymize-text-compare', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              text: text,
+              method: 'compare'
+            })
+          });
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          displayResults(data);
+        } else {
+          throw new Error(data.error || '비교 실패');
+        }
+
+      } catch (error) {
+        console.error('오류:', error);
+        alert('비교 중 오류가 발생했습니다: ' + error.message);
+        uploadSection.style.display = 'block';
+        loading.classList.remove('active');
+      }
+    });
+
+    function displayResults(data) {
+      const comparison = data.comparison || {};
+      const results_data = data.results || {};
+
+      // 비교 카드 생성
+      comparisonGrid.innerHTML = '';
+      
+      const methods = ['rule', 'ai', 'clova'];
+      const methodNames = {
+        rule: '룰 기반',
+        ai: 'AI (GPT-4o-mini)',
+        clova: 'CLOVA NER'
+      };
+
+      methods.forEach(method => {
+        if (results_data[method] && results_data[method].success) {
+          const result = results_data[method];
+          const isBest = method === 'ai'; // AI가 일반적으로 최고
+
+          const card = document.createElement('div');
+          card.className = `method-card ${isBest ? 'best' : ''}`;
+          card.innerHTML = `
+            <div class="method-header">
+              <div class="method-name">${methodNames[method]}</div>
+              ${isBest ? '<div class="badge badge-best">👑 추천</div>' : ''}
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">탐지된 개인정보</span>
+              <span class="stat-value">${result.stats?.total_entities || 0}개</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">처리 속도</span>
+              <span class="stat-value">${result.processing_time_ms || 0}ms</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">예상 정확도</span>
+              <span class="stat-value">${((comparison.accuracy_estimate?.[method] || 0) * 100).toFixed(0)}%</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">비용</span>
+              <span class="stat-value">${result.cost_estimate?.krw || 0}원</span>
+            </div>
+          `;
+          comparisonGrid.appendChild(card);
+        }
+      });
+
+      // 텍스트 비교
+      textComparison.innerHTML = `
+        <div class="text-box">
+          <h3>📄 원본 텍스트</h3>
+          <div class="text-content">${data.originalText || sampleText.value}</div>
+        </div>
+      `;
+
+      methods.forEach(method => {
+        if (results_data[method] && results_data[method].success) {
+          const result = results_data[method];
+          textComparison.innerHTML += `
+            <div class="text-box">
+              <h3>🔐 ${methodNames[method]} 결과</h3>
+              <div class="text-content">${result.anonymized_text || ''}</div>
+            </div>
+          `;
+        }
+      });
+
+      // 추천
+      if (data.recommendation && data.recommendation.length > 0) {
+        recommendation.innerHTML = `
+          <h3>💡 방식별 추천</h3>
+          <ul class="recommendation-list">
+            ${data.recommendation.map(rec => `
+              <li>
+                <strong>${rec.priority === 'accuracy' ? '🎯 정확도 우선' : 
+                         rec.priority === 'speed' ? '⚡ 속도 우선' : 
+                         rec.priority === 'cost' ? '💰 비용 우선' : 
+                         '⚖️ 균형 (추천)'}</strong><br>
+                ${rec.method.toUpperCase()} - ${rec.reason}
+              </li>
+            `).join('')}
+          </ul>
+        `;
+      }
+
+      // 결과 표시
+      loading.classList.remove('active');
+      results.classList.add('active');
+    }
+  </script>
+</body>
+</html>

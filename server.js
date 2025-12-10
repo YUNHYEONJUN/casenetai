@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const aiService = require('./services/aiService');
+const creditService = require('./services/creditService');
+const { optionalAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +16,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 인증 & 결제 & 관리자 라우터
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const authRouter = require('./routes/auth');
+const paymentRouter = require('./routes/payment');
+const adminRouter = require('./routes/admin');
+
+app.use('/api/auth', authRouter);
+app.use('/api/payment', paymentRouter);
+app.use('/api/admin', adminRouter);
 
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({
@@ -76,19 +89,169 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
-// 음성 파일 업로드 및 처리 API (통합 버전)
-app.post('/api/upload-audio', upload.single('audioFile'), async (req, res) => {
+// 오디오 파일 분석 및 비용 견적 API
+app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
     }
 
-    const { consultationType } = req.body;
     const audioFilePath = req.file.path;
+    const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+    
+    // ffprobe로 오디오 길이 측정
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execPromise = promisify(exec);
+    
+    try {
+      const { stdout } = await execPromise(
+        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioFilePath}"`
+      );
+      
+      const durationSeconds = parseFloat(stdout.trim());
+      const durationMinutes = Math.ceil(durationSeconds / 60);
+      
+      // 비용 계산
+      const exchangeRate = 1320; // 1 USD = 1320 KRW
+      const whisperPricePerMinute = 0.006; // $0.006/분
+      const clovaPricePerMinute = 0.02; // 약 $0.02/분 (추정)
+      
+      const whisperCostUSD = durationMinutes * whisperPricePerMinute;
+      const whisperCostKRW = Math.ceil(whisperCostUSD * exchangeRate);
+      
+      const clovaCostUSD = durationMinutes * clovaPricePerMinute;
+      const clovaCostKRW = Math.ceil(clovaCostUSD * exchangeRate);
+      
+      // AI 분석 비용 (Gemini 무료 or GPT-4o-mini 약 12원)
+      const aiAnalysisCostBest = 0; // Gemini 무료
+      const aiAnalysisCostWorst = 12; // GPT-4o-mini
+      
+      // 총 비용
+      const totalCostBest = whisperCostKRW + aiAnalysisCostBest;
+      const totalCostWorst = whisperCostKRW + aiAnalysisCostWorst;
+      
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📊 비용 견적 분석 완료');
+      console.log('📁 파일:', req.file.filename);
+      console.log('📏 크기:', fileSizeMB, 'MB');
+      console.log('⏱️  길이:', Math.floor(durationSeconds / 60), '분', Math.floor(durationSeconds % 60), '초');
+      console.log('💰 예상 비용:', totalCostBest, '~', totalCostWorst, '원');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      res.json({
+        success: true,
+        fileInfo: {
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          sizeMB: parseFloat(fileSizeMB),
+          path: audioFilePath
+        },
+        duration: {
+          seconds: Math.floor(durationSeconds),
+          minutes: durationMinutes,
+          formatted: `${Math.floor(durationSeconds / 60)}분 ${Math.floor(durationSeconds % 60)}초`
+        },
+        costEstimate: {
+          stt: {
+            whisper: {
+              pricePerMinute: whisperPricePerMinute,
+              costUSD: whisperCostUSD.toFixed(4),
+              costKRW: whisperCostKRW,
+              engine: 'OpenAI Whisper (1순위)'
+            },
+            clova: {
+              pricePerMinute: clovaPricePerMinute,
+              costUSD: clovaCostUSD.toFixed(4),
+              costKRW: clovaCostKRW,
+              engine: '네이버 Clova (2순위 폴백)'
+            }
+          },
+          aiAnalysis: {
+            best: {
+              cost: aiAnalysisCostBest,
+              engine: 'Google Gemini 2.0 Flash (무료)'
+            },
+            worst: {
+              cost: aiAnalysisCostWorst,
+              engine: 'OpenAI GPT-4o-mini (폴백)'
+            }
+          },
+          total: {
+            best: totalCostBest,
+            worst: totalCostWorst,
+            average: Math.ceil((totalCostBest + totalCostWorst) / 2)
+          }
+        },
+        message: `이 녹음 파일은 ${durationMinutes}분 분량으로 약 ${totalCostBest}~${totalCostWorst}원의 요금이 예상됩니다.`
+      });
+      
+    } catch (error) {
+      console.error('❌ 오디오 분석 오류:', error);
+      
+      // ffprobe 실패 시 파일 크기로 대략적인 길이 추정
+      const estimatedMinutes = Math.ceil(fileSizeMB / 0.5); // 대략 0.5MB/분 가정
+      const estimatedCost = Math.ceil(estimatedMinutes * 0.006 * 1320);
+      
+      res.json({
+        success: true,
+        fileInfo: {
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          sizeMB: parseFloat(fileSizeMB),
+          path: audioFilePath
+        },
+        duration: {
+          minutes: estimatedMinutes,
+          formatted: `약 ${estimatedMinutes}분 (추정)`,
+          note: '정확한 길이를 측정할 수 없어 파일 크기로 추정했습니다.'
+        },
+        costEstimate: {
+          total: {
+            best: estimatedCost,
+            worst: estimatedCost + 12,
+            average: estimatedCost + 6
+          }
+        },
+        message: `이 녹음 파일은 약 ${estimatedMinutes}분 분량으로 약 ${estimatedCost}~${estimatedCost + 12}원의 요금이 예상됩니다.`
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ 파일 분석 오류:', error);
+    
+    // 업로드된 파일 삭제
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        console.error('파일 삭제 실패:', e);
+      }
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: '파일 분석 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// 음성 파일 업로드 및 처리 API (통합 버전)
+app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+
+    const { consultationType, sttEngine } = req.body;
+    const audioFilePath = req.file.path;
+    const selectedEngine = sttEngine || 'openai'; // 기본값: openai
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📁 파일 업로드 완료:', req.file.filename);
     console.log('📋 상담 유형:', consultationType);
+    console.log('🎙️  STT 엔진:', selectedEngine === 'clova' ? '네이버 클로바' : 'OpenAI Whisper');
     console.log('📂 파일 경로:', audioFilePath);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -102,30 +265,102 @@ app.post('/api/upload-audio', upload.single('audioFile'), async (req, res) => {
       console.log('🤖 AI 모드: 실제 STT 및 AI 분석 수행');
       
       try {
-        // 음성 파일 처리 (STT + AI 분석)
+        // 비용 추적 시작
+        const startTime = Date.now();
+        
+        // 오디오 길이 측정 (실제 비용 계산용)
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execPromise = promisify(exec);
+        
+        let actualCost = null;
+        try {
+          const { stdout } = await execPromise(
+            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioFilePath}"`
+          );
+          const durationSeconds = parseFloat(stdout.trim());
+          const durationMinutes = Math.ceil(durationSeconds / 60);
+          
+          // 비용 계산
+          const exchangeRate = 1320;
+          const whisperPricePerMinute = 0.006;
+          const whisperCostKRW = Math.ceil(durationMinutes * whisperPricePerMinute * exchangeRate);
+          
+          actualCost = {
+            duration: {
+              seconds: Math.floor(durationSeconds),
+              minutes: durationMinutes,
+              formatted: `${Math.floor(durationSeconds / 60)}분 ${Math.floor(durationSeconds % 60)}초`
+            },
+            sttCost: whisperCostKRW,
+            aiCost: 0, // Gemini는 무료, GPT-4o-mini는 약 12원
+            totalCost: whisperCostKRW,
+            engine: 'OpenAI Whisper'
+          };
+        } catch (err) {
+          console.warn('⚠️ 오디오 길이 측정 실패, 비용 계산 불가:', err.message);
+        }
+        
+        // 음성 파일 처리 (STT + AI 분석) - 워터폴 폴백 자동 적용
         report = await aiService.processAudioToCounselingReport(audioFilePath, consultationType);
         
+        const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        
         console.log('✅ 상담일지 생성 완료');
+        console.log(`⏱️ 처리 시간: ${processingTime}초`);
+        if (actualCost) {
+          console.log(`💰 실제 비용: ${actualCost.totalCost}원 (${actualCost.engine})`);
+        }
+        
+        // 크레딧 차감 (로그인한 사용자인 경우)
+        let creditResult = null;
+        if (req.user && actualCost) {
+          try {
+            creditResult = await creditService.deduct(
+              req.user.userId,
+              actualCost.totalCost,
+              actualCost.duration.seconds / 60,
+              consultationType,
+              selectedEngine === 'clova' ? 'clova' : 'whisper',
+              'gemini' // 또는 GPT 사용 시 'gpt'
+            );
+            console.log(`💳 크레딧 차감: ${creditResult.charged}원, 잔액: ${creditResult.balance || 'N/A'}원`);
+          } catch (creditError) {
+            console.error('❌ 크레딧 차감 실패:', creditError.message);
+            // 크레딧 차감 실패해도 결과는 반환 (이미 처리 완료)
+          }
+        }
         
         res.json({
           success: true,
           mode: 'ai',
           report: report,
+          processingTime: `${processingTime}초`,
+          actualCost: actualCost,
+          creditInfo: creditResult,
           message: '상담일지가 성공적으로 생성되었습니다.'
         });
       } catch (error) {
         console.error('❌ AI 처리 오류:', error.message);
         
-        // AI 처리 실패 시 Mock 모드로 대체
-        console.log('⚠️  Mock 모드로 전환하여 응답합니다.');
-        report = generateMockReport(consultationType);
+        // 오류 메시지를 사용자에게 명확하게 전달
+        let userMessage = '음성 파일 처리 중 오류가 발생했습니다.';
         
-        res.json({
-          success: true,
-          mode: 'mock',
-          report: report,
-          warning: `AI 처리 중 오류가 발생하여 기본 양식을 제공합니다: ${error.message}`,
-          message: '기본 상담일지 양식이 생성되었습니다. AI 분석은 실패했습니다.'
+        if (error.message.includes('502') || error.message.includes('503')) {
+          userMessage = 'OpenAI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.';
+        } else if (error.message.includes('timeout')) {
+          userMessage = '처리 시간이 너무 오래 걸립니다. 더 짧은 음성 파일을 사용해주세요.';
+        } else if (error.message.includes('401')) {
+          userMessage = 'API 키가 유효하지 않습니다. 관리자에게 문의하세요.';
+        } else if (error.message.includes('429')) {
+          userMessage = 'API 사용량 한도를 초과했습니다. 관리자에게 문의하세요.';
+        }
+        
+        res.status(500).json({
+          success: false,
+          error: userMessage,
+          details: error.message,
+          message: '처리 실패. 다시 시도해주세요.'
         });
       }
     } else {
@@ -157,6 +392,8 @@ app.post('/api/upload-audio', upload.single('audioFile'), async (req, res) => {
     });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // Mock 상담일지 생성 함수
 function generateMockReport(consultationType) {
@@ -198,6 +435,341 @@ function generateMockReport(consultationType) {
   };
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 문서 익명화 API
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const anonymizationService = require('./services/anonymizationService');
+const documentParser = require('./services/documentParser');
+
+// 문서 익명화용 Multer 설정
+const documentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'doc-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 제한
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /docx|pdf|txt/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    
+    if (extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('문서 파일만 업로드 가능합니다 (DOCX, PDF, TXT)'));
+    }
+  }
+});
+
+// 문서 익명화 API (사용 시간 추적 통합 + 하이브리드 AI 지원)
+const usageTrackingService = require('./services/usageTrackingService');
+const HybridAnonymizationService = require('./services/hybridAnonymizationService');
+const { authenticateToken } = require('./middleware/auth');
+
+// 하이브리드 익명화 서비스 초기화
+const hybridService = new HybridAnonymizationService({
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  clovaClientId: process.env.CLOVA_CLIENT_ID,
+  clovaClientSecret: process.env.CLOVA_CLIENT_SECRET,
+  defaultMethod: 'hybrid',
+  minConfidence: 0.7
+});
+
+// 텍스트 직접 비교 API (로그인 불필요, 테스트용)
+app.post('/api/anonymize-text-compare', express.json(), async (req, res) => {
+  try {
+    const { text, method = 'compare' } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: '텍스트가 비어있습니다.' 
+      });
+    }
+
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔬 텍스트 익명화 비교 테스트');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 텍스트 길이:', text.length, '자');
+    console.log('🔍 비교 방식:', method);
+
+    // 하이브리드 서비스로 비교
+    const result = await hybridService.anonymize(text, { method });
+
+    if (!result.success) {
+      throw new Error(result.error || '익명화 실패');
+    }
+
+    console.log('✅ 비교 완료');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    res.json({
+      success: true,
+      method: result.method,
+      originalText: text,
+      anonymizedText: result.anonymized_text,
+      mappings: result.mappings,
+      stats: result.stats,
+      performance: {
+        processingTimeMs: result.processing_time_ms || 0,
+        breakdown: result.breakdown || null
+      },
+      cost: result.cost_estimate || { usd: 0, krw: 0 },
+      results: result.results || null,
+      comparison: result.comparison || null,
+      recommendation: result.recommendation || null
+    });
+
+  } catch (error) {
+    console.error('❌ 텍스트 비교 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '텍스트 비교 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// 하이브리드 서비스 상태 확인 API
+app.get('/api/anonymization/health', async (req, res) => {
+  try {
+    const health = await hybridService.healthCheck();
+    res.json({
+      success: true,
+      ...health
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/anonymize-document', authenticateToken, documentUpload.single('document'), async (req, res) => {
+  let filePath = null;
+  let logId = null;
+  const startTime = Date.now();
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+
+    // 사용자 정보 조회 (기관 ID 포함)
+    const authService = require('./services/authService');
+    const userInfo = await authService.getUserInfo(req.user.userId);
+    
+    if (!userInfo.success || !userInfo.user.organization) {
+      return res.status(400).json({ 
+        error: '기관 정보를 찾을 수 없습니다. 노인보호전문기관 소속 사용자만 이용 가능합니다.' 
+      });
+    }
+
+    const organizationId = userInfo.user.organization.id;
+    const fileSizeKB = Math.round(req.file.size / 1024);
+    const fileType = path.extname(req.file.originalname).replace('.', '').toLowerCase();
+
+    filePath = req.file.path;
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔐 문서 익명화 시작');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👤 사용자:', userInfo.user.name, `(${userInfo.user.email})`);
+    console.log('🏢 기관:', userInfo.user.organization.name, `(ID: ${organizationId})`);
+    console.log('📄 파일명:', req.file.originalname);
+    console.log('📦 파일 크기:', (req.file.size / 1024).toFixed(2), 'KB');
+    console.log('📝 파일 형식:', fileType.toUpperCase());
+
+    // 0. 사용 시간 추적 시작 및 할당량 확인
+    console.log('\n[0/4] 할당량 확인 중...');
+    try {
+      const trackingStart = await usageTrackingService.startAnonymization(
+        req.user.userId,
+        organizationId,
+        req.file.originalname,
+        fileType,
+        fileSizeKB
+      );
+      
+      logId = trackingStart.logId;
+      console.log('✅ 할당량 확인 완료');
+      console.log(`   - 남은 시간: ${trackingStart.remainingHours.toFixed(2)}시간`);
+      
+    } catch (quotaError) {
+      console.error('❌ 할당량 초과:', quotaError.message);
+      return res.status(429).json({
+        success: false,
+        error: quotaError.message,
+        errorCode: 'QUOTA_EXCEEDED'
+      });
+    }
+
+    // 1. 문서 파싱
+    console.log('\n[1/4] 문서 파싱 중...');
+    const parseResult = await documentParser.parse(filePath);
+    const originalText = parseResult.text;
+    console.log('✅ 파싱 완료:', originalText.length, '자');
+
+    // 2. 익명화 처리 (하이브리드 방식 지원)
+    console.log('\n[2/4] 개인정보 탐지 및 익명화 중...');
+    
+    // 익명화 방식 선택 (기본값: hybrid)
+    // method: 'rule' (기존), 'ai' (GPT-4o-mini), 'clova' (네이버 CLOVA), 'hybrid' (통합), 'compare' (비교)
+    const anonymizationMethod = req.body.method || 'hybrid';
+    console.log(`   익명화 방식: ${anonymizationMethod}`);
+    
+    let anonymizationResult;
+    
+    try {
+      // 하이브리드 서비스 사용
+      anonymizationResult = await hybridService.anonymize(originalText, {
+        method: anonymizationMethod,
+        minConfidence: 0.7
+      });
+      
+      if (!anonymizationResult.success) {
+        throw new Error(anonymizationResult.error || '익명화 실패');
+      }
+      
+    } catch (aiError) {
+      console.warn('⚠️ AI 익명화 실패, 룰 기반으로 폴백:', aiError.message);
+      
+      // 폴백: 기존 룰 기반 방식
+      anonymizationService.reset();
+      const fallbackResult = anonymizationService.anonymize(originalText);
+      anonymizationResult = {
+        success: true,
+        method: 'rule_fallback',
+        anonymized_text: fallbackResult.anonymizedText,
+        mappings: fallbackResult.mappings || [],
+        stats: {
+          names: fallbackResult.mappings?.names?.length || 0,
+          facilities: fallbackResult.mappings?.facilities?.length || 0,
+          phones: fallbackResult.mappings?.phones?.length || 0,
+          addresses: fallbackResult.mappings?.addresses?.length || 0,
+          emails: fallbackResult.mappings?.emails?.length || 0,
+          residentIds: fallbackResult.mappings?.residentIds?.length || 0
+        },
+        processing_time_ms: 0,
+        cost_estimate: { usd: 0, krw: 0 }
+      };
+    }
+    
+    const anonymizedText = anonymizationResult.anonymized_text;
+    const mappings = anonymizationResult.mappings;
+    const stats = anonymizationResult.stats || {};
+    
+    // 통계 출력
+    console.log('✅ 익명화 완료:');
+    console.log(`   - 방식: ${anonymizationResult.method}`);
+    console.log(`   - 처리 시간: ${anonymizationResult.processing_time_ms || 0}ms`);
+    console.log('   - 이름:', stats.names || 0, '개');
+    console.log('   - 시설:', stats.facilities || 0, '개');
+    console.log('   - 연락처:', stats.contacts || (stats.phones || 0), '개');
+    console.log('   - 주소:', stats.addresses || 0, '개');
+    console.log('   - 이메일:', stats.emails || 0, '개');
+    console.log('   - 주민번호:', stats.identifiers || (stats.residentIds || 0), '개');
+    
+    if (anonymizationResult.cost_estimate) {
+      console.log(`   - API 비용: $${anonymizationResult.cost_estimate.usd} (약 ${anonymizationResult.cost_estimate.krw}원)`);
+    }
+
+    // 3. 사용 시간 기록
+    const processingTimeSeconds = (Date.now() - startTime) / 1000;
+    console.log('\n[3/4] 사용 시간 기록 중...');
+    
+    const usageResult = await usageTrackingService.completeAnonymization(
+      logId,
+      processingTimeSeconds,
+      stats
+    );
+    
+    console.log('✅ 사용 시간 기록 완료');
+    console.log(`   - 처리 시간: ${processingTimeSeconds.toFixed(2)}초 (${usageResult.processingMinutes.toFixed(4)}분)`);
+    console.log(`   - 남은 시간: ${usageResult.remainingHours.toFixed(2)}시간`);
+    console.log(`   - 사용한 시간: ${usageResult.usedHours.toFixed(2)}시간`);
+
+    // 4. 결과 반환
+    console.log('\n[4/4] 결과 전송 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    res.json({
+      success: true,
+      method: anonymizationResult.method,
+      originalText,
+      anonymizedText,
+      mappings,
+      stats,
+      metadata: parseResult.metadata,
+      performance: {
+        processingTimeMs: anonymizationResult.processing_time_ms || 0,
+        breakdown: anonymizationResult.breakdown || null,
+        sources: anonymizationResult.sources || null
+      },
+      cost: anonymizationResult.cost_estimate || { usd: 0, krw: 0 },
+      usage: {
+        processingTimeSeconds: processingTimeSeconds,
+        processingMinutes: usageResult.processingMinutes,
+        remainingHours: usageResult.remainingHours,
+        usedHours: usageResult.usedHours,
+        quotaHours: 10.0
+      },
+      comparison: anonymizationResult.comparison || null, // compare 모드일 때만
+      recommendation: anonymizationResult.recommendation || null
+    });
+
+  } catch (error) {
+    console.error('❌ 문서 익명화 오류:', error);
+    
+    // 실패 기록
+    if (logId) {
+      try {
+        await usageTrackingService.failAnonymization(logId, error.message);
+      } catch (trackError) {
+        console.error('❌ 실패 기록 중 오류:', trackError);
+      }
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: '문서 익명화 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  } finally {
+    // 업로드된 파일 삭제
+    if (filePath) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.error('파일 삭제 실패:', e);
+      }
+    }
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 텍스트를 줄바꿈 기준으로 여러 Paragraph로 변환하는 헬퍼 함수
+function createParagraphsFromText(text, spacing = {}) {
+  const { Paragraph } = require('docx');
+  
+  if (!text) return [new Paragraph({ text: '정보 없음', spacing })];
+  
+  // 줄바꿈(\n)으로 분리
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
+  
+  return lines.map((line, index) => new Paragraph({
+    text: line.trim(),
+    spacing: index === lines.length - 1 ? spacing : { after: 120 } // 마지막 줄만 원래 spacing 적용
+  }));
+}
+
 // 워드 파일 다운로드 API
 app.post('/api/download-word', express.json(), async (req, res) => {
   try {
@@ -224,11 +796,6 @@ app.post('/api/download-word', express.json(), async (req, res) => {
             text: '노인보호전문기관 상담일지',
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
-            spacing: { after: 400 }
-          }),
-          new Paragraph({
-            text: 'Provided by WellPartners (웰파트너스)',
-            alignment: AlignmentType.CENTER,
             spacing: { after: 600 }
           }),
           
@@ -249,7 +816,7 @@ app.post('/api/download-word', express.json(), async (req, res) => {
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 400, after: 200 }
           }),
-          new Paragraph({ text: report.상담요약 || '정보 없음', spacing: { after: 300, line: 360 } }),
+          ...createParagraphsFromText(report.상담요약 || '정보 없음', { after: 300 }),
           
           // 상담 내용 정리
           new Paragraph({
@@ -257,7 +824,7 @@ app.post('/api/download-word', express.json(), async (req, res) => {
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 400, after: 200 }
           }),
-          new Paragraph({ text: report.상담내용정리 || '정보 없음', spacing: { after: 300, line: 360 } }),
+          ...createParagraphsFromText(report.상담내용정리 || '정보 없음', { after: 300 }),
           
           // 2. 신고자 정보
           new Paragraph({

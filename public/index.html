@@ -3,176 +3,613 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CaseNetAI - 노인보호전문기관 업무자동화 시스템</title>
+    <title>CaseNetAI - 사회복지 업무자동화 플랫폼</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+        }
+
+        /* 헤더 */
+        .header {
+            background: white;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 80px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: #1e40af;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+            filter: grayscale(20%);
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #475569;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            letter-spacing: -0.01em;
+        }
+
+        .nav-link:hover {
+            color: #1e40af;
+        }
+
+        /* 히어로 섹션 */
+        .hero {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #0ea5e9 100%);
+            color: white;
+            padding: 120px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-title {
+            font-size: 4rem;
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 28px;
+            letter-spacing: -0.03em;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-subtitle {
+            font-size: 1.4rem;
+            opacity: 0.95;
+            font-weight: 400;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+            text-shadow: 0 1px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 메인 컨텐츠 */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 80px 40px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-description {
+            font-size: 1.2rem;
+            color: #475569;
+            letter-spacing: -0.01em;
+        }
+
+        /* 서비스 그리드 */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 32px;
+        }
+
+        .service-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            border: 1px solid #e2e8f0;
+        }
+
+        .service-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(30, 64, 175, 0.12);
+            border-color: #cbd5e1;
+        }
+
+        .service-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+        }
+
+        .service-card.active:hover {
+            border-color: #2563eb;
+            box-shadow: 0 12px 24px rgba(30, 64, 175, 0.2);
+        }
+
+        .service-card.disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            background: #f7fafc;
+        }
+
+        .service-card.disabled:hover {
+            transform: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+
+        .card-badge {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .badge-active {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 64, 175, 0.25);
+        }
+
+        .badge-development {
+            background: #fbbf24;
+            color: #78350f;
+            font-weight: 600;
+        }
+
+        .badge-coming {
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .service-icon {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .service-title {
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 16px;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+        }
+
+        .service-description {
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 24px;
+            letter-spacing: -0.01em;
+        }
+
+        .service-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .service-features li {
+            color: #475569;
+            font-size: 0.95rem;
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .service-features li:before {
+            content: "✓";
+            color: #3b82f6;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .service-card.disabled .service-features li:before {
+            color: #cbd5e1;
+        }
+
+        .service-action {
+            margin-top: 28px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .action-active {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            box-shadow: 0 4px 8px rgba(30, 64, 175, 0.2);
+        }
+
+        .action-active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(30, 64, 175, 0.3);
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+        }
+
+        .action-disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        /* 푸터 */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 60px 40px 40px;
+            margin-top: 100px;
+            border-top: 1px solid #1e293b;
+        }
+
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 60px;
+        }
+
+        .footer-about h3 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .footer-about p {
+            color: #94a3b8;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+        }
+
+        .footer-links h4 {
+            font-size: 1rem;
+            margin-bottom: 16px;
+            font-weight: 600;
+            color: #e2e8f0;
+            letter-spacing: -0.01em;
+        }
+
+        .footer-links a {
+            display: block;
+            color: #94a3b8;
+            text-decoration: none;
+            margin-bottom: 10px;
+            transition: color 0.2s;
+            letter-spacing: -0.01em;
+        }
+
+        .footer-links a:hover {
+            color: #3b82f6;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #64748b;
+            font-size: 0.9rem;
+            letter-spacing: -0.01em;
+        }
+
+        /* 반응형 */
+        @media (max-width: 1024px) {
+            .services-grid {
+                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            }
+
+            .footer-container {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 20px;
+                height: 70px;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+            }
+
+            .header-nav {
+                gap: 15px;
+            }
+
+            .nav-link {
+                font-size: 0.85rem;
+            }
+
+            .hero {
+                padding: 60px 20px;
+            }
+
+            .hero-title {
+                font-size: 2.2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.1rem;
+            }
+
+            .main-container {
+                padding: 50px 20px;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- 헤더 -->
     <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1>CaseNetAI</h1>
-                    <p class="tagline">노인보호전문기관 업무자동화 시스템</p>
-                </div>
-                <nav class="nav">
-                    <a href="https://wellpartners.co.kr" target="_blank" class="nav-link">웰파트너스</a>
-                    <a href="#about" class="nav-link">서비스 소개</a>
-                    <a href="#features" class="nav-link">주요 기능</a>
-                    <a href="#upload" class="nav-link">상담일지 생성</a>
-                </nav>
-            </div>
+        <div class="header-container">
+            <a href="/" class="logo">
+                <span>CaseNetAI</span>
+            </a>
+            <nav class="header-nav">
+                <a href="#services" class="nav-link">서비스</a>
+                <a href="https://wellpartners.kr" target="_blank" class="nav-link">회사소개</a>
+                <a href="#contact" class="nav-link">문의하기</a>
+            </nav>
         </div>
     </header>
 
     <!-- 히어로 섹션 -->
     <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <h2 class="hero-title">상담 녹음을 자동으로 상담일지로</h2>
-                <p class="hero-subtitle">AI 기술로 노인보호전문기관의 상담일지 작성을 자동화합니다</p>
-                <a href="#upload" class="btn btn-primary btn-large">지금 시작하기</a>
-            </div>
+        <div class="hero-content">
+            <h1 class="hero-title">사회복지 업무,<br>AI가 자동화합니다</h1>
+            <p class="hero-subtitle">사회복지사의 반복적 업무를 AI가 대신합니다<br>더 많은 시간을, 진짜 중요한 사람들을 위해</p>
         </div>
     </section>
 
-    <!-- 서비스 소개 -->
-    <section id="about" class="section about">
-        <div class="container">
-            <h2 class="section-title">서비스 소개</h2>
-            <div class="about-content">
-                <div class="about-card">
-                    <div class="about-icon">🎯</div>
-                    <h3>정확한 기록</h3>
-                    <p>노인보호전문기관 업무수행지침에 따른 정확한 상담일지 양식</p>
-                </div>
-                <div class="about-card">
-                    <div class="about-icon">⚡</div>
-                    <h3>시간 절약</h3>
-                    <p>수작업 기록 시간을 90% 이상 단축</p>
-                </div>
-                <div class="about-card">
-                    <div class="about-icon">🔒</div>
-                    <h3>안전한 보안</h3>
-                    <p>개인정보 보호를 위한 철저한 보안 시스템</p>
-                </div>
+    <!-- 메인 컨텐츠 -->
+    <main class="main-container">
+        <div class="section-header" id="services">
+            <h2 class="section-title">지원 기관</h2>
+            <p class="section-description">업무 시간을 90% 단축시키는 혁신적인 AI 솔루션</p>
+        </div>
+
+        <div class="services-grid">
+            <!-- 노인보호전문기관 (활성화) -->
+            <div class="service-card active" onclick="goToService('elderly')">
+                <span class="card-badge badge-active">서비스 중</span>
+                <span class="service-icon">노인</span>
+                <h3 class="service-title">노인보호전문기관</h3>
+                <p class="service-description">노인학대 상담일지 자동 생성 및 판례 검색 서비스</p>
+                <ul class="service-features">
+                    <li>AI 기반 상담일지 자동 작성</li>
+                    <li>노인학대 판례 검색 및 분석</li>
+                    <li>업무수행지침 완벽 준수</li>
+                </ul>
+                <button class="service-action action-active">지금 시작하기 →</button>
+            </div>
+
+            <!-- 아동보호전문기관 (개발중) -->
+            <div class="service-card disabled">
+                <span class="card-badge badge-development">개발 중</span>
+                <span class="service-icon">아동</span>
+                <h3 class="service-title">아동보호전문기관</h3>
+                <p class="service-description">아동학대 상담일지 자동 생성 및 법률 자료 제공</p>
+                <ul class="service-features">
+                    <li>아동보호 상담 기록 자동화</li>
+                    <li>아동학대 관련 판례 검색</li>
+                    <li>아동복지법 기반 양식</li>
+                </ul>
+                <button class="service-action action-disabled">준비 중</button>
+            </div>
+
+            <!-- 장애인복지관 (오픈 예정) -->
+            <div class="service-card disabled">
+                <span class="card-badge badge-coming">오픈 예정</span>
+                <span class="service-icon">장애인</span>
+                <h3 class="service-title">장애인복지관</h3>
+                <p class="service-description">장애인 상담 기록 자동화 및 개별지원계획 지원</p>
+                <ul class="service-features">
+                    <li>장애인 상담 기록 자동화</li>
+                    <li>개별지원계획 수립 지원</li>
+                    <li>장애인복지법 관련 자료</li>
+                </ul>
+                <button class="service-action action-disabled">준비 중</button>
+            </div>
+
+            <!-- 가정폭력상담소 (오픈 예정) -->
+            <div class="service-card disabled">
+                <span class="card-badge badge-coming">오픈 예정</span>
+                <span class="service-icon">가정</span>
+                <h3 class="service-title">가정폭력상담소</h3>
+                <p class="service-description">가정폭력 피해자 상담 기록 및 법률 지원 자료</p>
+                <ul class="service-features">
+                    <li>피해자 상담 기록 자동화</li>
+                    <li>법률 지원 자료 제공</li>
+                    <li>피해자 보호 프로세스</li>
+                </ul>
+                <button class="service-action action-disabled">준비 중</button>
+            </div>
+
+            <!-- 성폭력상담소 (오픈 예정) -->
+            <div class="service-card disabled">
+                <span class="card-badge badge-coming">오픈 예정</span>
+                <span class="service-icon">성폭력</span>
+                <h3 class="service-title">성폭력상담소</h3>
+                <p class="service-description">성폭력 피해자 상담 지원 및 법률 상담 자료</p>
+                <ul class="service-features">
+                    <li>피해자 상담 지원 시스템</li>
+                    <li>법률 상담 자료 제공</li>
+                    <li>피해자 권리 안내</li>
+                </ul>
+                <button class="service-action action-disabled">준비 중</button>
+            </div>
+
+            <!-- 정신건강복지센터 (오픈 예정) -->
+            <div class="service-card disabled">
+                <span class="card-badge badge-coming">오픈 예정</span>
+                <span class="service-icon">정신</span>
+                <h3 class="service-title">정신건강복지센터</h3>
+                <p class="service-description">정신건강 상담 기록 자동화 및 사례관리 지원</p>
+                <ul class="service-features">
+                    <li>정신건강 상담 기록 자동화</li>
+                    <li>사례관리 지원 시스템</li>
+                    <li>정신건강복지법 기반</li>
+                </ul>
+                <button class="service-action action-disabled">준비 중</button>
             </div>
         </div>
-    </section>
-
-    <!-- 주요 기능 -->
-    <section id="features" class="section features">
-        <div class="container">
-            <h2 class="section-title">주요 기능</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-number">01</div>
-                    <h3>음성 파일 업로드</h3>
-                    <p>전화상담, 방문상담, 내방상담의 녹음 파일을 업로드합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">02</div>
-                    <h3>자동 텍스트 변환</h3>
-                    <p>AI 음성인식 기술로 녹음 내용을 정확하게 텍스트로 변환합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">03</div>
-                    <h3>상담일지 자동 생성</h3>
-                    <p>변환된 텍스트를 분석하여 표준 양식의 상담일지를 자동으로 생성합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">04</div>
-                    <h3>검토 및 수정</h3>
-                    <p>생성된 상담일지를 검토하고 필요한 부분을 수정할 수 있습니다</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 업로드 섹션 -->
-    <section id="upload" class="section upload-section">
-        <div class="container">
-            <h2 class="section-title">상담일지 자동 생성</h2>
-            <div class="upload-container">
-                <div class="upload-form">
-                    <div class="form-group">
-                        <label for="consultationType">상담 유형</label>
-                        <select id="consultationType" class="form-control">
-                            <option value="">선택해주세요</option>
-                            <option value="phone">전화상담</option>
-                            <option value="visit">방문상담</option>
-                            <option value="office">내방상담</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="audioFile">녹음 파일 업로드</label>
-                        <div class="file-upload-wrapper">
-                            <input type="file" id="audioFile" accept="audio/*,video/mp4" class="file-input">
-                            <label for="audioFile" class="file-label">
-                                <span class="file-icon">📁</span>
-                                <span class="file-text">파일을 선택하거나 드래그하세요</span>
-                                <span class="file-info">지원 형식: MP3, WAV, M4A, OGG, WebM, MP4 (최대 100MB)</span>
-                            </label>
-                        </div>
-                        <div id="fileName" class="file-name"></div>
-                    </div>
-
-                    <div id="statusMessage" class="status-message" style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border-radius: 0.5rem; display: none;">
-                        <strong>⚠️ 버튼을 활성화하려면:</strong><br>
-                        1️⃣ 상담 유형을 선택하세요<br>
-                        2️⃣ 음성 파일을 업로드하세요
-                    </div>
-                    
-                    <button id="uploadBtn" class="btn btn-primary btn-large" disabled>
-                        상담일지 생성하기
-                    </button>
-
-                    <div id="progressContainer" class="progress-container" style="display: none;">
-                        <div class="progress-bar">
-                            <div id="progressBar" class="progress-fill"></div>
-                        </div>
-                        <p id="progressText" class="progress-text">파일 업로드 중...</p>
-                    </div>
-                </div>
-
-                <!-- 결과 표시 영역 -->
-                <div id="resultContainer" class="result-container" style="display: none;">
-                    <div class="result-header">
-                        <h3>생성된 상담일지</h3>
-                        <div class="result-actions">
-                            <button id="editBtn" class="btn btn-secondary">수정</button>
-                            <button id="downloadBtn" class="btn btn-primary">다운로드</button>
-                        </div>
-                    </div>
-                    <div id="reportContent" class="report-content">
-                        <!-- 상담일지 내용이 여기에 표시됩니다 -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    </main>
 
     <!-- 푸터 -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-info">
-                    <h3>CaseNetAI</h3>
-                    <p>Powered by <a href="https://wellpartners.co.kr" target="_blank">WellPartners</a></p>
-                </div>
-                <div class="footer-links">
-                    <a href="#">이용약관</a>
-                    <a href="#">개인정보처리방침</a>
-                    <a href="#">고객센터</a>
-                </div>
-                <div class="footer-copyright">
-                    <p>&copy; 2025 WellPartners. All rights reserved.</p>
-                </div>
+    <footer class="footer" id="contact">
+        <div class="footer-container">
+            <div class="footer-about">
+                <h3>CaseNetAI</h3>
+                <p>
+                    AI 기술로 사회복지 업무를 혁신합니다.<br>
+                    문서 작성부터 개인정보 보호까지,<br>
+                    사회복지사가 정말 중요한 일에 집중할 수 있도록 돕습니다.
+                </p>
             </div>
+            <div class="footer-links">
+                <h4>서비스</h4>
+                <a href="/elderly-protection.html">노인보호전문기관</a>
+                <a href="#">아동보호전문기관</a>
+                <a href="#">장애인복지관</a>
+            </div>
+            <div class="footer-links">
+                <h4>회사</h4>
+                <a href="https://wellpartners.kr" target="_blank">웰파트너스</a>
+                <a href="#">이용약관</a>
+                <a href="#">개인정보처리방침</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 WellPartners. All rights reserved.</p>
         </div>
     </footer>
 
-    <script src="js/main.js"></script>
+    <script>
+        function goToService(serviceType) {
+            // 로그인 여부 확인
+            const token = localStorage.getItem('token');
+            
+            if (serviceType === 'elderly') {
+                if (token) {
+                    // 이미 로그인한 경우 서비스로 바로 이동
+                    window.location.href = '/elderly-protection.html';
+                } else {
+                    // 로그인 안 한 경우 로그인 페이지로
+                    window.location.href = '/login.html?service=elderly_protection';
+                }
+            } else {
+                // 다른 서비스는 아직 비활성화
+                return false;
+            }
+        }
+
+        // 비활성화된 카드 클릭 방지
+        document.addEventListener('DOMContentLoaded', function() {
+            const disabledCards = document.querySelectorAll('.service-card.disabled');
+            disabledCards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    e.preventDefault();
+                });
+            });
+        });
+
+        // 부드러운 스크롤
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
