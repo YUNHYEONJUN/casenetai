@@ -16,15 +16,17 @@ const args = process.argv.slice(2);
 
 if (args.length < 4) {
   console.error('❌ 사용법: node scripts/create-system-admin.js <oauth_provider> <oauth_id> <name> <email>');
-  console.error('예시: node scripts/create-system-admin.js kakao 123456789 "관리자" admin@casenetai.com');
+  console.error('예시 (카카오): node scripts/create-system-admin.js kakao 123456789 "관리자" admin@casenetai.com');
+  console.error('예시 (네이버): node scripts/create-system-admin.js naver abc123def456 "관리자" admin@casenetai.com');
+  console.error('예시 (구글): node scripts/create-system-admin.js google 123456789012345678901 "관리자" admin@casenetai.com');
   process.exit(1);
 }
 
 const [oauth_provider, oauth_id, name, email] = args;
 
 // 유효성 검사
-if (!['kakao', 'naver'].includes(oauth_provider)) {
-  console.error('❌ oauth_provider는 "kakao" 또는 "naver"여야 합니다');
+if (!['kakao', 'naver', 'google'].includes(oauth_provider)) {
+  console.error('❌ oauth_provider는 "kakao", "naver", 또는 "google"이어야 합니다');
   process.exit(1);
 }
 

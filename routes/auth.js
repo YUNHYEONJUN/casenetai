@@ -317,4 +317,71 @@ router.get('/naver/callback',
   }
 );
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 구글 OAuth 로그인
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 구글 로그인 시작
+router.get('/google',
+  passport.authenticate('google', { 
+    scope: ['profile', 'email']
+  })
+);
+
+// 구글 콜백
+router.get('/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: '/login.html?error=google_auth_failed',
+    session: false
+  }),
+  async (req, res) => {
+    try {
+      // JWT 토큰 생성 (role 포함)
+      const token = jwt.sign(
+        { 
+          userId: req.user.id, 
+          email: req.user.email || req.user.oauth_nickname,
+          role: req.user.role,
+          organizationId: req.user.organization_id
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+      
+      const refreshToken = jwt.sign(
+        { userId: req.user.id },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      
+      // 세션 저장
+      const { getDB } = require('../database/db');
+      const db = getDB();
+      await db.run(
+        `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+        [req.user.id, token, refreshToken, req.ip, req.get('user-agent')]
+      );
+      
+      // 로그인 시간 업데이트
+      await db.run(
+        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [req.user.id]
+      );
+      
+      console.log('✅ 구글 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      
+      // 승인 상태 확인
+      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
+      
+      // 토큰을 URL 파라미터로 전달하고 리다이렉트
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=google&role=${req.user.role}&approval=${approvalStatus}`);
+      
+    } catch (error) {
+      console.error('❌ 구글 콜백 오류:', error);
+      res.redirect('/login.html?error=google_callback_failed');
+    }
+  }
+);
+
 module.exports = router;
