@@ -94,6 +94,7 @@ const analyticsRouter = require('./routes/analytics');
 const systemAdminRouter = require('./routes/system-admin');
 const orgAdminRouter = require('./routes/org-admin');
 const joinRequestsRouter = require('./routes/join-requests');
+const systemAdminDashboardRouter = require('./routes/system-admin-dashboard');
 
 app.use('/api/auth', authRouter);
 app.use('/api/payment', paymentRouter);
@@ -105,6 +106,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/system-admin', systemAdminRouter);
 app.use('/api/org-admin', orgAdminRouter);
 app.use('/api/join-requests', joinRequestsRouter);
+app.use('/api/system-admin-dashboard', systemAdminDashboardRouter);
 
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({

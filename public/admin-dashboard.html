@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>관리자 대시보드 - CaseNetAI</title>
+  <title>System Admin Dashboard - CaseNetAI</title>
   <style>
     * {
       margin: 0;
@@ -12,33 +12,33 @@
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
+    }
+
+    .header {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
+      color: white;
+      padding: 20px 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-top: 5px;
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-    }
-
-    .header {
-      background: white;
       padding: 30px;
-      border-radius: 15px;
-      margin-bottom: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      color: #667eea;
-      margin-bottom: 10px;
-    }
-
-    .subtitle {
-      color: #666;
-      font-size: 14px;
     }
 
     .stats-grid {
@@ -50,35 +50,86 @@
 
     .stat-card {
       background: white;
+      border-radius: 12px;
       padding: 25px;
-      border-radius: 15px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    .stat-label {
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+
+    .stat-card h3 {
       font-size: 14px;
-      color: #666;
+      color: #7f8c8d;
       margin-bottom: 10px;
+      font-weight: 500;
     }
 
-    .stat-value {
+    .stat-card .value {
       font-size: 32px;
-      font-weight: bold;
-      color: #333;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 5px;
     }
 
-    .stat-unit {
-      font-size: 16px;
-      color: #999;
-      margin-left: 5px;
+    .stat-card .subtitle {
+      font-size: 13px;
+      color: #95a5a6;
     }
 
-    .organizations-table {
+    .section {
       background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 25px;
       margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .section h2 {
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      border-bottom: 2px solid #e1e8ed;
+      padding-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #e1e8ed;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #7f8c8d;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .tab:hover {
+      color: #667eea;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
     }
 
     table {
@@ -86,346 +137,510 @@
       border-collapse: collapse;
     }
 
-    th {
+    thead {
       background: #f8f9fa;
-      padding: 15px;
+    }
+
+    th {
+      padding: 12px;
       text-align: left;
+      font-size: 13px;
       font-weight: 600;
-      color: #333;
-      border-bottom: 2px solid #e9ecef;
+      color: #7f8c8d;
+      border-bottom: 2px solid #e1e8ed;
     }
 
     td {
-      padding: 15px;
-      border-bottom: 1px solid #e9ecef;
+      padding: 12px;
+      border-bottom: 1px solid #f1f3f5;
+      font-size: 14px;
     }
 
     tr:hover {
       background: #f8f9fa;
     }
 
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: #e9ecef;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea, #764ba2);
-      transition: width 0.3s ease;
-    }
-
-    .progress-fill.warning {
-      background: linear-gradient(90deg, #f093fb, #f5576c);
-    }
-
-    .progress-fill.danger {
-      background: linear-gradient(90deg, #fa709a, #fee140);
-    }
-
     .badge {
       display: inline-block;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 12px;
       font-size: 12px;
       font-weight: 500;
     }
 
-    .badge-success {
+    .badge.success {
       background: #d4edda;
       color: #155724;
     }
 
-    .badge-warning {
+    .badge.warning {
       background: #fff3cd;
       color: #856404;
     }
 
-    .badge-danger {
+    .badge.danger {
       background: #f8d7da;
       color: #721c24;
     }
 
-    .filter-bar {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 20px;
-      align-items: center;
+    .badge.info {
+      background: #d1ecf1;
+      color: #0c5460;
     }
 
-    select, input {
-      padding: 10px 15px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 14px;
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e1e8ed;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 5px;
     }
 
-    button {
-      padding: 10px 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: transform 0.2s;
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s;
     }
 
-    button:hover {
-      transform: translateY(-2px);
+    .progress-fill.danger {
+      background: #e74c3c;
+    }
+
+    .progress-fill.warning {
+      background: #f39c12;
     }
 
     .loading {
       text-align: center;
-      padding: 50px;
-      color: #999;
+      padding: 40px;
+      color: #7f8c8d;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .error {
       background: #f8d7da;
       color: #721c24;
-      padding: 20px;
+      padding: 15px;
       border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .search-box {
+      padding: 10px 15px;
+      border: 1px solid #e1e8ed;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .refresh-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-left: 10px;
+      transition: background 0.3s;
+    }
+
+    .refresh-btn:hover {
+      background: #5568d3;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #95a5a6;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
       margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
+  <div class="header">
+    <h1>🎯 System Admin Dashboard</h1>
+    <p>실시간 시스템 모니터링 및 사용 현황 관리</p>
+  </div>
+
   <div class="container">
-    <div class="header">
-      <h1>관리자 대시보드</h1>
-      <p class="subtitle">전국 노인보호전문기관 사용량 모니터링</p>
+    <!-- Overview Stats -->
+    <div id="overview-stats" class="stats-grid">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>데이터 로딩 중...</p>
+      </div>
     </div>
 
-    <div id="error-message" style="display: none;" class="error"></div>
-
-    <div class="stats-grid" id="stats-grid">
-      <div class="loading">통계 로딩 중...</div>
-    </div>
-
-    <div class="organizations-table">
-      <h2 style="margin-bottom: 20px;">기관별 사용 현황</h2>
-      
-      <div class="filter-bar">
-        <select id="month-filter">
-          <option value="">월 선택</option>
-        </select>
-        <select id="region-filter">
-          <option value="">전체 지역</option>
-        </select>
-        <input type="text" id="search-filter" placeholder="기관명 검색">
-        <button onclick="loadDashboard()">새로고침</button>
+    <!-- Tabs -->
+    <div class="section">
+      <div class="tabs">
+        <button class="tab active" data-tab="organizations">기관별 사용 현황</button>
+        <button class="tab" data-tab="users">계정별 사용 현황</button>
+        <button class="tab" data-tab="activity">최근 활동</button>
       </div>
 
-      <table id="organizations-table">
-        <thead>
-          <tr>
-            <th>기관명</th>
-            <th>지역</th>
-            <th>할당 시간</th>
-            <th>사용 시간</th>
-            <th>남은 시간</th>
-            <th>사용률</th>
-            <th>요청 수</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody id="organizations-tbody">
-          <tr><td colspan="8" class="loading">데이터 로딩 중...</td></tr>
-        </tbody>
-      </table>
+      <!-- 기관별 사용 현황 -->
+      <div id="organizations" class="tab-content active">
+        <input type="text" class="search-box" id="org-search" placeholder="기관명 검색...">
+        <button class="refresh-btn" onclick="loadOrganizations()">🔄 새로고침</button>
+        <div id="organizations-content"></div>
+      </div>
+
+      <!-- 계정별 사용 현황 -->
+      <div id="users" class="tab-content">
+        <input type="text" class="search-box" id="user-search" placeholder="이름 또는 이메일 검색...">
+        <button class="refresh-btn" onclick="loadUsers()">🔄 새로고침</button>
+        <div id="users-content"></div>
+      </div>
+
+      <!-- 최근 활동 -->
+      <div id="activity" class="tab-content">
+        <button class="refresh-btn" onclick="loadActivity()">🔄 새로고침</button>
+        <div id="activity-content"></div>
+      </div>
     </div>
   </div>
 
   <script>
-    // 현재 년월
-    const now = new Date();
-    let currentYear = now.getFullYear();
-    let currentMonth = now.getMonth() + 1;
+    // API Base URL
+    const API_BASE = '/api/system-admin-dashboard';
 
-    // 월 필터 초기화
-    function initMonthFilter() {
-      const select = document.getElementById('month-filter');
-      for (let i = 0; i < 12; i++) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        const option = document.createElement('option');
-        option.value = `${year}-${month}`;
-        option.textContent = `${year}년 ${month}월`;
-        if (i === 0) option.selected = true;
-        select.appendChild(option);
-      }
+    // Get token from localStorage
+    function getToken() {
+      return localStorage.getItem('token');
     }
 
-    // 대시보드 로드
-    async function loadDashboard() {
+    // API Call Helper
+    async function apiCall(endpoint) {
+      const token = getToken();
+      if (!token) {
+        alert('로그인이 필요합니다');
+        window.location.href = '/login.html';
+        return null;
+      }
+
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          alert('로그인이 필요합니다');
-          window.location.href = '/login.html';
-          return;
-        }
-
-        // 필터 값
-        const monthFilter = document.getElementById('month-filter').value;
-        if (monthFilter) {
-          [currentYear, currentMonth] = monthFilter.split('-').map(Number);
-        }
-
-        // 대시보드 데이터 가져오기
-        const response = await fetch(`/api/admin/dashboard/overview?year=${currentYear}&month=${currentMonth}`, {
+        const response = await fetch(API_BASE + endpoint, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (!response.ok) {
-          throw new Error('대시보드 데이터를 가져올 수 없습니다');
+        if (response.status === 401) {
+          alert('인증이 만료되었습니다. 다시 로그인해주세요.');
+          window.location.href = '/login.html';
+          return null;
         }
 
         const data = await response.json();
-        
-        // 통계 렌더링
-        renderStats(data);
-        
-        // 기관 테이블 렌더링
-        renderOrganizations(data.usage.organizations);
-
-        // 에러 메시지 숨기기
-        document.getElementById('error-message').style.display = 'none';
-
+        return data;
       } catch (error) {
-        console.error('대시보드 로드 실패:', error);
-        const errorDiv = document.getElementById('error-message');
-        errorDiv.textContent = error.message;
-        errorDiv.style.display = 'block';
+        console.error('API Error:', error);
+        return null;
       }
     }
 
-    // 통계 카드 렌더링
-    function renderStats(data) {
-      const statsHtml = `
-        <div class="stat-card">
-          <div class="stat-label">전체 기관 수</div>
-          <div class="stat-value">${data.usage.totalOrganizations}<span class="stat-unit">개</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">총 할당 시간</div>
-          <div class="stat-value">${data.usage.totalQuotaHours.toFixed(1)}<span class="stat-unit">시간</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">총 사용 시간</div>
-          <div class="stat-value">${data.usage.totalUsedHours.toFixed(1)}<span class="stat-unit">시간</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">남은 시간</div>
-          <div class="stat-value">${data.usage.totalRemainingHours.toFixed(1)}<span class="stat-unit">시간</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">평균 사용률</div>
-          <div class="stat-value">${data.usage.averageUsagePercent}<span class="stat-unit">%</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">총 익명화 요청</div>
-          <div class="stat-value">${data.usage.totalRequests}<span class="stat-unit">건</span></div>
-        </div>
-      `;
-      
-      document.getElementById('stats-grid').innerHTML = statsHtml;
-    }
-
-    // 기관 테이블 렌더링
-    function renderOrganizations(organizations) {
-      // 필터 적용
-      const regionFilter = document.getElementById('region-filter').value;
-      const searchFilter = document.getElementById('search-filter').value.toLowerCase();
-
-      let filtered = organizations;
-      
-      if (regionFilter) {
-        filtered = filtered.filter(org => org.region === regionFilter);
-      }
-      
-      if (searchFilter) {
-        filtered = filtered.filter(org => 
-          org.organization_name.toLowerCase().includes(searchFilter)
-        );
-      }
-
-      // 지역 필터 옵션 업데이트 (처음만)
-      const regionSelect = document.getElementById('region-filter');
-      if (regionSelect.options.length === 1) {
-        const regions = [...new Set(organizations.map(org => org.region))].sort();
-        regions.forEach(region => {
-          const option = document.createElement('option');
-          option.value = region;
-          option.textContent = region;
-          regionSelect.appendChild(option);
-        });
-      }
-
-      // 테이블 렌더링
-      const tbody = document.getElementById('organizations-tbody');
-      
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">데이터가 없습니다</td></tr>';
+    // Load Overview Stats
+    async function loadOverview() {
+      const result = await apiCall('/overview');
+      if (!result || !result.success) {
+        document.getElementById('overview-stats').innerHTML = '<div class="error">통계 로드 실패</div>';
         return;
       }
 
-      tbody.innerHTML = filtered.map(org => {
-        const usagePercent = org.quota_hours > 0 ? (org.used_hours / org.quota_hours * 100).toFixed(1) : 0;
-        const isWarning = usagePercent >= 80 && usagePercent < 100;
-        const isDanger = usagePercent >= 100;
-        
-        let statusBadge;
-        if (org.used_hours === 0) {
-          statusBadge = '<span class="badge badge-warning">미사용</span>';
-        } else if (isDanger) {
-          statusBadge = '<span class="badge badge-danger">초과</span>';
-        } else if (isWarning) {
-          statusBadge = '<span class="badge badge-warning">주의</span>';
-        } else {
-          statusBadge = '<span class="badge badge-success">정상</span>';
-        }
-
-        return `
-          <tr>
-            <td><strong>${org.organization_name || '(미등록)'}</strong></td>
-            <td>${org.region || '-'}</td>
-            <td>${org.quota_hours.toFixed(1)}시간</td>
-            <td>${org.used_hours.toFixed(2)}시간</td>
-            <td>${org.remaining_hours.toFixed(2)}시간</td>
-            <td>
-              <div class="progress-bar">
-                <div class="progress-fill ${isWarning ? 'warning' : ''} ${isDanger ? 'danger' : ''}" 
-                     style="width: ${Math.min(usagePercent, 100)}%"></div>
-              </div>
-              <small>${usagePercent}%</small>
-            </td>
-            <td>${org.request_count || 0}건</td>
-            <td>${statusBadge}</td>
-          </tr>
-        `;
-      }).join('');
+      const data = result.data;
+      const html = `
+        <div class="stat-card">
+          <h3>전체 기관</h3>
+          <div class="value">${data.organizations.total}</div>
+          <div class="subtitle">활성: ${data.organizations.active} / 전체: ${data.organizations.alive}</div>
+        </div>
+        <div class="stat-card">
+          <h3>전체 사용자</h3>
+          <div class="value">${data.users.total}</div>
+          <div class="subtitle">승인: ${data.users.approved} / 대기: ${data.users.pending}</div>
+        </div>
+        <div class="stat-card">
+          <h3>이번 달 사용량</h3>
+          <div class="value">${data.usage.total_used_hours.toFixed(1)}h</div>
+          <div class="subtitle">할당: ${data.usage.total_quota_hours}h (${data.usage.usage_percentage}%)</div>
+          <div class="progress-bar">
+            <div class="progress-fill ${data.usage.usage_percentage > 80 ? 'warning' : ''}" 
+                 style="width: ${Math.min(data.usage.usage_percentage, 100)}%"></div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <h3>총 크레딧</h3>
+          <div class="value">${(data.credits.total_balance || 0).toLocaleString()}원</div>
+          <div class="subtitle">사용: ${(data.credits.total_used || 0).toLocaleString()}원</div>
+        </div>
+        <div class="stat-card">
+          <h3>이번 달 결제</h3>
+          <div class="value">${(data.payments.total_revenue || 0).toLocaleString()}원</div>
+          <div class="subtitle">${data.payments.successful_payments}건 성공</div>
+        </div>
+        <div class="stat-card">
+          <h3>최근 7일 활동</h3>
+          <div class="value">${data.recent_activity.active_users_7d}</div>
+          <div class="subtitle">${data.recent_activity.total_logs_7d}건 익명화</div>
+        </div>
+      `;
+      document.getElementById('overview-stats').innerHTML = html;
     }
 
-    // 초기화
-    initMonthFilter();
-    loadDashboard();
+    // Load Organizations
+    async function loadOrganizations() {
+      const content = document.getElementById('organizations-content');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div><p>로딩 중...</p></div>';
 
-    // 필터 변경 시 자동 리로드
-    document.getElementById('region-filter').addEventListener('change', () => {
-      loadDashboard();
+      const result = await apiCall('/organizations/usage?limit=50');
+      if (!result || !result.success) {
+        content.innerHTML = '<div class="error">기관 데이터 로드 실패</div>';
+        return;
+      }
+
+      const orgs = result.data.organizations;
+      if (orgs.length === 0) {
+        content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><p>등록된 기관이 없습니다</p></div>';
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>기관명</th>
+              <th>플랜</th>
+              <th>사용자</th>
+              <th>이번 달 사용량</th>
+              <th>사용률</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orgs.map(org => `
+              <tr>
+                <td><strong>${org.name}</strong><br><small>${org.region || '-'}</small></td>
+                <td><span class="badge info">${org.plan_type}</span></td>
+                <td>${org.approved_user_count} / ${org.user_count}</td>
+                <td>${org.used_hours.toFixed(1)}h / ${org.quota_hours}h</td>
+                <td>
+                  ${org.usage_percentage}%
+                  <div class="progress-bar">
+                    <div class="progress-fill ${org.is_quota_exceeded ? 'danger' : org.is_high_usage ? 'warning' : ''}" 
+                         style="width: ${Math.min(org.usage_percentage, 100)}%"></div>
+                  </div>
+                </td>
+                <td>
+                  ${org.subscription_status === 'active' 
+                    ? '<span class="badge success">활성</span>' 
+                    : '<span class="badge warning">비활성</span>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      content.innerHTML = html;
+    }
+
+    // Load Users
+    async function loadUsers() {
+      const content = document.getElementById('users-content');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div><p>로딩 중...</p></div>';
+
+      const result = await apiCall('/users/usage?limit=50');
+      if (!result || !result.success) {
+        content.innerHTML = '<div class="error">사용자 데이터 로드 실패</div>';
+        return;
+      }
+
+      const users = result.data.users;
+      if (users.length === 0) {
+        content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><p>등록된 사용자가 없습니다</p></div>';
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>기관</th>
+              <th>역할</th>
+              <th>크레딧 잔액</th>
+              <th>총 사용액</th>
+              <th>익명화 횟수</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(user => `
+              <tr>
+                <td>
+                  <strong>${user.name || user.oauth_nickname}</strong><br>
+                  <small>${user.email || user.oauth_provider}</small>
+                </td>
+                <td>${user.organization_name || '-'}</td>
+                <td>
+                  ${user.role === 'system_admin' 
+                    ? '<span class="badge danger">System Admin</span>' 
+                    : user.role === 'org_admin' 
+                    ? '<span class="badge warning">Org Admin</span>' 
+                    : '<span class="badge info">User</span>'}
+                </td>
+                <td>${(user.balance || 0).toLocaleString()}원</td>
+                <td>${(user.total_used || 0).toLocaleString()}원</td>
+                <td>${user.total_anonymizations || 0}회</td>
+                <td>
+                  ${user.is_approved 
+                    ? '<span class="badge success">승인</span>' 
+                    : '<span class="badge warning">대기</span>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      content.innerHTML = html;
+    }
+
+    // Load Activity
+    async function loadActivity() {
+      const content = document.getElementById('activity-content');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div><p>로딩 중...</p></div>';
+
+      const result = await apiCall('/activity-logs?days=7&limit=50');
+      if (!result || !result.success) {
+        content.innerHTML = '<div class="error">활동 로그 로드 실패</div>';
+        return;
+      }
+
+      const data = result.data;
+      const html = `
+        <h3>최근 익명화 활동 (${data.recent_anonymizations.length}건)</h3>
+        <table style="margin-bottom: 30px;">
+          <thead>
+            <tr>
+              <th>사용자</th>
+              <th>기관</th>
+              <th>파일명</th>
+              <th>처리시간</th>
+              <th>익명화 개수</th>
+              <th>시간</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.recent_anonymizations.slice(0, 20).map(log => `
+              <tr>
+                <td>${log.user_name || '-'}</td>
+                <td>${log.organization_name || '-'}</td>
+                <td>${log.file_name}</td>
+                <td>${(log.processing_time_minutes || 0).toFixed(2)}분</td>
+                <td>${log.total_anonymized || 0}개</td>
+                <td>${new Date(log.created_at).toLocaleString('ko-KR')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <h3>최근 결제 (${data.recent_payments.length}건)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>사용자</th>
+              <th>금액</th>
+              <th>결제 수단</th>
+              <th>상태</th>
+              <th>시간</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.recent_payments.slice(0, 20).map(payment => `
+              <tr>
+                <td>${payment.user_name || '-'}</td>
+                <td>${payment.amount.toLocaleString()}원</td>
+                <td>${payment.payment_method || '-'}</td>
+                <td>
+                  ${payment.status === 'success' 
+                    ? '<span class="badge success">성공</span>' 
+                    : payment.status === 'failed' 
+                    ? '<span class="badge danger">실패</span>' 
+                    : '<span class="badge warning">대기</span>'}
+                </td>
+                <td>${new Date(payment.created_at).toLocaleString('ko-KR')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      content.innerHTML = html;
+    }
+
+    // Tab Switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        // Add active class to clicked tab
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        document.getElementById(tabName).classList.add('active');
+
+        // Load data for active tab
+        if (tabName === 'organizations') {
+          loadOrganizations();
+        } else if (tabName === 'users') {
+          loadUsers();
+        } else if (tabName === 'activity') {
+          loadActivity();
+        }
+      });
     });
 
-    document.getElementById('search-filter').addEventListener('input', () => {
-      loadDashboard();
+    // Initial Load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadOverview();
+      loadOrganizations();
     });
+
+    // Auto refresh every 5 minutes
+    setInterval(() => {
+      loadOverview();
+      const activeTab = document.querySelector('.tab.active').dataset.tab;
+      if (activeTab === 'organizations') {
+        loadOrganizations();
+      } else if (activeTab === 'users') {
+        loadUsers();
+      } else if (activeTab === 'activity') {
+        loadActivity();
+      }
+    }, 300000); // 5 minutes
   </script>
 </body>
 </html>
