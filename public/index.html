@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CaseNetAI - 사회복지 업무자동화 플랫폼</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>CaseNetAI - 노인보호 업무자동화 플랫폼</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         
@@ -15,52 +14,53 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #ffffff;
             color: #0f172a;
-            line-height: 1.7;
+            line-height: 1.6;
             letter-spacing: -0.01em;
         }
 
-        /* 헤더 */
+        /* Header */
         .header {
-            background: white;
-            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-            position: sticky;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            position: fixed;
             top: 0;
-            z-index: 100;
-            border-bottom: 1px solid #e2e8f0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
         }
 
         .header-container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 0 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 80px;
+            height: 70px;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 1.65rem;
-            font-weight: 700;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 800;
             color: #1e40af;
             text-decoration: none;
             letter-spacing: -0.02em;
         }
 
         .logo-icon {
-            font-size: 2rem;
-            filter: grayscale(20%);
+            font-size: 1.8rem;
         }
 
         .header-nav {
             display: flex;
-            gap: 30px;
+            gap: 35px;
             align-items: center;
         }
 
@@ -68,23 +68,39 @@
             color: #475569;
             text-decoration: none;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: color 0.2s;
             font-size: 0.95rem;
-            letter-spacing: -0.01em;
         }
 
         .nav-link:hover {
             color: #1e40af;
         }
 
-        /* 히어로 섹션 */
+        .btn-login {
+            background: #1e40af;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-login:hover {
+            background: #1e3a8a;
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
         .hero {
             background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #0ea5e9 100%);
             color: white;
-            padding: 120px 40px;
+            padding: 150px 40px 100px;
             text-align: center;
             position: relative;
             overflow: hidden;
+            margin-top: 70px;
         }
 
         .hero::before {
@@ -95,41 +111,75 @@
             right: 0;
             bottom: 0;
             background: 
-                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
             pointer-events: none;
         }
 
         .hero-content {
-            max-width: 900px;
+            max-width: 800px;
             margin: 0 auto;
             position: relative;
             z-index: 1;
         }
 
-        .hero-title {
-            font-size: 4rem;
-            font-weight: 700;
-            line-height: 1.15;
-            margin-bottom: 28px;
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
             letter-spacing: -0.03em;
-            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            line-height: 1.2;
         }
 
-        .hero-subtitle {
-            font-size: 1.4rem;
+        .hero p {
+            font-size: 1.3rem;
             opacity: 0.95;
+            margin-bottom: 40px;
             font-weight: 400;
-            line-height: 1.7;
-            letter-spacing: -0.01em;
-            text-shadow: 0 1px 10px rgba(0, 0, 0, 0.05);
         }
 
-        /* 메인 컨텐츠 */
-        .main-container {
-            max-width: 1400px;
+        .hero-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-hero {
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05rem;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #1e40af;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Services Section */
+        .services {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 80px 40px;
+            padding: 100px 40px;
         }
 
         .section-header {
@@ -137,479 +187,394 @@
             margin-bottom: 60px;
         }
 
-        .section-title {
-            font-size: 2.75rem;
-            font-weight: 700;
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
             color: #0f172a;
-            margin-bottom: 20px;
-            letter-spacing: -0.02em;
         }
 
-        .section-description {
-            font-size: 1.2rem;
-            color: #475569;
-            letter-spacing: -0.01em;
+        .section-header p {
+            font-size: 1.15rem;
+            color: #64748b;
         }
 
-        /* 서비스 그리드 */
         .services-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-            gap: 32px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
         }
 
         .service-card {
             background: white;
+            border: 2px solid #e2e8f0;
             border-radius: 16px;
-            padding: 40px 32px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 40px 30px;
+            text-align: center;
+            transition: all 0.3s;
             cursor: pointer;
-            position: relative;
-            border: 1px solid #e2e8f0;
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
 
         .service-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(30, 64, 175, 0.12);
-            border-color: #cbd5e1;
-        }
-
-        .service-card.active {
             border-color: #3b82f6;
-            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
-        }
-
-        .service-card.active:hover {
-            border-color: #2563eb;
-            box-shadow: 0 12px 24px rgba(30, 64, 175, 0.2);
-        }
-
-        .service-card.disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-            background: #f7fafc;
-        }
-
-        .service-card.disabled:hover {
-            transform: none;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-        }
-
-        .card-badge {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            letter-spacing: -0.01em;
-        }
-
-        .badge-active {
-            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-            color: white;
-            box-shadow: 0 2px 8px rgba(30, 64, 175, 0.25);
-        }
-
-        .badge-development {
-            background: #fbbf24;
-            color: #78350f;
-            font-weight: 600;
-        }
-
-        .badge-coming {
-            background: #f1f5f9;
-            color: #64748b;
-            font-weight: 600;
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
         }
 
         .service-icon {
             font-size: 3.5rem;
             margin-bottom: 20px;
-            display: block;
         }
 
-        .service-title {
-            font-size: 1.65rem;
+        .service-card h3 {
+            font-size: 1.5rem;
             font-weight: 700;
+            margin-bottom: 12px;
             color: #0f172a;
-            margin-bottom: 16px;
-            line-height: 1.3;
-            letter-spacing: -0.02em;
         }
 
-        .service-description {
-            color: #475569;
+        .service-card p {
             font-size: 1rem;
-            line-height: 1.7;
-            margin-bottom: 24px;
-            letter-spacing: -0.01em;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 20px;
         }
 
-        .service-features {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .service-features li {
-            color: #475569;
-            font-size: 0.95rem;
-            padding: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            letter-spacing: -0.01em;
-        }
-
-        .service-features li:before {
-            content: "✓";
-            color: #3b82f6;
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .service-card.disabled .service-features li:before {
-            color: #cbd5e1;
-        }
-
-        .service-action {
-            margin-top: 28px;
-            padding: 14px 28px;
-            border-radius: 10px;
+        .service-tag {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
             font-weight: 600;
-            font-size: 1rem;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
+        }
+
+        /* Features Section */
+        .features {
+            background: #f8fafc;
+            padding: 100px 40px;
+        }
+
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .feature-item {
             text-align: center;
         }
 
-        .action-active {
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 20px;
+        }
+
+        .feature-item h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #0f172a;
+        }
+
+        .feature-item p {
+            font-size: 1rem;
+            color: #64748b;
+        }
+
+        /* CTA Section */
+        .cta {
             background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
             color: white;
-            box-shadow: 0 4px 8px rgba(30, 64, 175, 0.2);
+            padding: 80px 40px;
+            text-align: center;
         }
 
-        .action-active:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(30, 64, 175, 0.3);
-            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+        .cta-content {
+            max-width: 700px;
+            margin: 0 auto;
         }
 
-        .action-disabled {
-            background: #e2e8f0;
-            color: #a0aec0;
-            cursor: not-allowed;
+        .cta h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
         }
 
-        /* 푸터 */
+        .cta p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            margin-bottom: 35px;
+        }
+
+        /* Footer */
         .footer {
             background: #0f172a;
-            color: white;
-            padding: 60px 40px 40px;
-            margin-top: 100px;
-            border-top: 1px solid #1e293b;
+            color: #94a3b8;
+            padding: 60px 40px 30px;
         }
 
         .footer-container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
+        }
+
+        .footer-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            gap: 60px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
         }
 
-        .footer-about h3 {
-            font-size: 1.5rem;
-            margin-bottom: 16px;
+        .footer-section h4 {
+            color: white;
+            font-size: 1.1rem;
             font-weight: 700;
+            margin-bottom: 15px;
         }
 
-        .footer-about p {
-            color: #94a3b8;
-            line-height: 1.7;
-            letter-spacing: -0.01em;
+        .footer-section ul {
+            list-style: none;
         }
 
-        .footer-links h4 {
-            font-size: 1rem;
-            margin-bottom: 16px;
-            font-weight: 600;
-            color: #e2e8f0;
-            letter-spacing: -0.01em;
+        .footer-section ul li {
+            margin-bottom: 10px;
         }
 
-        .footer-links a {
-            display: block;
+        .footer-section a {
             color: #94a3b8;
             text-decoration: none;
-            margin-bottom: 10px;
             transition: color 0.2s;
-            letter-spacing: -0.01em;
         }
 
-        .footer-links a:hover {
-            color: #3b82f6;
+        .footer-section a:hover {
+            color: white;
         }
 
         .footer-bottom {
-            text-align: center;
-            margin-top: 50px;
+            border-top: 1px solid #1e293b;
             padding-top: 30px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            color: #64748b;
+            text-align: center;
             font-size: 0.9rem;
-            letter-spacing: -0.01em;
         }
 
-        /* 반응형 */
-        @media (max-width: 1024px) {
-            .services-grid {
-                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            }
-
-            .footer-container {
-                grid-template-columns: 1fr;
-                gap: 40px;
-            }
-        }
-
+        /* Responsive */
         @media (max-width: 768px) {
-            .header-container {
-                padding: 0 20px;
-                height: 70px;
+            .hero h1 {
+                font-size: 2.5rem;
             }
 
-            .logo {
-                font-size: 1.5rem;
-            }
-
-            .header-nav {
-                gap: 15px;
-            }
-
-            .nav-link {
-                font-size: 0.85rem;
-            }
-
-            .hero {
-                padding: 60px 20px;
-            }
-
-            .hero-title {
-                font-size: 2.2rem;
-            }
-
-            .hero-subtitle {
+            .hero p {
                 font-size: 1.1rem;
             }
 
-            .main-container {
-                padding: 50px 20px;
-            }
-
-            .section-title {
-                font-size: 2rem;
-            }
-
             .services-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .header-nav {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <!-- 헤더 -->
+    <!-- Header -->
     <header class="header">
         <div class="header-container">
             <a href="/" class="logo">
-                <span>CaseNetAI</span>
+                <span class="logo-icon">🏥</span>
+                CaseNetAI
             </a>
             <nav class="header-nav">
                 <a href="#services" class="nav-link">서비스</a>
-                <a href="https://wellpartners.kr" target="_blank" class="nav-link">회사소개</a>
-                <a href="#contact" class="nav-link">문의하기</a>
+                <a href="#features" class="nav-link">기능</a>
+                <a href="/dashboard.html" class="nav-link">대시보드</a>
+                <a href="/login.html" class="btn-login">로그인</a>
             </nav>
         </div>
     </header>
 
-    <!-- 히어로 섹션 -->
+    <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <h1 class="hero-title">사회복지 업무,<br>AI가 자동화합니다</h1>
-            <p class="hero-subtitle">사회복지사의 반복적 업무를 AI가 대신합니다<br>더 많은 시간을, 진짜 중요한 사람들을 위해</p>
+            <h1>노인보호 업무의<br>새로운 시작</h1>
+            <p>AI 기반 음성 분석과 자동화로 상담 업무를 혁신합니다</p>
+            <div class="hero-buttons">
+                <a href="/login.html" class="btn-hero btn-primary">무료로 시작하기</a>
+                <a href="#services" class="btn-hero btn-secondary">서비스 둘러보기</a>
+            </div>
         </div>
     </section>
 
-    <!-- 메인 컨텐츠 -->
-    <main class="main-container">
-        <div class="section-header" id="services">
-            <h2 class="section-title">지원 기관</h2>
-            <p class="section-description">업무 시간을 90% 단축시키는 혁신적인 AI 솔루션</p>
+    <!-- Services Section -->
+    <section id="services" class="services">
+        <div class="section-header">
+            <h2>AI 기반 업무 자동화 서비스</h2>
+            <p>노인보호전문기관의 업무 효율을 극대화하는 솔루션</p>
         </div>
-
         <div class="services-grid">
-            <!-- 노인보호전문기관 (활성화) -->
-            <div class="service-card active" onclick="goToService('elderly')">
-                <span class="card-badge badge-active">서비스 중</span>
-                <span class="service-icon">노인</span>
-                <h3 class="service-title">노인보호전문기관</h3>
-                <p class="service-description">노인학대 상담일지 자동 생성 및 판례 검색 서비스</p>
-                <ul class="service-features">
-                    <li>AI 기반 상담일지 자동 작성</li>
-                    <li>노인학대 판례 검색 및 분석</li>
-                    <li>업무수행지침 완벽 준수</li>
-                </ul>
-                <button class="service-action action-active">지금 시작하기 →</button>
-            </div>
+            <!-- 노인보호 상담일지 -->
+            <a href="/elderly-protection.html" class="service-card">
+                <div class="service-icon">🎙️</div>
+                <h3>노인보호 상담일지</h3>
+                <p>음성 녹음을 자동으로 텍스트 변환하고 구조화된 상담일지를 생성합니다</p>
+                <span class="service-tag">음성 → 텍스트</span>
+            </a>
 
-            <!-- 아동보호전문기관 (개발중) -->
-            <div class="service-card disabled">
-                <span class="card-badge badge-development">개발 중</span>
-                <span class="service-icon">아동</span>
-                <h3 class="service-title">아동보호전문기관</h3>
-                <p class="service-description">아동학대 상담일지 자동 생성 및 법률 자료 제공</p>
-                <ul class="service-features">
-                    <li>아동보호 상담 기록 자동화</li>
-                    <li>아동학대 관련 판례 검색</li>
-                    <li>아동복지법 기반 양식</li>
-                </ul>
-                <button class="service-action action-disabled">준비 중</button>
-            </div>
+            <!-- 문서 익명화 -->
+            <a href="/anonymization.html" class="service-card">
+                <div class="service-icon">🔒</div>
+                <h3>문서 익명화</h3>
+                <p>개인정보를 자동으로 감지하고 안전하게 익명처리합니다</p>
+                <span class="service-tag">개인정보 보호</span>
+            </a>
 
-            <!-- 장애인복지관 (오픈 예정) -->
-            <div class="service-card disabled">
-                <span class="card-badge badge-coming">오픈 예정</span>
-                <span class="service-icon">장애인</span>
-                <h3 class="service-title">장애인복지관</h3>
-                <p class="service-description">장애인 상담 기록 자동화 및 개별지원계획 지원</p>
-                <ul class="service-features">
-                    <li>장애인 상담 기록 자동화</li>
-                    <li>개별지원계획 수립 지원</li>
-                    <li>장애인복지법 관련 자료</li>
-                </ul>
-                <button class="service-action action-disabled">준비 중</button>
-            </div>
+            <!-- 분석 대시보드 -->
+            <a href="/analytics-dashboard.html" class="service-card">
+                <div class="service-icon">📊</div>
+                <h3>분석 대시보드</h3>
+                <p>상담 데이터를 시각화하고 인사이트를 제공합니다</p>
+                <span class="service-tag">데이터 분석</span>
+            </a>
+        </div>
+    </section>
 
-            <!-- 가정폭력상담소 (오픈 예정) -->
-            <div class="service-card disabled">
-                <span class="card-badge badge-coming">오픈 예정</span>
-                <span class="service-icon">가정</span>
-                <h3 class="service-title">가정폭력상담소</h3>
-                <p class="service-description">가정폭력 피해자 상담 기록 및 법률 지원 자료</p>
-                <ul class="service-features">
-                    <li>피해자 상담 기록 자동화</li>
-                    <li>법률 지원 자료 제공</li>
-                    <li>피해자 보호 프로세스</li>
-                </ul>
-                <button class="service-action action-disabled">준비 중</button>
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="features-container">
+            <div class="section-header">
+                <h2>왜 CaseNetAI인가?</h2>
+                <p>업무 효율성을 높이는 강력한 기능들</p>
             </div>
-
-            <!-- 성폭력상담소 (오픈 예정) -->
-            <div class="service-card disabled">
-                <span class="card-badge badge-coming">오픈 예정</span>
-                <span class="service-icon">성폭력</span>
-                <h3 class="service-title">성폭력상담소</h3>
-                <p class="service-description">성폭력 피해자 상담 지원 및 법률 상담 자료</p>
-                <ul class="service-features">
-                    <li>피해자 상담 지원 시스템</li>
-                    <li>법률 상담 자료 제공</li>
-                    <li>피해자 권리 안내</li>
-                </ul>
-                <button class="service-action action-disabled">준비 중</button>
-            </div>
-
-            <!-- 정신건강복지센터 (오픈 예정) -->
-            <div class="service-card disabled">
-                <span class="card-badge badge-coming">오픈 예정</span>
-                <span class="service-icon">정신</span>
-                <h3 class="service-title">정신건강복지센터</h3>
-                <p class="service-description">정신건강 상담 기록 자동화 및 사례관리 지원</p>
-                <ul class="service-features">
-                    <li>정신건강 상담 기록 자동화</li>
-                    <li>사례관리 지원 시스템</li>
-                    <li>정신건강복지법 기반</li>
-                </ul>
-                <button class="service-action action-disabled">준비 중</button>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">⚡</div>
+                    <h3>빠른 처리</h3>
+                    <p>1시간 분량의 상담을 5분 만에 분석하고 문서화합니다</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <h3>정확한 분석</h3>
+                    <p>최신 AI 모델로 95% 이상의 정확도를 보장합니다</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔐</div>
+                    <h3>안전한 보안</h3>
+                    <p>개인정보 보호법을 준수하는 엔터프라이즈급 보안</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">💰</div>
+                    <h3>합리적인 가격</h3>
+                    <p>종량제 과금으로 필요한 만큼만 사용하세요</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🚀</div>
+                    <h3>쉬운 사용</h3>
+                    <p>별도의 교육 없이 누구나 바로 사용할 수 있습니다</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <h3>언제 어디서나</h3>
+                    <p>웹 기반으로 PC, 태블릿, 모바일 모두 지원합니다</p>
+                </div>
             </div>
         </div>
-    </main>
+    </section>
 
-    <!-- 푸터 -->
-    <footer class="footer" id="contact">
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="cta-content">
+            <h2>지금 바로 시작하세요</h2>
+            <p>무료 체험 3회를 제공합니다. 카드 등록 없이 바로 사용 가능합니다.</p>
+            <a href="/login.html" class="btn-hero btn-primary">무료로 시작하기 →</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
         <div class="footer-container">
-            <div class="footer-about">
-                <h3>CaseNetAI</h3>
-                <p>
-                    AI 기술로 사회복지 업무를 혁신합니다.<br>
-                    문서 작성부터 개인정보 보호까지,<br>
-                    사회복지사가 정말 중요한 일에 집중할 수 있도록 돕습니다.
-                </p>
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h4>CaseNetAI</h4>
+                    <p>노인보호전문기관을 위한<br>AI 업무자동화 플랫폼</p>
+                </div>
+                <div class="footer-section">
+                    <h4>서비스</h4>
+                    <ul>
+                        <li><a href="/elderly-protection.html">노인보호 상담일지</a></li>
+                        <li><a href="/anonymization.html">문서 익명화</a></li>
+                        <li><a href="/analytics-dashboard.html">분석 대시보드</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>지원</h4>
+                    <ul>
+                        <li><a href="/dashboard.html">대시보드</a></li>
+                        <li><a href="/payment.html">가격 정책</a></li>
+                        <li><a href="mailto:support@casenetai.com">고객 지원</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>법적 고지</h4>
+                    <ul>
+                        <li><a href="#">이용약관</a></li>
+                        <li><a href="#">개인정보처리방침</a></li>
+                        <li><a href="#">보안정책</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="footer-links">
-                <h4>서비스</h4>
-                <a href="/elderly-protection.html">노인보호전문기관</a>
-                <a href="#">아동보호전문기관</a>
-                <a href="#">장애인복지관</a>
+            <div class="footer-bottom">
+                <p>&copy; 2025 CaseNetAI. All rights reserved.</p>
             </div>
-            <div class="footer-links">
-                <h4>회사</h4>
-                <a href="https://wellpartners.kr" target="_blank">웰파트너스</a>
-                <a href="#">이용약관</a>
-                <a href="#">개인정보처리방침</a>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>© 2025 WellPartners. All rights reserved.</p>
         </div>
     </footer>
 
     <script>
-        function goToService(serviceType) {
-            // 로그인 여부 확인
-            const token = localStorage.getItem('token');
-            
-            if (serviceType === 'elderly') {
-                if (token) {
-                    // 이미 로그인한 경우 서비스로 바로 이동
-                    window.location.href = '/elderly-protection.html';
-                } else {
-                    // 로그인 안 한 경우 로그인 페이지로
-                    window.location.href = '/login.html?service=elderly_protection';
-                }
-            } else {
-                // 다른 서비스는 아직 비활성화
-                return false;
-            }
-        }
-
-        // 비활성화된 카드 클릭 방지
-        document.addEventListener('DOMContentLoaded', function() {
-            const disabledCards = document.querySelectorAll('.service-card.disabled');
-            disabledCards.forEach(card => {
-                card.addEventListener('click', function(e) {
-                    e.preventDefault();
-                });
-            });
-        });
-
-        // 부드러운 스크롤
+        // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
+                    const headerOffset = 80;
+                    const elementPosition = target.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
                     });
                 }
             });
         });
+
+        // Check login status
+        const token = localStorage.getItem('token');
+        if (token) {
+            const loginBtn = document.querySelector('.btn-login');
+            if (loginBtn) {
+                loginBtn.textContent = '대시보드';
+                loginBtn.href = '/dashboard.html';
+            }
+        }
     </script>
 </body>
 </html>
