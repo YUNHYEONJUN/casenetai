@@ -18,15 +18,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 인증 & 결제 & 관리자 라우터
+// 인증 & 결제 & 관리자 & 피드백 & 분석 라우터
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const authRouter = require('./routes/auth');
 const paymentRouter = require('./routes/payment');
 const adminRouter = require('./routes/admin');
+const feedbackRouter = require('./routes/feedback');
+const analyticsRouter = require('./routes/analytics');
 
 app.use('/api/auth', authRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/feedback', feedbackRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({
