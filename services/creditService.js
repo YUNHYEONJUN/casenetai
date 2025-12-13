@@ -17,14 +17,14 @@ class CreditService {
     try {
       const credit = await db.get(
         `SELECT balance, free_trial_count, total_purchased, total_used, total_bonus
-         FROM credits WHERE user_id = ?`,
+         FROM credits WHERE user_id = $1`,
         [userId]
       );
       
       if (!credit) {
         // 크레딧 레코드가 없으면 생성
         await db.run(
-          'INSERT INTO credits (user_id, balance, free_trial_count) VALUES (?, 0, 3)',
+          'INSERT INTO credits (user_id, balance, free_trial_count) VALUES ($1, 0, 3)',
           [userId]
         );
         
@@ -63,7 +63,7 @@ class CreditService {
       try {
         // 현재 잔액 조회
         const credit = await db.get(
-          'SELECT balance FROM credits WHERE user_id = ?',
+          'SELECT balance FROM credits WHERE user_id = $1',
           [userId]
         );
         
@@ -77,18 +77,18 @@ class CreditService {
         // 크레딧 업데이트
         await db.run(
           `UPDATE credits 
-           SET balance = ?,
-               total_purchased = total_purchased + ?,
-               total_bonus = total_bonus + ?,
+           SET balance = $1,
+               total_purchased = total_purchased + $2,
+               total_bonus = total_bonus + $3,
                updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = ?`,
+           WHERE user_id = $4`,
           [newBalance, amount, bonusAmount, userId]
         );
         
         // 충전 거래 기록
         await db.run(
           `INSERT INTO transactions (user_id, type, amount, balance_after, description, order_id, payment_id)
-           VALUES (?, 'purchase', ?, ?, ?, ?, ?)`,
+           VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
           [userId, amount, newBalance, `크레딧 충전 ${amount.toLocaleString()}원`, orderId, paymentKey]
         );
         
@@ -96,7 +96,7 @@ class CreditService {
         if (bonusAmount > 0) {
           await db.run(
             `INSERT INTO transactions (user_id, type, amount, balance_after, description, order_id)
-             VALUES (?, 'bonus', ?, ?, ?, ?)`,
+             VALUES ($1, 'bonus', $2, $3, $4, $5)`,
             [userId, bonusAmount, newBalance, `보너스 크레딧 ${bonusAmount.toLocaleString()}원`, orderId]
           );
         }
@@ -136,7 +136,7 @@ class CreditService {
       try {
         // 사용자 정보 조회 (기관 여부 확인)
         const user = await db.get(
-          'SELECT organization_id FROM users WHERE id = ?',
+          'SELECT organization_id FROM users WHERE id = $1',
           [userId]
         );
         
@@ -147,7 +147,7 @@ class CreditService {
         // 기관 사용자인 경우: 기관 구독 확인
         if (user.organization_id) {
           const org = await db.get(
-            'SELECT subscription_status FROM organizations WHERE id = ?',
+            'SELECT subscription_status FROM organizations WHERE id = $1',
             [user.organization_id]
           );
           
@@ -167,7 +167,7 @@ class CreditService {
         
         // 개인 사용자: 크레딧 확인 및 차감
         const credit = await db.get(
-          'SELECT balance, free_trial_count FROM credits WHERE user_id = ?',
+          'SELECT balance, free_trial_count FROM credits WHERE user_id = $1',
           [userId]
         );
         
@@ -183,13 +183,13 @@ class CreditService {
              SET free_trial_count = free_trial_count - 1,
                  free_trial_used = free_trial_used + 1,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE user_id = ?`,
+             WHERE user_id = $1`,
             [userId]
           );
           
           await db.run(
             `INSERT INTO transactions (user_id, type, amount, balance_after, description, audio_duration_minutes)
-             VALUES (?, 'free_trial', 0, ?, ?, ?)`,
+             VALUES ($1, 'free_trial', 0, $2, $3, $4)`,
             [userId, credit.balance, `무료 체험 사용 (${audioLength.toFixed(1)}분)`, audioLength]
           );
           
@@ -214,10 +214,10 @@ class CreditService {
         // UPDATE ... WHERE 조건에 잔액 체크를 포함하여 원자성 보장
         const result = await db.run(
           `UPDATE credits 
-           SET balance = balance - ?,
-               total_used = total_used + ?,
+           SET balance = balance - $1,
+               total_used = total_used + $2,
                updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = ? AND balance >= ?`,
+           WHERE user_id = $3 AND balance >= $4`,
           [cost, cost, userId, cost]
         );
         
@@ -228,14 +228,14 @@ class CreditService {
         
         // 업데이트 후 잔액 조회
         const updatedCredit = await db.get(
-          'SELECT balance FROM credits WHERE user_id = ?',
+          'SELECT balance FROM credits WHERE user_id = $1',
           [userId]
         );
         const newBalance = updatedCredit.balance;
         
         await db.run(
           `INSERT INTO transactions (user_id, type, amount, balance_after, description, audio_duration_minutes)
-           VALUES (?, 'usage', ?, ?, ?, ?)`,
+           VALUES ($1, 'usage', $2, $3, $4, $5)`,
           [userId, -cost, newBalance, `음성 파일 처리 (${audioLength.toFixed(1)}분)`, audioLength]
         );
         
@@ -274,8 +274,8 @@ class CreditService {
     await db.run(
       `INSERT INTO usage_logs 
        (user_id, consultation_type, audio_duration_seconds, stt_provider, stt_cost, ai_provider, ai_cost, total_cost, is_free_trial)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, consultationType, audioLength * 60, sttProvider, sttCost, aiProvider, aiCost, cost, isFree ? 1 : 0]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [userId, consultationType, audioLength * 60, sttProvider, sttCost, aiProvider, aiCost, cost, isFree]
     );
   }
   
@@ -289,14 +289,14 @@ class CreditService {
       const transactions = await db.query(
         `SELECT id, type, amount, balance_after, description, audio_duration_minutes, created_at
          FROM transactions
-         WHERE user_id = ?
+         WHERE user_id = $1
          ORDER BY created_at DESC
-         LIMIT ? OFFSET ?`,
+         LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
       );
       
       const total = await db.get(
-        'SELECT COUNT(*) as count FROM transactions WHERE user_id = ?',
+        'SELECT COUNT(*) as count FROM transactions WHERE user_id = $1',
         [userId]
       );
       
@@ -327,9 +327,9 @@ class CreditService {
            COUNT(*) as total_count,
            SUM(audio_duration_seconds) / 60.0 as total_minutes,
            SUM(total_cost) as total_cost,
-           SUM(CASE WHEN is_free_trial = 1 THEN 1 ELSE 0 END) as free_trial_used
+           SUM(CASE WHEN is_free_trial = true THEN 1 ELSE 0 END) as free_trial_used
          FROM usage_logs
-         WHERE user_id = ?`,
+         WHERE user_id = $1`,
         [userId]
       );
       
@@ -340,7 +340,7 @@ class CreditService {
            SUM(audio_duration_seconds) / 60.0 as minutes,
            SUM(total_cost) as cost
          FROM usage_logs
-         WHERE user_id = ? AND date(created_at) >= date('now', 'start of month')`,
+         WHERE user_id = $1 AND DATE(created_at) >= DATE_TRUNC('month', CURRENT_DATE)`,
         [userId]
       );
       
@@ -348,7 +348,7 @@ class CreditService {
       const recentUsage = await db.query(
         `SELECT consultation_type, audio_duration_seconds, total_cost, is_free_trial, created_at
          FROM usage_logs
-         WHERE user_id = ?
+         WHERE user_id = $1
          ORDER BY created_at DESC
          LIMIT 10`,
         [userId]

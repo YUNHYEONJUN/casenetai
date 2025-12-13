@@ -326,13 +326,14 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
       return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
     }
 
-    const { consultationType, sttEngine } = req.body;
+    const { consultationType, consultationStage, sttEngine } = req.body;
     const audioFilePath = req.file.path;
     const selectedEngine = sttEngine || 'openai'; // 기본값: openai
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📁 파일 업로드 완료:', req.file.filename);
     console.log('📋 상담 유형:', consultationType);
+    console.log('📋 상담 단계:', consultationStage || '미지정');
     console.log('🎙️  STT 엔진:', selectedEngine === 'clova' ? '네이버 클로바' : 'OpenAI Whisper');
     console.log('📂 파일 경로:', audioFilePath);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -384,7 +385,7 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         }
         
         // 음성 파일 처리 (STT + AI 분석) - 워터폴 폴백 자동 적용
-        report = await aiService.processAudioToCounselingReport(audioFilePath, consultationType);
+        report = await aiService.processAudioToCounselingReport(audioFilePath, consultationType, consultationStage);
         
         const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
         

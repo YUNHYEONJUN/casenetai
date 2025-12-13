@@ -69,17 +69,17 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
       if (organizationId) {
-        sql += ` AND organization_id = ?`;
+        sql += ` AND organization_id = $1`;
         params.push(organizationId);
       }
 
@@ -117,17 +117,17 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
       if (organizationId) {
-        sql += ` AND organization_id = ?`;
+        sql += ` AND organization_id = $1`;
         params.push(organizationId);
       }
 
@@ -146,9 +146,9 @@ class AnalyticsService {
               SUM(facilities_detected) as total_facilities
             FROM anonymization_logs
             WHERE status = 'completed'
-            ${startDate ? 'AND DATE(created_at) >= ?' : ''}
-            ${endDate ? 'AND DATE(created_at) <= ?' : ''}
-            ${organizationId ? 'AND organization_id = ?' : ''}
+            ${startDate ? 'AND DATE(created_at) >= $1' : ''}
+            ${endDate ? 'AND DATE(created_at) <= $1' : ''}
+            ${organizationId ? 'AND organization_id = $1' : ''}
           `;
 
           const totalParams = [];
@@ -194,17 +194,17 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
       if (organizationId) {
-        sql += ` AND organization_id = ?`;
+        sql += ` AND organization_id = $1`;
         params.push(organizationId);
       }
 
@@ -240,17 +240,17 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
       if (method) {
-        sql += ` AND anonymization_method = ?`;
+        sql += ` AND anonymization_method = $1`;
         params.push(method);
       }
 
@@ -291,12 +291,12 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
@@ -348,12 +348,12 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
@@ -399,12 +399,12 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND (l.created_at IS NULL OR DATE(l.created_at) >= ?)`;
+        sql += ` AND (l.created_at IS NULL OR DATE(l.created_at) >= $1)`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND (l.created_at IS NULL OR DATE(l.created_at) <= ?)`;
+        sql += ` AND (l.created_at IS NULL OR DATE(l.created_at) <= $1)`;
         params.push(endDate);
       }
 
@@ -447,12 +447,12 @@ class AnalyticsService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 

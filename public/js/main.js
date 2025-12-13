@@ -1,5 +1,6 @@
 // DOM 요소
 const consultationTypeSelect = document.getElementById('consultationType');
+const consultationStageSelect = document.getElementById('consultationStage');
 const audioFileInput = document.getElementById('audioFile');
 const fileNameDisplay = document.getElementById('fileName');
 const uploadBtn = document.getElementById('uploadBtn');
@@ -84,12 +85,14 @@ fileLabel.addEventListener('drop', function(e) {
 
 // 상담 유형 선택 이벤트
 consultationTypeSelect.addEventListener('change', checkFormValid);
+consultationStageSelect.addEventListener('change', checkFormValid);
 
 // 폼 유효성 검사
 function checkFormValid() {
     const hasType = consultationTypeSelect.value !== '';
+    const hasStage = consultationStageSelect.value !== '';
     const hasFile = selectedFile !== null;
-    const isValid = hasType && hasFile;
+    const isValid = hasType && hasStage && hasFile;
     
     uploadBtn.disabled = !isValid;
     
@@ -97,7 +100,7 @@ function checkFormValid() {
     const statusMessage = document.getElementById('statusMessage');
     if (!isValid) {
         statusMessage.style.display = 'block';
-        if (!hasType && !hasFile) {
+        if (!hasType && !hasStage && !hasFile) {
             statusMessage.innerHTML = '<strong>⚠️ 버튼을 활성화하려면:</strong><br>1️⃣ 상담 유형을 선택하세요<br>2️⃣ 음성 파일을 업로드하세요';
         } else if (!hasType) {
             statusMessage.innerHTML = '<strong>⚠️ 상담 유형을 선택해주세요</strong>';
@@ -208,17 +211,26 @@ async function analyzeCost(file) {
 
 // 업로드 버튼 클릭
 uploadBtn.addEventListener('click', async function() {
-    if (!selectedFile || !consultationTypeSelect.value) {
-        alert('상담 유형을 선택하고 파일을 업로드해주세요.');
+    if (!selectedFile || !consultationTypeSelect.value || !consultationStageSelect.value) {
+        alert('상담 방식, 상담 단계를 선택하고 파일을 업로드해주세요.');
         return;
     }
+    
+    // 상담 단계 한글 변환
+    const stageText = {
+        'intake': '접수상담',
+        'ongoing': '진행상담',
+        'closure': '종결상담',
+        'simple': '단순문의'
+    };
     
     // 사용자 확인 - 비용 정보와 함께 확인
     if (costEstimate) {
         const confirmMessage = `처리 정보 확인\n\n` +
             `파일: ${selectedFile.name}\n` +
             `크기: ${formatFileSize(selectedFile.size)}\n` +
-            `길이: ${costEstimate.duration.formatted}\n\n` +
+            `길이: ${costEstimate.duration.formatted}\n` +
+            `상담 단계: ${stageText[consultationStageSelect.value] || consultationStageSelect.value}\n\n` +
             `예상 비용: ${costEstimate.costEstimate.total.best}~${costEstimate.costEstimate.total.worst}원\n\n` +
             `• 음성 인식 (STT): 약 ${costEstimate.costEstimate.stt.whisper.costKRW}원\n` +
             `• AI 분석: 무료 ~ 12원\n\n` +
@@ -230,7 +242,7 @@ uploadBtn.addEventListener('click', async function() {
         }
     } else {
         // 비용 정보가 없는 경우 기본 확인
-        if (!confirm(`파일 "${selectedFile.name}"을 처리하시겠습니까?`)) {
+        if (!confirm(`파일 "${selectedFile.name}"을 처리하시겠습니까?\n상담 단계: ${stageText[consultationStageSelect.value]}`)) {
             return;
         }
     }
@@ -245,11 +257,13 @@ uploadBtn.addEventListener('click', async function() {
         const formData = new FormData();
         formData.append('audioFile', selectedFile);
         formData.append('consultationType', consultationTypeSelect.value);
+        formData.append('consultationStage', consultationStageSelect.value); // 상담 단계 추가
         
         // STT 엔진 - 네이버 클로바로 고정
         formData.append('sttEngine', 'clova');
         
         console.log('🎙️ STT 엔진: 네이버 클로바 (노인 음성 특화)');
+        console.log('📋 상담 단계:', consultationStageSelect.value);
 
         // 파일 크기에 따른 예상 처리 시간 계산
         const fileSizeMB = selectedFile.size / 1024 / 1024;

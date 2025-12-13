@@ -23,7 +23,7 @@ class AuthService {
     try {
       // 이메일 중복 체크
       const existingUser = await db.get(
-        'SELECT id FROM users WHERE email = ?',
+        'SELECT id FROM users WHERE oauth_email = $1',
         [email]
       );
       
@@ -34,40 +34,34 @@ class AuthService {
       // 비밀번호 해시
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
       
-      // 트랜잭션 시작
-      await db.beginTransaction();
-      
-      try {
+      // 트랜잭션으로 사용자 생성 및 크레딧 초기화
+      const result = await db.transaction(async (client) => {
         // 사용자 생성
-        const result = await db.run(
-          `INSERT INTO users (email, password_hash, name, phone, organization_id, service_type)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [email, passwordHash, name, phone, organizationId, serviceType]
+        const userResult = await client.query(
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now()]
         );
         
-        const userId = result.lastID;
+        const userId = userResult.rows[0].id;
         
         // 크레딧 초기화 (무료 체험 3회)
-        await db.run(
+        await client.query(
           `INSERT INTO credits (user_id, balance, free_trial_count)
-           VALUES (?, 0, 3)`,
+           VALUES ($1, 0, 3)`,
           [userId]
         );
         
-        await db.commit();
-        
-        console.log('✅ 회원가입 성공:', email);
-        
-        return {
-          success: true,
-          userId: userId,
-          message: '회원가입이 완료되었습니다'
-        };
-        
-      } catch (err) {
-        await db.rollback();
-        throw err;
-      }
+        return userId;
+      });
+      
+      console.log('✅ 회원가입 성공:', email);
+      
+      return {
+        success: true,
+        userId: result,
+        message: '회원가입이 완료되었습니다'
+      };
       
     } catch (error) {
       console.error('❌ 회원가입 실패:', error.message);
@@ -84,8 +78,8 @@ class AuthService {
     try {
       // 사용자 조회
       const user = await db.get(
-        `SELECT id, email, password_hash, name, role, organization_id, service_type
-         FROM users WHERE email = ?`,
+        `SELECT id, oauth_email as email, name, role, organization_id, service_type
+         FROM users WHERE oauth_email = $1`,
         [email]
       );
       
@@ -124,19 +118,19 @@ class AuthService {
       
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [user.id, token, refreshToken, ipAddress, userAgent, expiresAt.toISOString()]
       );
       
       // 마지막 로그인 시간 업데이트
       await db.run(
-        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
         [user.id]
       );
       
       // 크레딧 정보 조회
       const credit = await db.get(
-        'SELECT balance, free_trial_count FROM credits WHERE user_id = ?',
+        'SELECT balance, free_trial_count FROM credits WHERE user_id = $1',
         [user.id]
       );
       
@@ -196,7 +190,7 @@ class AuthService {
       
       // 세션 확인
       const session = await db.get(
-        'SELECT user_id FROM sessions WHERE refresh_token = ? AND expires_at > CURRENT_TIMESTAMP',
+        'SELECT user_id FROM sessions WHERE refresh_token = $1 AND expires_at > CURRENT_TIMESTAMP',
         [refreshToken]
       );
       
@@ -206,7 +200,7 @@ class AuthService {
       
       // 사용자 정보 조회
       const user = await db.get(
-        'SELECT id, email, role FROM users WHERE id = ?',
+        'SELECT id, oauth_email as email, role FROM users WHERE id = $1',
         [decoded.userId]
       );
       
@@ -227,7 +221,7 @@ class AuthService {
       
       // 세션 업데이트
       await db.run(
-        'UPDATE sessions SET token = ? WHERE refresh_token = ?',
+        'UPDATE sessions SET token = $1 WHERE refresh_token = $2',
         [newToken, refreshToken]
       );
       
@@ -250,7 +244,7 @@ class AuthService {
     
     try {
       await db.run(
-        'DELETE FROM sessions WHERE token = ?',
+        'DELETE FROM sessions WHERE token = $1',
         [token]
       );
       
@@ -273,11 +267,11 @@ class AuthService {
     
     try {
       const user = await db.get(
-        `SELECT u.id, u.email, u.name, u.phone, u.role, u.organization_id, u.created_at,
+        `SELECT u.id, u.oauth_email as email, u.name, u.phone, u.role, u.organization_id, u.created_at,
                 c.balance, c.free_trial_count, c.total_purchased, c.total_used
          FROM users u
          LEFT JOIN credits c ON u.id = c.user_id
-         WHERE u.id = ?`,
+         WHERE u.id = $1`,
         [userId]
       );
       
@@ -289,7 +283,7 @@ class AuthService {
       let organization = null;
       if (user.organization_id) {
         organization = await db.get(
-          'SELECT id, name, plan_type, subscription_status FROM organizations WHERE id = ?',
+          'SELECT id, name, plan_type, subscription_status FROM organizations WHERE id = $1',
           [user.organization_id]
         );
       }

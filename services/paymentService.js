@@ -87,7 +87,7 @@ class PaymentService {
     try {
       // 결제 정보 조회
       const payment = await db.get(
-        'SELECT user_id, amount, bonus_amount, total_credit, status FROM payments WHERE order_id = ?',
+        'SELECT user_id, amount, bonus_amount, total_credit, status FROM payments WHERE order_id = $1',
         [orderId]
       );
       
@@ -196,7 +196,7 @@ class PaymentService {
         
         // 결제 실패로 업데이트
         await db.run(
-          "UPDATE payments SET status = 'failed' WHERE order_id = ?",
+          "UPDATE payments SET status = 'failed' WHERE order_id = $1",
           [orderId]
         );
         
@@ -246,7 +246,7 @@ class PaymentService {
     try {
       // 결제 정보 조회
       const payment = await db.get(
-        'SELECT payment_key, amount, status FROM payments WHERE order_id = ?',
+        'SELECT payment_key, amount, status FROM payments WHERE order_id = $1',
         [orderId]
       );
       
@@ -292,7 +292,7 @@ class PaymentService {
       
       // 결제 상태 업데이트
       await db.run(
-        "UPDATE payments SET status = 'cancelled', pg_response = ? WHERE order_id = ?",
+        "UPDATE payments SET status = 'cancelled', pg_response = $1 WHERE order_id = $2",
         [JSON.stringify(tossResponse.data), orderId]
       );
       
@@ -326,7 +326,7 @@ class PaymentService {
       );
       
       const total = await db.get(
-        'SELECT COUNT(*) as count FROM payments WHERE user_id = ?',
+        'SELECT COUNT(*) as count FROM payments WHERE user_id = $1',
         [userId]
       );
       

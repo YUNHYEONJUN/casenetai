@@ -23,11 +23,11 @@ router.get('/organizations', async (req, res) => {
     const { search, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
     
-    let where = ['status = ?'];
+    let where = ['status = $1'];
     let params = ['active'];
     
     if (search) {
-      where.push('name LIKE ?');
+      where.push('name LIKE $1');
       params.push(`%${search}%`);
     }
     
@@ -100,7 +100,7 @@ router.post('/', async (req, res) => {
     
     // 기관 존재 확인
     const organization = await db.get(
-      'SELECT * FROM organizations WHERE id = ? AND status = ?',
+      'SELECT * FROM organizations WHERE id = $1 AND status = $2',
       [organization_id, 'active']
     );
     
@@ -191,7 +191,7 @@ router.delete('/:id', async (req, res) => {
   
   try {
     const request = await db.get(
-      'SELECT * FROM organization_join_requests WHERE id = ?',
+      'SELECT * FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
     
@@ -219,7 +219,7 @@ router.delete('/:id', async (req, res) => {
     }
     
     await db.run(
-      'DELETE FROM organization_join_requests WHERE id = ?',
+      'DELETE FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
     

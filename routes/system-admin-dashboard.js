@@ -33,8 +33,8 @@ router.get('/overview', authenticateToken, requireSystemAdmin, async (req, res) 
         SUM(CASE WHEN role = 'system_admin' THEN 1 ELSE 0 END) as system_admins,
         SUM(CASE WHEN role = 'org_admin' THEN 1 ELSE 0 END) as org_admins,
         SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as regular_users,
-        SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as approved_users,
-        SUM(CASE WHEN is_approved = 0 THEN 1 ELSE 0 END) as pending_users
+        SUM(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as approved_users,
+        SUM(CASE WHEN is_approved = false THEN 1 ELSE 0 END) as pending_users
       FROM users
       WHERE deleted_at IS NULL
     `);
@@ -83,7 +83,7 @@ router.get('/overview', authenticateToken, requireSystemAdmin, async (req, res) 
         COUNT(DISTINCT user_id) as active_users_7d,
         COUNT(*) as total_logs_7d
       FROM anonymization_logs
-      WHERE created_at >= datetime('now', '-7 days')
+      WHERE created_at >= CURRENT_TIMESTAMP + INTERVAL '-7 days'
     `);
     
     res.json({
@@ -183,7 +183,7 @@ router.get('/organizations/usage', authenticateToken, requireSystemAdmin, async 
         COALESCE(q.request_count, 0) as request_count,
         q.last_used_at,
         (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND deleted_at IS NULL) as user_count,
-        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_approved = 1 AND deleted_at IS NULL) as approved_user_count,
+        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_approved = true AND deleted_at IS NULL) as approved_user_count,
         (SELECT COUNT(*) FROM anonymization_logs WHERE organization_id = o.id) as total_anonymizations
       FROM organizations o
       LEFT JOIN organization_usage_quotas q ON o.id = q.organization_id 
@@ -385,17 +385,17 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
     let params = [];
     
     if (organization_id) {
-      whereConditions.push('u.organization_id = ?');
+      whereConditions.push('u.organization_id = $1');
       params.push(parseInt(organization_id));
     }
     
     if (role) {
-      whereConditions.push('u.role = ?');
+      whereConditions.push('u.role = $1');
       params.push(role);
     }
     
     if (search) {
-      whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.oauth_nickname LIKE ?)');
+      whereConditions.push('(u.name LIKE $1 OR u.email LIKE $2 OR u.oauth_nickname LIKE $3)');
       const searchPattern = `%${search}%`;
       params.push(searchPattern, searchPattern, searchPattern);
     }

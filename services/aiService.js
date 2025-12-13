@@ -470,13 +470,22 @@ async function callAIWithFallback(systemPrompt, userPrompt, jsonMode = false) {
  * 1단계: 구조화된 필드 생성 (상담내용정리 제외)
  * @param {string} transcript - 상담 내용 텍스트
  * @param {string} consultationType - 상담 유형 (phone/visit/office)
+ * @param {string} consultationStage - 상담 단계 (intake/ongoing/closure/simple)
  * @returns {Promise<Object>} - 구조화된 데이터 (상담내용정리 제외)
  */
-async function generateStructuredFields(transcript, consultationType) {
+async function generateStructuredFields(transcript, consultationType, consultationStage = 'intake') {
   try {
-    console.log(`[AI 분석 1단계] 구조화된 필드 생성 시작`);
+    console.log(`[AI 분석 1단계] 구조화된 필드 생성 시작 (상담 단계: ${consultationStage})`);
     
-    const systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+    // 상담 단계별 시스템 프롬프트 구성
+    let systemPrompt = '';
+    let jsonFormat = '';
+    
+    // 상담 단계에 따라 다른 프롬프트 및 JSON 형식 사용
+    if (consultationStage === 'intake') {
+      // 접수상담: 모든 정보 수집
+      systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+이것은 **접수상담**입니다. 모든 초기 정보를 최대한 상세히 수집해야 합니다.
 상담 녹취록을 분석하여 "노인보호 상담일지 기록 매뉴얼"에 따라 정확하고 상세한 정보를 추출해야 합니다.
 
 【 핵심 원칙 】
@@ -488,10 +497,9 @@ async function generateStructuredFields(transcript, consultationType) {
 【 문체 규칙 】
 ✍️ 모든 서술은 간결체로 작성:
 - "~합니다" ❌ → "~함" ✅
-- "~입니다" ❌ → "~임" ✅
+- "~입니다" ❌ → "~임" ✅`;
 
-다음 JSON 형식으로 응답하세요:
-{
+      jsonFormat = `{
   "상담요약": "전체 상담 내용을 3-5문장으로 핵심만 요약. 간결체 사용",
   "신고자정보": {
     "신고자명": "녹취록에서 확인된 이름",
@@ -559,6 +567,222 @@ async function generateStructuredFields(transcript, consultationType) {
   "상담원의견": "상담원 종합 의견 (3-4문장)",
   "특이사항": "특이사항"
 }`;
+    } else if (consultationStage === 'ongoing') {
+      // 진행상담: 새로운 내용과 변화된 정보만 기록
+      systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+이것은 **진행상담**입니다. 기존 사례에 대한 추가 상담이므로, **새롭게 확인된 사항과 변화된 내용**만 기록합니다.
+이미 알고 있는 기본 정보(이름, 주소 등)는 제외하고, 새로운 사건, 추가 진술, 상태 변화만 집중적으로 기록하세요.
+
+【 핵심 원칙 】
+1. ✅ **새로운 내용만 기록**: 기존에 이미 알고 있는 정보는 제외
+2. ✅ **변화된 사항 중심**: 건강상태 악화, 새로운 학대 사건, 상황 변화 등
+3. ✅ 녹취록에서 명시적으로 언급된 **추가 정보**만 작성
+4. ✅ 정보가 없으면 "미입력" 또는 "변동사항 없음"으로 표시
+
+【 문체 규칙 】
+✍️ 모든 서술은 간결체로 작성:
+- "~합니다" ❌ → "~함" ✅
+- "~입니다" ❌ → "~임" ✅`;
+
+      jsonFormat = `{
+  "상담요약": "이번 상담의 핵심 내용 (새로운 사항 중심, 2-3문장)",
+  "새로운정보": {
+    "추가학대내용": "새롭게 발견된 학대 행위 또는 '변동사항 없음'",
+    "건강상태변화": "피해노인의 건강 상태 변화 또는 '변동사항 없음'",
+    "생활상황변화": "생활 환경, 거주지, 돌봄 상황 변화 또는 '변동사항 없음'",
+    "행위자동향": "행위자의 최근 행동, 연락 시도 등 또는 '변동사항 없음'"
+  },
+  "진행사항": {
+    "이전조치결과": "지난 상담 이후 실행된 조치의 결과",
+    "서비스제공현황": "현재 제공 중인 서비스 현황",
+    "연계기관활동": "연계 기관의 개입 활동"
+  },
+  "현재상태": {
+    "신체상태": "현재 신체 상태 (변화 위주)",
+    "정서상태": "현재 정서 상태 (변화 위주)",
+    "위험도": "현재 위험도 평가 (낮음/중간/높음)"
+  },
+  "추가조치": {
+    "즉시조치": "이번 상담으로 결정된 즉시 조치",
+    "추가연계": "추가 연계가 필요한 기관/서비스"
+  },
+  "향후계획": {
+    "단기계획": "1-2주 내 계획 (수정/추가 사항)",
+    "모니터링": "모니터링 계획 업데이트"
+  },
+  "상담원": "상담원 이름",
+  "상담원의견": "이번 상담에 대한 종합 의견 (2-3문장)",
+  "특이사항": "이번 상담에서 특별히 주목할 사항"
+}`;
+    } else if (consultationStage === 'closure') {
+      // 종결상담: 종료 관련 정보만 기록
+      systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+이것은 **종결상담**입니다. 사례를 종료하기 위한 상담이므로, **종결 사유와 마무리 관련 정보**만 기록합니다.
+
+【 핵심 원칙 】
+1. ✅ **종결 사유 명확히 기록**: 학대 해소, 타 기관 이관, 본인 거부 등
+2. ✅ **최종 상태 평가**: 사례 종료 시점의 피해자 상태
+3. ✅ **향후 조치 계획**: 사후 관리, 재신고 시 대응 방안
+4. ✅ 불필요한 과거 정보는 제외
+
+【 문체 규칙 】
+✍️ 모든 서술은 간결체로 작성:
+- "~합니다" ❌ → "~함" ✅
+- "~입니다" ❌ → "~임" ✅`;
+
+      jsonFormat = `{
+  "상담요약": "종결 상담 내용 요약 (2-3문장)",
+  "종결정보": {
+    "종결사유": "사례 종결 사유 (학대 해소, 이관, 본인 거부, 사망 등)",
+    "종결구분": "정상종결/조기종결/이관종결 등",
+    "종결일자": "예정 종결 일자"
+  },
+  "최종상태평가": {
+    "학대해소여부": "학대가 해소되었는지 여부 및 평가",
+    "피해자상태": "종결 시점의 피해노인 신체/정서 상태",
+    "안전확보여부": "피해노인의 안전이 확보되었는지 여부",
+    "생활안정성": "향후 생활의 안정성 평가"
+  },
+  "제공서비스요약": {
+    "주요개입내용": "이 사례에서 제공한 주요 서비스/개입 내용",
+    "연계기관": "연계했던 기관 목록",
+    "총상담횟수": "총 상담 횟수 (녹취록에 언급된 경우)"
+  },
+  "사후관리계획": {
+    "사후모니터링": "종결 후 사후 관리 계획 (필요 시)",
+    "재신고대응": "재신고 발생 시 대응 방안",
+    "연락처유지": "연락처 유지 여부 및 방법"
+  },
+  "상담원": "상담원 이름",
+  "상담원의견": "종결에 대한 상담원 종합 의견 (2-3문장)",
+  "특이사항": "종결 관련 특이사항"
+}`;
+    } else if (consultationStage === 'simple') {
+      // 단순문의: 간단한 정보만 기록
+      systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+이것은 **단순문의**입니다. 정식 학대 사례가 아닌 간단한 전화 상담이므로, **핵심 문의 내용과 안내 사항**만 간결하게 기록합니다.
+
+【 핵심 원칙 】
+1. ✅ **간결하게 작성**: 불필요한 항목은 생략
+2. ✅ **문의 내용 중심**: 무엇을 물어봤고, 무엇을 안내했는지
+3. ✅ 복잡한 정보 구조 불필요: 간단한 메모 수준으로 작성
+
+【 문체 규칙 】
+✍️ 모든 서술은 간결체로 작성:
+- "~합니다" ❌ → "~함" ✅
+- "~입니다" ❌ → "~임" ✅`;
+
+      jsonFormat = `{
+  "상담요약": "문의 내용 요약 (1-2문장)",
+  "문의자정보": {
+    "이름": "문의자 이름 (가능한 경우)",
+    "연락처": "문의자 연락처 (가능한 경우)",
+    "관계": "문의 대상자와의 관계"
+  },
+  "문의내용": {
+    "주요문의사항": "주요 문의 내용 (2-3문장)",
+    "배경상황": "문의 배경이 되는 상황 설명 (간략히)"
+  },
+  "제공안내": {
+    "안내내용": "상담원이 제공한 정보/안내 내용",
+    "추천조치": "권장한 조치 사항",
+    "연계정보": "안내한 기관이나 서비스 정보"
+  },
+  "향후조치": {
+    "추가상담필요여부": "추가 상담이 필요한지 여부",
+    "후속조치": "필요한 경우 후속 조치 계획"
+  },
+  "상담원": "상담원 이름",
+  "특이사항": "특이사항 (필요시)"
+}`;
+    } else {
+      // 기본값 (intake와 동일)
+      systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
+상담 녹취록을 분석하여 "노인보호 상담일지 기록 매뉴얼"에 따라 정확하고 상세한 정보를 추출해야 합니다.
+
+【 핵심 원칙 】
+1. ✅ "미입력"을 남발하지 마세요! 녹취록에서 언급된 모든 정보를 최대한 활용하세요
+2. ✅ 직접 언급되지 않아도 맥락에서 합리적으로 추론 가능한 정보는 반드시 기록하세요
+3. ✅ "미입력"/"미확인"은 정말로 어떤 단서도 없을 때만 사용하세요
+4. ✅ 예시: "아들이 때렸다" → 성별(남), 관계(아들), 학대유형(신체적 학대) 등 추출
+
+【 문체 규칙 】
+✍️ 모든 서술은 간결체로 작성:
+- "~합니다" ❌ → "~함" ✅
+- "~입니다" ❌ → "~임" ✅`;
+
+      jsonFormat = `{
+  "상담요약": "전체 상담 내용을 3-5문장으로 핵심만 요약. 간결체 사용",
+  "신고자정보": {
+    "신고자명": "녹취록에서 확인된 이름",
+    "관계": "피해노인과의 관계",
+    "연락처": "전화번호",
+    "신고경위": "신고 동기와 경위를 상세히 (3-5문장)"
+  },
+  "피해노인정보": {
+    "성명": "이름",
+    "성별": "남/여",
+    "생년월일": "YYYY-MM-DD",
+    "연령": "나이",
+    "연락처": "전화번호",
+    "주소": "주소",
+    "건강상태": {
+      "신체": "신체적 건강 상태",
+      "정신": "정신적 건강 상태",
+      "복용약물": "약물"
+    },
+    "경제상태": "경제 상태",
+    "가족관계": "가족 관계",
+    "주돌봄제공자": "돌봄 제공자"
+  },
+  "행위자정보": {
+    "성명": "이름",
+    "관계": "피해노인과의 관계",
+    "성별": "남/여",
+    "연령": "나이",
+    "연락처": "전화번호",
+    "특성": "직업, 성격 등"
+  },
+  "학대내용": {
+    "학대유형": "학대 유형",
+    "발생시기": "발생 시기",
+    "발생장소": "발생 장소",
+    "구체적행위": "구체적인 학대 행위 (5-7문장, 5W1H)",
+    "심각성": "경미/중간/심각",
+    "증거": "증거"
+  },
+  "현재상태": {
+    "신체상태": "신체 상태",
+    "정서상태": "정서 상태",
+    "생활환경": "생활 환경",
+    "위험도": "낮음/중간/높음"
+  },
+  "현장조사": {
+    "실시여부": true or false,
+    "방문일시": "날짜/시간 or null",
+    "관찰내용": "관찰 내용 or null",
+    "면담내용": "면담 내용 or null"
+  },
+  "즉시조치": {
+    "응급조치": "응급조치 내용",
+    "분리보호": "분리보호 내용",
+    "의료연계": "의료연계 내용",
+    "기타조치": "기타 조치"
+  },
+  "향후계획": {
+    "단기계획": "1-2주 내 계획",
+    "장기계획": "1-3개월 계획",
+    "모니터링": "모니터링 계획",
+    "연계기관": "연계 기관"
+  },
+  "상담원": "상담원 이름",
+  "상담원의견": "상담원 종합 의견 (3-4문장)",
+  "특이사항": "특이사항"
+}`;
+    }
+    
+    // 전체 시스템 프롬프트 조합
+    systemPrompt += `\n\n다음 JSON 형식으로 응답하세요:\n${jsonFormat}`;
 
     const userPrompt = `다음은 ${getConsultationTypeText(consultationType)} 상담의 녹취록입니다.
 
@@ -850,15 +1074,16 @@ async function generateDetailedConsultationContent(transcript) {
  * 상담 내용 텍스트를 분석하여 상담일지 생성 (AI 분석) - 2단계 방식
  * @param {string} transcript - 상담 내용 텍스트
  * @param {string} consultationType - 상담 유형 (phone/visit/office)
+ * @param {string} consultationStage - 상담 단계 (intake/ongoing/closure/simple)
  * @returns {Promise<Object>} - 구조화된 상담일지 데이터
  */
-async function analyzeCounselingTranscript(transcript, consultationType) {
+async function analyzeCounselingTranscript(transcript, consultationType, consultationStage = 'intake') {
   try {
-    console.log(`[AI 분석] 2단계 방식으로 상담일지 생성 시작 (유형: ${consultationType})`);
+    console.log(`[AI 분석] 2단계 방식으로 상담일지 생성 시작 (유형: ${consultationType}, 단계: ${consultationStage})`);
     console.log(`[AI 분석] 녹취록 길이: ${transcript.length}자`);
     
     // 1단계: 구조화된 필드 생성
-    const structuredData = await generateStructuredFields(transcript, consultationType);
+    const structuredData = await generateStructuredFields(transcript, consultationType, consultationStage);
     
     // 2단계: 상담내용정리 생성 (녹취록 수준 상세)
     const detailedContent = await generateDetailedConsultationContent(transcript);
@@ -867,28 +1092,114 @@ async function analyzeCounselingTranscript(transcript, consultationType) {
     const currentDate = new Date().toISOString().split('T')[0];
     const caseNumber = generateCaseNumber();
     
-    const report = {
-      기본정보: {
-        상담일자: currentDate,
-        상담유형: consultationType,
-        상담원: structuredData.상담원 || '정보 없음',
-        접수번호: caseNumber
-      },
-      상담요약: structuredData.상담요약 || '정보 없음',
-      상담내용정리: detailedContent, // 2단계에서 생성된 상세 내용
-      신고자정보: structuredData.신고자정보,
-      피해노인정보: structuredData.피해노인정보,
-      행위자정보: structuredData.행위자정보,
-      학대내용: structuredData.학대내용,
-      현재상태: structuredData.현재상태,
-      현장조사: structuredData.현장조사,
-      즉시조치: structuredData.즉시조치,
-      향후계획: structuredData.향후계획,
-      상담원의견: structuredData.상담원의견,
-      특이사항: structuredData.특이사항
-    };
+    // 상담 단계별 리포트 구조 생성
+    let report = {};
+    
+    if (consultationStage === 'intake') {
+      // 접수상담: 전체 정보 포함
+      report = {
+        기본정보: {
+          상담일자: currentDate,
+          상담단계: '접수상담',
+          상담유형: consultationType,
+          상담원: structuredData.상담원 || '정보 없음',
+          접수번호: caseNumber
+        },
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        신고자정보: structuredData.신고자정보,
+        피해노인정보: structuredData.피해노인정보,
+        행위자정보: structuredData.행위자정보,
+        학대내용: structuredData.학대내용,
+        현재상태: structuredData.현재상태,
+        현장조사: structuredData.현장조사,
+        즉시조치: structuredData.즉시조치,
+        향후계획: structuredData.향후계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'ongoing') {
+      // 진행상담: 새로운 정보와 변화된 내용만
+      report = {
+        기본정보: {
+          상담일자: currentDate,
+          상담단계: '진행상담',
+          상담유형: consultationType,
+          상담원: structuredData.상담원 || '정보 없음',
+          사례번호: caseNumber
+        },
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        새로운정보: structuredData.새로운정보,
+        진행사항: structuredData.진행사항,
+        현재상태: structuredData.현재상태,
+        추가조치: structuredData.추가조치,
+        향후계획: structuredData.향후계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'closure') {
+      // 종결상담: 종료 관련 정보만
+      report = {
+        기본정보: {
+          상담일자: currentDate,
+          상담단계: '종결상담',
+          상담유형: consultationType,
+          상담원: structuredData.상담원 || '정보 없음',
+          사례번호: caseNumber
+        },
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        종결정보: structuredData.종결정보,
+        최종상태평가: structuredData.최종상태평가,
+        제공서비스요약: structuredData.제공서비스요약,
+        사후관리계획: structuredData.사후관리계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'simple') {
+      // 단순문의: 간단한 정보만
+      report = {
+        기본정보: {
+          상담일자: currentDate,
+          상담단계: '단순문의',
+          상담유형: consultationType,
+          상담원: structuredData.상담원 || '정보 없음'
+        },
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        문의자정보: structuredData.문의자정보,
+        문의내용: structuredData.문의내용,
+        제공안내: structuredData.제공안내,
+        향후조치: structuredData.향후조치,
+        특이사항: structuredData.특이사항
+      };
+    } else {
+      // 기본값 (intake와 동일)
+      report = {
+        기본정보: {
+          상담일자: currentDate,
+          상담단계: '접수상담',
+          상담유형: consultationType,
+          상담원: structuredData.상담원 || '정보 없음',
+          접수번호: caseNumber
+        },
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        신고자정보: structuredData.신고자정보,
+        피해노인정보: structuredData.피해노인정보,
+        행위자정보: structuredData.행위자정보,
+        학대내용: structuredData.학대내용,
+        현재상태: structuredData.현재상태,
+        현장조사: structuredData.현장조사,
+        즉시조치: structuredData.즉시조치,
+        향후계획: structuredData.향후계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    }
 
-    console.log('[AI 분석] 2단계 방식으로 상담일지 생성 완료');
+    console.log(`[AI 분석] 2단계 방식으로 상담일지 생성 완료 (상담 단계: ${consultationStage})`);
     return report;
   } catch (error) {
     console.error('[AI 분석] 오류:', error.message);
@@ -926,17 +1237,19 @@ function getConsultationTypeText(type) {
  * 전체 처리 파이프라인 (STT + AI 분석)
  * @param {string} audioFilePath - 음성 파일 경로
  * @param {string} consultationType - 상담 유형
+ * @param {string} consultationStage - 상담 단계 (intake/ongoing/closure/simple)
  * @returns {Promise<Object>} - 완성된 상담일지
  */
-async function processAudioToCounselingReport(audioFilePath, consultationType) {
+async function processAudioToCounselingReport(audioFilePath, consultationType, consultationStage = 'intake') {
   try {
     console.log(`[파이프라인] 음성 파일 처리 시작 (워터폴 폴백: Whisper → Clova)`);
+    console.log(`[파이프라인] 상담 단계: ${consultationStage}`);
     
     // 1단계: 음성을 텍스트로 변환 (워터폴 폴백)
     const transcript = await transcribeAudio(audioFilePath);
     
     // 2단계: 텍스트를 분석하여 상담일지 생성 (워터폴 폴백)
-    const report = await analyzeCounselingTranscript(transcript, consultationType);
+    const report = await analyzeCounselingTranscript(transcript, consultationType, consultationStage);
     
     // 원본 텍스트도 함께 반환
     report.원본텍스트 = transcript;

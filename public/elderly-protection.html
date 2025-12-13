@@ -101,13 +101,27 @@
             <div class="upload-container">
                 <div class="upload-form">
                     <div class="form-group">
-                        <label for="consultationType">상담 유형</label>
+                        <label for="consultationType">상담 방식</label>
                         <select id="consultationType" class="form-control">
                             <option value="">선택해주세요</option>
                             <option value="phone">전화상담</option>
                             <option value="visit">방문상담</option>
                             <option value="office">내방상담</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="consultationStage">상담 단계</label>
+                        <select id="consultationStage" class="form-control">
+                            <option value="">선택해주세요</option>
+                            <option value="intake">접수상담 (초기 정보 수집)</option>
+                            <option value="ongoing">진행상담 (기존 사례 추가 상담)</option>
+                            <option value="closure">종결상담 (사례 종료 관련)</option>
+                            <option value="simple">단순문의 (간단한 전화 상담)</option>
+                        </select>
+                        <small style="color: #6c757d; display: block; margin-top: 0.5rem;">
+                            💡 <strong>접수상담</strong>: 모든 정보 입력 | <strong>진행상담</strong>: 새로운 내용만 입력 | <strong>종결상담</strong>: 마무리 정보 | <strong>단순문의</strong>: 간단한 기록
+                        </small>
                     </div>
 
                     <div class="form-group">
@@ -125,8 +139,9 @@
 
                     <div id="statusMessage" class="status-message" style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border-radius: 0.5rem; display: none;">
                         <strong>⚠️ 버튼을 활성화하려면:</strong><br>
-                        1️⃣ 상담 유형을 선택하세요<br>
-                        2️⃣ 음성 파일을 업로드하세요
+                        1️⃣ 상담 방식을 선택하세요<br>
+                        2️⃣ 상담 단계를 선택하세요<br>
+                        3️⃣ 음성 파일을 업로드하세요
                     </div>
                     
                     <button id="uploadBtn" class="btn btn-primary btn-large" disabled>

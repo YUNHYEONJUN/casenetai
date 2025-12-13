@@ -121,7 +121,7 @@ class UsageTrackingService {
     try {
       // 로그 정보 조회
       const log = await db.get(
-        'SELECT * FROM anonymization_logs WHERE id = ?',
+        'SELECT * FROM anonymization_logs WHERE id = $1',
         [logId]
       );
       

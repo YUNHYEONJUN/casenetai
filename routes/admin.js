@@ -143,7 +143,7 @@ router.get('/organizations/:id', async (req, res) => {
     
     // 기관 기본 정보
     const organization = await db.get(
-      'SELECT * FROM organizations WHERE id = ?',
+      'SELECT * FROM organizations WHERE id = $1',
       [id]
     );
     
@@ -223,7 +223,7 @@ router.post('/organizations', async (req, res) => {
         address, is_sponsored, sponsor_name, notes, plan_type, subscription_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'free', 'active')`,
       [name, organizationType || 'elderly_protection', region, contactEmail, contactPhone,
-       address, isSponsored ? 1 : 0, sponsorName, notes]
+       address, isSponsored, sponsorName, notes]
     );
     
     const organizationId = result.lastID;
@@ -285,7 +285,7 @@ router.put('/organizations/:id', async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [name, organizationType, region, contactEmail, contactPhone,
-       address, isSponsored ? 1 : 0, sponsorName, notes, subscriptionStatus, id]
+       address, isSponsored, sponsorName, notes, subscriptionStatus, id]
     );
     
     console.log(`✅ 기관 정보 수정: ID ${id}`);
@@ -383,22 +383,22 @@ router.get('/logs/anonymization', async (req, res) => {
     let params = [];
     
     if (organizationId) {
-      whereClauses.push('al.organization_id = ?');
+      whereClauses.push('al.organization_id = $1');
       params.push(organizationId);
     }
     
     if (status) {
-      whereClauses.push('al.status = ?');
+      whereClauses.push('al.status = $1');
       params.push(status);
     }
     
     if (startDate) {
-      whereClauses.push('al.created_at >= ?');
+      whereClauses.push('al.created_at >= $1');
       params.push(startDate);
     }
     
     if (endDate) {
-      whereClauses.push('al.created_at <= ?');
+      whereClauses.push('al.created_at <= $1');
       params.push(endDate);
     }
     

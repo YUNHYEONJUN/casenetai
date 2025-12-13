@@ -31,17 +31,17 @@ router.get('/organizations', async (req, res) => {
     let params = [];
     
     if (status) {
-      where.push('o.status = ?');
+      where.push('o.status = $1');
       params.push(status);
     }
     
     if (subscription_status) {
-      where.push('o.subscription_status = ?');
+      where.push('o.subscription_status = $1');
       params.push(subscription_status);
     }
     
     if (search) {
-      where.push('(o.name LIKE ? OR o.business_registration_number LIKE ?)');
+      where.push('(o.name LIKE $1 OR o.business_registration_number LIKE $2)');
       params.push(`%${search}%`, `%${search}%`);
     }
     
@@ -123,7 +123,7 @@ router.post('/organizations', async (req, res) => {
       let adminUser = null;
       if (admin_user_id) {
         adminUser = await db.get(
-          'SELECT id, name, oauth_email, role, organization_id FROM users WHERE id = ?',
+          'SELECT id, name, oauth_email, role, organization_id FROM users WHERE id = $1',
           [admin_user_id]
         );
         
@@ -162,7 +162,7 @@ router.post('/organizations', async (req, res) => {
           UPDATE users 
           SET organization_id = ?,
               role = 'org_admin',
-              is_approved = 1,
+              is_approved = true,
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `, [organizationId, admin_user_id]);
@@ -189,7 +189,7 @@ router.post('/organizations', async (req, res) => {
       
       // 생성된 기관 정보 조회
       const organization = await db.get(
-        'SELECT * FROM organizations WHERE id = ?',
+        'SELECT * FROM organizations WHERE id = $1',
         [organizationId]
       );
       
@@ -238,7 +238,7 @@ router.put('/organizations/:id', async (req, res) => {
     
     // 기관 존재 확인
     const org = await db.get(
-      'SELECT * FROM organizations WHERE id = ?',
+      'SELECT * FROM organizations WHERE id = $1',
       [organizationId]
     );
     
@@ -292,7 +292,7 @@ router.put('/organizations/:id', async (req, res) => {
       
       // 업데이트된 정보 조회
       const updated = await db.get(
-        'SELECT * FROM organizations WHERE id = ?',
+        'SELECT * FROM organizations WHERE id = $1',
         [organizationId]
       );
       
@@ -326,7 +326,7 @@ router.delete('/organizations/:id', async (req, res) => {
   
   try {
     const org = await db.get(
-      'SELECT * FROM organizations WHERE id = ?',
+      'SELECT * FROM organizations WHERE id = $1',
       [organizationId]
     );
     
@@ -342,13 +342,13 @@ router.delete('/organizations/:id', async (req, res) => {
     try {
       // Soft delete
       await db.run(
-        'UPDATE organizations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE organizations SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
         ['deleted', organizationId]
       );
       
       // 소속 사용자들의 상태도 변경
       await db.run(
-        'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE organization_id = ?',
+        'UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE organization_id = $2',
         ['suspended', organizationId]
       );
       
@@ -409,22 +409,22 @@ router.get('/users', async (req, res) => {
     let params = [];
     
     if (role) {
-      where.push('u.role = ?');
+      where.push('u.role = $1');
       params.push(role);
     }
     
     if (organization_id) {
-      where.push('u.organization_id = ?');
+      where.push('u.organization_id = $1');
       params.push(organization_id);
     }
     
     if (status) {
-      where.push('u.status = ?');
+      where.push('u.status = $1');
       params.push(status);
     }
     
     if (search) {
-      where.push('(u.name LIKE ? OR u.oauth_email LIKE ? OR u.oauth_nickname LIKE ?)');
+      where.push('(u.name LIKE $1 OR u.oauth_email LIKE $2 OR u.oauth_nickname LIKE $3)');
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     
@@ -488,7 +488,7 @@ router.put('/users/:id/role', async (req, res) => {
     }
     
     // 사용자 확인
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = await db.get('SELECT * FROM users WHERE id = $1', [userId]);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -562,17 +562,17 @@ router.get('/audit-logs', async (req, res) => {
     let params = [];
     
     if (action) {
-      where.push('a.action = ?');
+      where.push('a.action = $1');
       params.push(action);
     }
     
     if (resource_type) {
-      where.push('a.resource_type = ?');
+      where.push('a.resource_type = $1');
       params.push(resource_type);
     }
     
     if (user_id) {
-      where.push('a.user_id = ?');
+      where.push('a.user_id = $1');
       params.push(user_id);
     }
     

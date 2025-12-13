@@ -42,16 +42,16 @@ router.get('/employees', async (req, res) => {
       });
     }
     
-    let where = ['u.organization_id = ?'];
+    let where = ['u.organization_id = $1'];
     let params = [organizationId];
     
     if (status) {
-      where.push('u.status = ?');
+      where.push('u.status = $1');
       params.push(status);
     }
     
     if (search) {
-      where.push('(u.name LIKE ? OR u.oauth_email LIKE ?)');
+      where.push('(u.name LIKE $1 OR u.oauth_email LIKE $2)');
       params.push(`%${search}%`, `%${search}%`);
     }
     
@@ -76,7 +76,7 @@ router.get('/employees', async (req, res) => {
     
     // 기관 정보도 함께 조회
     const organization = await db.get(
-      'SELECT * FROM organizations WHERE id = ?',
+      'SELECT * FROM organizations WHERE id = $1',
       [organizationId]
     );
     
@@ -172,7 +172,7 @@ router.put('/employees/:id', async (req, res) => {
     
     // 직원 확인
     const employee = await db.get(
-      'SELECT * FROM users WHERE id = ?',
+      'SELECT * FROM users WHERE id = $1',
       [employeeId]
     );
     
@@ -263,7 +263,7 @@ router.delete('/employees/:id', async (req, res) => {
   
   try {
     const employee = await db.get(
-      'SELECT * FROM users WHERE id = ?',
+      'SELECT * FROM users WHERE id = $1',
       [employeeId]
     );
     
@@ -298,7 +298,7 @@ router.delete('/employees/:id', async (req, res) => {
         UPDATE users
         SET organization_id = NULL,
             role = 'user',
-            is_approved = 0,
+            is_approved = false,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [employeeId]);
@@ -426,7 +426,7 @@ router.put('/join-requests/:id/approve', async (req, res) => {
     
     // 요청 확인
     const request = await db.get(
-      'SELECT * FROM organization_join_requests WHERE id = ?',
+      'SELECT * FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
     
@@ -469,7 +469,7 @@ router.put('/join-requests/:id/approve', async (req, res) => {
       await db.run(`
         UPDATE users
         SET organization_id = ?,
-            is_approved = 1,
+            is_approved = true,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [request.organization_id, request.user_id]);
@@ -526,7 +526,7 @@ router.put('/join-requests/:id/reject', async (req, res) => {
     const { review_message } = req.body;
     
     const request = await db.get(
-      'SELECT * FROM organization_join_requests WHERE id = ?',
+      'SELECT * FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
     
@@ -632,7 +632,7 @@ router.get('/statistics', async (req, res) => {
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as approved
+        SUM(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as approved
       FROM users
       WHERE organization_id = ?
     `, [organizationId]);
@@ -646,7 +646,7 @@ router.get('/statistics', async (req, res) => {
       FROM usage_logs u
       JOIN users usr ON usr.id = u.user_id
       WHERE usr.organization_id = ?
-        AND u.created_at >= datetime('now', '-30 days')
+        AND u.created_at >= CURRENT_TIMESTAMP + INTERVAL '-30 days'
     `, [organizationId]);
     
     // 대기 중인 가입 요청

@@ -44,9 +44,9 @@ class FeedbackService {
       const params = [
         logId, userId, organizationId,
         rating, accuracyScore || null,
-        hasFalsePositive ? 1 : 0,
-        hasFalseNegative ? 1 : 0,
-        hasIncorrectMapping ? 1 : 0,
+        hasFalsePositive,
+        hasFalseNegative,
+        hasIncorrectMapping,
         falsePositiveExamples ? JSON.stringify(falsePositiveExamples) : null,
         falseNegativeExamples ? JSON.stringify(falseNegativeExamples) : null,
         incorrectMappingExamples ? JSON.stringify(incorrectMappingExamples) : null,
@@ -106,27 +106,27 @@ class FeedbackService {
       const params = [];
 
       if (organizationId) {
-        sql += ` AND f.organization_id = ?`;
+        sql += ` AND f.organization_id = $1`;
         params.push(organizationId);
       }
 
       if (userId) {
-        sql += ` AND f.user_id = ?`;
+        sql += ` AND f.user_id = $1`;
         params.push(userId);
       }
 
       if (method) {
-        sql += ` AND f.anonymization_method = ?`;
+        sql += ` AND f.anonymization_method = $1`;
         params.push(method);
       }
 
       if (minRating) {
-        sql += ` AND f.rating >= ?`;
+        sql += ` AND f.rating >= $1`;
         params.push(minRating);
       }
 
       if (maxRating) {
-        sql += ` AND f.rating <= ?`;
+        sql += ` AND f.rating <= $1`;
         params.push(maxRating);
       }
 
@@ -135,11 +135,11 @@ class FeedbackService {
       }
 
       if (isReviewed !== undefined) {
-        sql += ` AND f.is_reviewed = ?`;
-        params.push(isReviewed ? 1 : 0);
+        sql += ` AND f.is_reviewed = $1`;
+        params.push(isReviewed);
       }
 
-      sql += ` ORDER BY f.created_at DESC LIMIT ? OFFSET ?`;
+      sql += ` ORDER BY f.created_at DESC LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
 
       db.all(sql, params, (err, rows) => {
@@ -182,7 +182,7 @@ class FeedbackService {
           SUM(CASE WHEN rating >= 4 THEN 1 ELSE 0 END) as positive_feedbacks,
           SUM(CASE WHEN rating <= 2 THEN 1 ELSE 0 END) as negative_feedbacks,
           anonymization_method,
-          COUNT(CASE WHEN is_reviewed = 1 THEN 1 END) as reviewed_count
+          COUNT(CASE WHEN is_reviewed = true THEN 1 END) as reviewed_count
         FROM anonymization_feedback
         WHERE 1=1
       `;
@@ -190,22 +190,22 @@ class FeedbackService {
       const params = [];
 
       if (startDate) {
-        sql += ` AND DATE(created_at) >= ?`;
+        sql += ` AND DATE(created_at) >= $1`;
         params.push(startDate);
       }
 
       if (endDate) {
-        sql += ` AND DATE(created_at) <= ?`;
+        sql += ` AND DATE(created_at) <= $1`;
         params.push(endDate);
       }
 
       if (organizationId) {
-        sql += ` AND organization_id = ?`;
+        sql += ` AND organization_id = $1`;
         params.push(organizationId);
       }
 
       if (method) {
-        sql += ` AND anonymization_method = ?`;
+        sql += ` AND anonymization_method = $1`;
         params.push(method);
       }
 
@@ -222,7 +222,7 @@ class FeedbackService {
               AVG(rating) as average_rating,
               AVG(accuracy_score) as average_accuracy
             FROM anonymization_feedback
-            WHERE 1=1 ${startDate ? 'AND DATE(created_at) >= ?' : ''} ${endDate ? 'AND DATE(created_at) <= ?' : ''}
+            WHERE 1=1 ${startDate ? 'AND DATE(created_at) >= $1' : ''} ${endDate ? 'AND DATE(created_at) <= $2' : ''}
           `;
 
           const totalParams = [];
@@ -253,7 +253,7 @@ class FeedbackService {
       const sql = `
         UPDATE anonymization_feedback
         SET 
-          is_reviewed = 1,
+          is_reviewed = true,
           admin_response = ?,
           reviewed_at = CURRENT_TIMESTAMP,
           reviewed_by = ?
@@ -322,21 +322,21 @@ class FeedbackService {
       const params = [];
 
       if (category) {
-        sql += ` AND s.category = ?`;
+        sql += ` AND s.category = $1`;
         params.push(category);
       }
 
       if (status) {
-        sql += ` AND s.status = ?`;
+        sql += ` AND s.status = $1`;
         params.push(status);
       }
 
       if (organizationId) {
-        sql += ` AND s.organization_id = ?`;
+        sql += ` AND s.organization_id = $1`;
         params.push(organizationId);
       }
 
-      sql += ` ORDER BY s.upvotes DESC, s.created_at DESC LIMIT ? OFFSET ?`;
+      sql += ` ORDER BY s.upvotes DESC, s.created_at DESC LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
 
       db.all(sql, params, (err, rows) => {

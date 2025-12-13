@@ -199,7 +199,7 @@ router.get('/kakao',
 // 카카오 콜백
 router.get('/kakao/callback',
   passport.authenticate('kakao', { 
-    failureRedirect: '/login.html?error=kakao_auth_failed',
+    failureRedirect: '/login.html$1error=kakao_auth_failed',
     session: false 
   }),
   async (req, res) => {
@@ -227,13 +227,13 @@ router.get('/kakao/callback',
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP + INTERVAL '7 days')`,
         [req.user.id, token, refreshToken, req.ip, req.get('user-agent')]
       );
       
       // 로그인 시간 업데이트
       await db.run(
-        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
         [req.user.id]
       );
       
@@ -243,11 +243,11 @@ router.get('/kakao/callback',
       const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=kakao&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=kakao&role=${req.user.role}&approval=${approvalStatus}`);
       
     } catch (error) {
       console.error('❌ 카카오 콜백 오류:', error);
-      res.redirect('/login.html?error=kakao_callback_failed');
+      res.redirect('/login.html$1error=kakao_callback_failed');
     }
   }
 );
@@ -264,7 +264,7 @@ router.get('/naver',
 // 네이버 콜백
 router.get('/naver/callback',
   passport.authenticate('naver', {
-    failureRedirect: '/login.html?error=naver_auth_failed',
+    failureRedirect: '/login.html$1error=naver_auth_failed',
     session: false
   }),
   async (req, res) => {
@@ -292,13 +292,13 @@ router.get('/naver/callback',
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP + INTERVAL '7 days')`,
         [req.user.id, token, refreshToken, req.ip, req.get('user-agent')]
       );
       
       // 로그인 시간 업데이트
       await db.run(
-        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
         [req.user.id]
       );
       
@@ -308,11 +308,11 @@ router.get('/naver/callback',
       const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=naver&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=naver&role=${req.user.role}&approval=${approvalStatus}`);
       
     } catch (error) {
       console.error('❌ 네이버 콜백 오류:', error);
-      res.redirect('/login.html?error=naver_callback_failed');
+      res.redirect('/login.html$1error=naver_callback_failed');
     }
   }
 );
@@ -331,7 +331,7 @@ router.get('/google',
 // 구글 콜백
 router.get('/google/callback',
   passport.authenticate('google', {
-    failureRedirect: '/login.html?error=google_auth_failed',
+    failureRedirect: '/login.html$1error=google_auth_failed',
     session: false
   }),
   async (req, res) => {
@@ -359,13 +359,13 @@ router.get('/google/callback',
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP + INTERVAL '7 days')`,
         [req.user.id, token, refreshToken, req.ip, req.get('user-agent')]
       );
       
       // 로그인 시간 업데이트
       await db.run(
-        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
         [req.user.id]
       );
       
@@ -375,11 +375,11 @@ router.get('/google/callback',
       const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=google&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=google&role=${req.user.role}&approval=${approvalStatus}`);
       
     } catch (error) {
       console.error('❌ 구글 콜백 오류:', error);
-      res.redirect('/login.html?error=google_callback_failed');
+      res.redirect('/login.html$1error=google_callback_failed');
     }
   }
 );
