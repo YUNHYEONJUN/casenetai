@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
@@ -9,8 +10,41 @@ const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
 const { optionalAuth } = require('./middleware/auth');
 
+// 환경 변수 검증
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ 필수 환경 변수가 설정되지 않았습니다:', missingEnvVars.join(', '));
+  console.error('   .env 파일을 확인해주세요.');
+  process.exit(1);
+}
+
+// JWT_SECRET 강도 검증
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.warn('⚠️  경고: JWT_SECRET이 너무 짧습니다 (최소 32자 권장)');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 보안 헤더 설정 (Helmet)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Rate Limiting (DDoS 방어)
@@ -26,6 +60,10 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // 헬스 체크 엔드포인트는 rate limit 제외
+    return req.path === '/api/status' || req.path === '/api/anonymization/health';
+  }
 });
 
 // 로그인 Rate Limiter (15분당 5회 - 무차별 대입 공격 방어)
@@ -62,15 +100,22 @@ const corsOptions = {
       process.env.ALLOWED_ORIGIN // 환경 변수로 추가 도메인 설정 가능
     ].filter(Boolean);
     
-    // origin이 undefined인 경우 (같은 도메인) 또는 허용 목록에 있는 경우 허용
+    // 프로덕션 환경에서는 origin 검증 강화
+    if (process.env.NODE_ENV === 'production' && !origin) {
+      return callback(new Error('Origin 헤더가 필요합니다.'));
+    }
+    
+    // origin이 undefined인 경우 (같은 도메인, 개발 환경) 또는 허용 목록에 있는 경우 허용
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn('⚠️  CORS 차단:', origin);
       callback(new Error('CORS 정책에 의해 차단되었습니다.'));
     }
   },
   credentials: true, // 쿠키 등 인증 정보 허용
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Preflight 캐시 24시간
 };
 
 app.use(cors(corsOptions));
@@ -123,11 +168,23 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB 제한
+  limits: { 
+    fileSize: 100 * 1024 * 1024, // 100MB 제한
+    files: 1 // 파일 개수 제한
+  },
   fileFilter: function (req, file, cb) {
+    // 파일명 보안 검증
+    const basename = path.basename(file.originalname);
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\\\')) {
+      return cb(new Error('잘못된 파일명입니다.'));
+    }
+    
     const allowedTypes = /mp3|wav|m4a|ogg|webm|mp4/;
+    const allowedMimes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a', 
+                          'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'];
+    
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedMimes.includes(file.mimetype);
     
     if (mimetype && extname) {
       return cb(null, true);
@@ -187,8 +244,14 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
     const execPromise = promisify(exec);
     
     try {
+      // Command Injection 방지: 파일 경로 검증
+      const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
+      if (safePath !== audioFilePath) {
+        throw new Error('Invalid file path detected');
+      }
+      
       const { stdout } = await execPromise(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioFilePath}"`
+        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
       );
       
       const durationSeconds = parseFloat(stdout.trim());
@@ -358,8 +421,14 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         
         let actualCost = null;
         try {
+          // Command Injection 방지: 파일 경로 검증
+          const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
+          if (safePath !== audioFilePath) {
+            throw new Error('Invalid file path detected');
+          }
+          
           const { stdout } = await execPromise(
-            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioFilePath}"`
+            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
           );
           const durationSeconds = parseFloat(stdout.trim());
           const durationMinutes = Math.ceil(durationSeconds / 60);
@@ -470,8 +539,8 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
     res.status(500).json({ 
-      error: '파일 업로드 중 오류가 발생했습니다.',
-      details: error.message 
+      error: '파일 업로드 중 오류가 발생했습니다.'
+      // details 제거: 보안상 내부 오류 정보 노출 방지
     });
   }
 });
@@ -539,12 +608,25 @@ const documentStorage = multer.diskStorage({
 
 const documentUpload = multer({
   storage: documentStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 제한
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB 제한
+    files: 1 // 파일 개수 제한
+  },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /docx|pdf|txt/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    // 파일명 보안 검증
+    const basename = path.basename(file.originalname);
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\\\')) {
+      return cb(new Error('잘못된 파일명입니다.'));
+    }
     
-    if (extname) {
+    const allowedTypes = /docx|pdf|txt/;
+    const allowedMimes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                          'application/pdf', 'text/plain'];
+    
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedMimes.includes(file.mimetype);
+    
+    if (mimetype && extname) {
       return cb(null, true);
     } else {
       cb(new Error('문서 파일만 업로드 가능합니다 (DOCX, PDF, TXT)'));

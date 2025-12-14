@@ -5,16 +5,26 @@
 
 const { Pool } = require('pg');
 
+// DATABASE_URL 필수 검증
+if (!process.env.DATABASE_URL) {
+  throw new Error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+}
+
 // PostgreSQL 연결 풀 생성
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Supabase는 SSL 필요
+    rejectUnauthorized: false // Supabase는 SSL 필요, 프로덕션에서는 true 권장
   },
-  // 연결 풀 설정
+  // 연결 풀 설정 (Vercel serverless 환경 최적화)
   max: 20, // 최대 연결 수
+  min: 2, // 최소 연결 유지
   idleTimeoutMillis: 30000, // 유휴 연결 타임아웃 (30초)
   connectionTimeoutMillis: 10000, // 연결 타임아웃 (10초)
+  // Statement timeout 설정 (10초)
+  statement_timeout: 10000,
+  // Idle in transaction timeout (30초)
+  idle_in_transaction_session_timeout: 30000
 });
 
 // 연결 풀 오류 핸들링

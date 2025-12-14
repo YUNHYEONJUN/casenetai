@@ -7,7 +7,12 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getDB } = require('../database/db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production';
+// JWT_SECRET 필수 검증
+if (!process.env.JWT_SECRET) {
+  throw new Error('❌ JWT_SECRET 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '1h'; // 1시간 (보안 강화)
 const REFRESH_TOKEN_EXPIRES_IN = '7d'; // 7일
 const SALT_ROUNDS = 12; // 보안 강화 (10 → 12)
