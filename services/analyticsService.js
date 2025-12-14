@@ -3,7 +3,29 @@
  * 익명화 성능, 사용 패턴, 트렌드 분석
  */
 
-const db = require('../database/db');
+const { getDB } = require('../database/db');
+
+// SQLite 콜백 스타일 호환 래퍼
+const db = {
+  get: (sql, params, callback) => {
+    const database = getDB();
+    database.get(sql, params)
+      .then(row => callback(null, row))
+      .catch(err => callback(err));
+  },
+  all: (sql, params, callback) => {
+    const database = getDB();
+    database.query(sql, params)
+      .then(rows => callback(null, rows))
+      .catch(err => callback(err));
+  },
+  run: (sql, params, callback) => {
+    const database = getDB();
+    database.run(sql, params)
+      .then(result => callback(null, result))
+      .catch(err => callback(err));
+  }
+};
 
 class AnalyticsService {
   /**
