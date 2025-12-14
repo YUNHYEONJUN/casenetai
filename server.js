@@ -1140,27 +1140,32 @@ app.post('/api/download-word', express.json(), async (req, res) => {
   }
 });
 
-// 서버 시작
-app.listen(PORT, '0.0.0.0', async () => {
-  console.log('\n┌─────────────────────────────────────────────┐');
-  console.log('│   🏥 CaseNetAI - 노인보호 업무자동화 시스템    │');
-  console.log('└─────────────────────────────────────────────┘\n');
-  console.log(`🌐 서버 주소: http://localhost:${PORT}`);
-  console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
-  
-  // API 키 확인
-  await checkApiKey();
-  
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('✨ 서버가 정상적으로 시작되었습니다.');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-});
+// 서버 시작 (로컬 개발환경에서만 실행)
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', async () => {
+    console.log('\n┌─────────────────────────────────────────────┐');
+    console.log('│   🏥 CaseNetAI - 노인보호 업무자동화 시스템    │');
+    console.log('└─────────────────────────────────────────────┘\n');
+    console.log(`🌐 서버 주소: http://localhost:${PORT}`);
+    console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
+    
+    // API 키 확인
+    await checkApiKey();
+    
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✨ 서버가 정상적으로 시작되었습니다.');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  });
 
-// 에러 핸들링
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-});
+  // 에러 핸들링
+  process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+  });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+}
+
+// Vercel Serverless Function을 위한 export
+module.exports = app;

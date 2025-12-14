@@ -3,14 +3,13 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/server.js"
+      "destination": "/api"
     }
   ],
   "functions": {
-    "server.js": {
+    "api/**/*.js": {
       "maxDuration": 60,
-      "memory": 1024,
-      "runtime": "nodejs20.x"
+      "memory": 1024
     }
   }
 }
