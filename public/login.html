@@ -299,45 +299,6 @@
 
             <div id="alertMessage"></div>
 
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">이메일</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        placeholder="example@email.com"
-                        required
-                        autocomplete="email"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="password">비밀번호</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="비밀번호를 입력하세요"
-                        required
-                        autocomplete="current-password"
-                    >
-                </div>
-
-                <div class="remember-me">
-                    <input type="checkbox" id="rememberMe" name="rememberMe">
-                    <label for="rememberMe">로그인 상태 유지</label>
-                </div>
-
-                <button type="submit" class="btn-login" id="loginBtn">
-                    로그인
-                </button>
-            </form>
-
-            <div class="auth-divider">
-                <span>또는</span>
-            </div>
-
             <!-- 소셜 로그인 -->
             <div class="social-login">
                 <a href="/api/auth/google" class="social-btn btn-google">
@@ -365,12 +326,11 @@
                 </a>
             </div>
 
-            <div class="auth-divider" style="margin-top: 25px;">
-                <span>이메일로 로그인</span>
-            </div>
-
-            <div class="auth-links">
-                <span style="color: #94a3b8; font-size: 0.9rem;">이메일 로그인은 승인 후 담당자가 생성해드립니다</span>
+            <div class="auth-note" style="margin-top: 25px; text-align: center;">
+                <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6;">
+                    <strong>승인된 기관만 이용 가능합니다</strong><br>
+                    소셜 로그인 후 관리자 승인이 필요합니다
+                </p>
             </div>
 
             <div class="back-home">
@@ -380,8 +340,6 @@
     </div>
 
     <script>
-        const loginForm = document.getElementById('loginForm');
-        const loginBtn = document.getElementById('loginBtn');
         const alertMessage = document.getElementById('alertMessage');
 
         // URL에서 redirect 파라미터 가져오기
@@ -398,7 +356,7 @@
             else if (provider === 'google') providerName = '구글';
             
             showAlert(
-                `❌ 승인되지 않은 계정입니다.\\n\\n${providerName} 계정(${provider})은 관리자 승인이 필요합니다.\\n공문 또는 담당자를 통해 승인 요청 후 이용하실 수 있습니다.`, 
+                `❌ 승인되지 않은 계정입니다.\\n\\n${providerName} 계정은 관리자 승인이 필요합니다.\\n소속 기관의 관리자에게 승인을 요청해주세요.`, 
                 'error'
             );
         }
@@ -407,66 +365,6 @@
         if (localStorage.getItem('token')) {
             window.location.href = redirectUrl;
         }
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            // 유효성 검사
-            if (!email || !password) {
-                showAlert('이메일과 비밀번호를 입력해주세요.', 'error');
-                return;
-            }
-
-            // 로딩 상태
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<span class="loading-spinner"></span>로그인 중...';
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // 토큰 저장
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('refreshToken', data.refreshToken);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-
-                    showAlert('로그인 성공! 이동 중...', 'success');
-
-                    // 잠시 후 리다이렉트 (service_type에 따라 다른 페이지로)
-                    setTimeout(() => {
-                        const serviceType = data.user.serviceType || 'elderly_protection';
-                        if (serviceType === 'elderly_protection') {
-                            window.location.href = '/elderly-protection.html';
-                        } else {
-                            // 다른 서비스는 아직 미구현
-                            window.location.href = '/elderly-protection.html';
-                        }
-                    }, 1000);
-
-                } else {
-                    showAlert(data.error || '로그인에 실패했습니다.', 'error');
-                    loginBtn.disabled = false;
-                    loginBtn.innerHTML = '로그인';
-                }
-
-            } catch (error) {
-                console.error('로그인 오류:', error);
-                showAlert('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.', 'error');
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '로그인';
-            }
-        });
 
         function showAlert(message, type) {
             const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
@@ -479,13 +377,6 @@
                 }, 3000);
             }
         }
-
-        // Enter 키로 로그인
-        document.getElementById('password').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                loginForm.dispatchEvent(new Event('submit'));
-            }
-        });
     </script>
 </body>
 </html>
