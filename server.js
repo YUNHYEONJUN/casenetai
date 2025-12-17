@@ -100,17 +100,17 @@ const corsOptions = {
       process.env.ALLOWED_ORIGIN // 환경 변수로 추가 도메인 설정 가능
     ].filter(Boolean);
     
-    // 프로덕션 환경에서는 origin 검증 강화
-    if (process.env.NODE_ENV === 'production' && !origin) {
-      return callback(new Error('Origin 헤더가 필요합니다.'));
-    }
-    
-    // origin이 undefined인 경우 (같은 도메인, 개발 환경) 또는 허용 목록에 있는 경우 허용
+    // origin이 undefined인 경우 (같은 도메인, Vercel serverless) 또는 허용 목록에 있는 경우 허용
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.warn('⚠️  CORS 차단:', origin);
-      callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      // 프로덕션 환경에서만 엄격하게 체크
+      if (process.env.NODE_ENV === 'production') {
+        callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      } else {
+        callback(null, true);
+      }
     }
   },
   credentials: true, // 쿠키 등 인증 정보 허용
