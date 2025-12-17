@@ -614,4 +614,307 @@ router.get('/audit-logs', async (req, res) => {
   }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 대시보드 통계 및 사용자 승인 관리
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * GET /api/system-admin/stats
+ * 대시보드 통계
+ */
+router.get('/stats', async (req, res) => {
+  const db = getDB();
+  
+  try {
+    // 총 기관 수
+    const orgsResult = await db.get('SELECT COUNT(*) as count FROM organizations');
+    
+    // 총 사용자 수
+    const usersResult = await db.get('SELECT COUNT(*) as count FROM users');
+    
+    // 승인 대기 사용자 수
+    const pendingResult = await db.get('SELECT COUNT(*) as count FROM users WHERE is_approved = false');
+    
+    // 기관 관리자 수
+    const orgAdminsResult = await db.get("SELECT COUNT(*) as count FROM users WHERE role = 'org_admin' AND is_approved = true");
+    
+    res.json({
+      success: true,
+      totalOrganizations: orgsResult.count,
+      totalUsers: usersResult.count,
+      pendingApprovals: pendingResult.count,
+      orgAdmins: orgAdminsResult.count
+    });
+    
+  } catch (error) {
+    console.error('❌ 통계 조회 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '통계 조회에 실패했습니다'
+    });
+  }
+});
+
+/**
+ * GET /api/system-admin/pending-users
+ * 승인 대기 사용자 목록
+ */
+router.get('/pending-users', async (req, res) => {
+  const db = getDB();
+  
+  try {
+    const { filter = 'all' } = req.query;
+    
+    let whereClause = 'WHERE u.is_approved = false';
+    
+    if (filter === 'user') {
+      whereClause += " AND u.role = 'user'";
+    } else if (filter === 'org_admin') {
+      whereClause += " AND u.role = 'org_admin'";
+    }
+    
+    const users = await db.query(`
+      SELECT 
+        u.id,
+        u.name,
+        u.oauth_provider,
+        u.oauth_email,
+        u.oauth_nickname,
+        u.role,
+        u.organization_id,
+        u.created_at,
+        o.name as organization_name
+      FROM users u
+      LEFT JOIN organizations o ON u.organization_id = o.id
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT 100
+    `);
+    
+    res.json(users.rows);
+    
+  } catch (error) {
+    console.error('❌ 승인 대기 목록 조회 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '승인 대기 목록 조회에 실패했습니다'
+    });
+  }
+});
+
+/**
+ * GET /api/system-admin/users
+ * 전체 사용자 목록
+ */
+router.get('/users', async (req, res) => {
+  const db = getDB();
+  
+  try {
+    const { filter = 'all', page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    
+    let whereClause = 'WHERE 1=1';
+    
+    if (filter === 'system_admin') {
+      whereClause += " AND u.role = 'system_admin'";
+    } else if (filter === 'org_admin') {
+      whereClause += " AND u.role = 'org_admin'";
+    } else if (filter === 'user') {
+      whereClause += " AND u.role = 'user'";
+    }
+    
+    const users = await db.query(`
+      SELECT 
+        u.id,
+        u.name,
+        u.oauth_provider,
+        u.oauth_email,
+        u.oauth_nickname,
+        u.role,
+        u.is_approved,
+        u.organization_id,
+        u.last_login_at,
+        u.created_at,
+        o.name as organization_name
+      FROM users u
+      LEFT JOIN organizations o ON u.organization_id = o.id
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    res.json(users.rows);
+    
+  } catch (error) {
+    console.error('❌ 사용자 목록 조회 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '사용자 목록 조회에 실패했습니다'
+    });
+  }
+});
+
+/**
+ * POST /api/system-admin/approve-user/:userId
+ * 사용자 승인
+ */
+router.post('/approve-user/:userId', async (req, res) => {
+  const db = getDB();
+  const { userId } = req.params;
+  const { role = 'user' } = req.body;
+  
+  try {
+    const result = await db.run(
+      `UPDATE users 
+       SET is_approved = true, role = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+      [role, userId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '사용자를 찾을 수 없습니다'
+      });
+    }
+    
+    // 감사 로그 기록
+    await db.run(
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        req.user.userId,
+        'APPROVE_USER',
+        'user',
+        userId,
+        JSON.stringify({ role, approved_by: req.user.userId }),
+        req.ip
+      ]
+    );
+    
+    res.json({
+      success: true,
+      message: '사용자가 승인되었습니다'
+    });
+    
+  } catch (error) {
+    console.error('❌ 사용자 승인 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '사용자 승인에 실패했습니다'
+    });
+  }
+});
+
+/**
+ * POST /api/system-admin/promote-to-org-admin/:userId
+ * 기관 관리자로 승격
+ */
+router.post('/promote-to-org-admin/:userId', async (req, res) => {
+  const db = getDB();
+  const { userId } = req.params;
+  const { organization_id } = req.body;
+  
+  try {
+    if (!organization_id) {
+      return res.status(400).json({
+        success: false,
+        error: '소속 기관 ID가 필요합니다'
+      });
+    }
+    
+    const result = await db.run(
+      `UPDATE users 
+       SET role = 'org_admin', 
+           is_approved = true, 
+           organization_id = $1, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+      [organization_id, userId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '사용자를 찾을 수 없습니다'
+      });
+    }
+    
+    // 감사 로그 기록
+    await db.run(
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        req.user.userId,
+        'PROMOTE_TO_ORG_ADMIN',
+        'user',
+        userId,
+        JSON.stringify({ organization_id, promoted_by: req.user.userId }),
+        req.ip
+      ]
+    );
+    
+    res.json({
+      success: true,
+      message: '기관 관리자로 승격되었습니다'
+    });
+    
+  } catch (error) {
+    console.error('❌ 기관 관리자 승격 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '기관 관리자 승격에 실패했습니다'
+    });
+  }
+});
+
+/**
+ * POST /api/system-admin/reject-user/:userId
+ * 사용자 거부 (삭제)
+ */
+router.post('/reject-user/:userId', async (req, res) => {
+  const db = getDB();
+  const { userId } = req.params;
+  
+  try {
+    const result = await db.run(
+      `DELETE FROM users WHERE id = $1 AND is_approved = false`,
+      [userId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '사용자를 찾을 수 없습니다'
+      });
+    }
+    
+    // 감사 로그 기록
+    await db.run(
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        req.user.userId,
+        'REJECT_USER',
+        'user',
+        userId,
+        JSON.stringify({ rejected_by: req.user.userId }),
+        req.ip
+      ]
+    );
+    
+    res.json({
+      success: true,
+      message: '사용자가 거부되었습니다'
+    });
+    
+  } catch (error) {
+    console.error('❌ 사용자 거부 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '사용자 거부에 실패했습니다'
+    });
+  }
+});
+
 module.exports = router;
