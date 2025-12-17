@@ -4,9 +4,16 @@
  */
 
 const mammoth = require('mammoth');
-const pdfParse = require('pdf-parse');
 const fs = require('fs').promises;
 const path = require('path');
+
+// PDF 파싱은 조건부로 로드 (Vercel 환경 호환성)
+let pdfParse;
+try {
+    pdfParse = require('pdf-parse');
+} catch (error) {
+    console.warn('⚠️  pdf-parse를 로드할 수 없습니다. PDF 파싱 기능이 비활성화됩니다.');
+}
 
 class DocumentParser {
     /**
@@ -51,6 +58,10 @@ class DocumentParser {
      * PDF 파일 파싱
      */
     async parsePdf(filePath) {
+        if (!pdfParse) {
+            throw new Error('PDF 파싱 기능을 사용할 수 없습니다. 서버 환경이 PDF 파싱을 지원하지 않습니다.');
+        }
+        
         try {
             const buffer = await fs.readFile(filePath);
             const data = await pdfParse(buffer);
