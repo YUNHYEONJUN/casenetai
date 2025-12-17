@@ -239,11 +239,14 @@ router.get('/kakao/callback',
       
       console.log('✅ 카카오 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
       
-      // 승인 상태 확인
-      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
+      // 승인 상태 확인 - 미승인 시 접근 차단
+      if (!req.user.is_approved) {
+        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
+        return res.redirect('/login.html?error=not_approved&provider=kakao');
+      }
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=kakao&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=kakao&role=${req.user.role}`);
       
     } catch (error) {
       console.error('❌ 카카오 콜백 오류:', error);
@@ -304,11 +307,14 @@ router.get('/naver/callback',
       
       console.log('✅ 네이버 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
       
-      // 승인 상태 확인
-      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
+      // 승인 상태 확인 - 미승인 시 접근 차단
+      if (!req.user.is_approved) {
+        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
+        return res.redirect('/login.html?error=not_approved&provider=naver');
+      }
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=naver&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=naver&role=${req.user.role}`);
       
     } catch (error) {
       console.error('❌ 네이버 콜백 오류:', error);
@@ -371,11 +377,14 @@ router.get('/google/callback',
       
       console.log('✅ 구글 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
       
-      // 승인 상태 확인
-      const approvalStatus = req.user.is_approved ? 'approved' : 'pending';
+      // 승인 상태 확인 - 미승인 시 접근 차단
+      if (!req.user.is_approved) {
+        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
+        return res.redirect('/login.html?error=not_approved&provider=google');
+      }
       
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
-      res.redirect(`/login-success.html$1token=${token}&refreshToken=${refreshToken}&provider=google&role=${req.user.role}&approval=${approvalStatus}`);
+      res.redirect(`/login-success.html?token=${token}&refreshToken=${refreshToken}&provider=google&role=${req.user.role}`);
       
     } catch (error) {
       console.error('❌ 구글 콜백 오류:', error);

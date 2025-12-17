@@ -288,6 +288,15 @@
                 <p>노인보호전문기관 업무자동화 시스템</p>
             </div>
 
+            <!-- 승인 안내 -->
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                <p style="color: #92400e; font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                    <strong>🔒 승인된 사용자만 로그인 가능</strong><br>
+                    사전 승인 받은 카카오톡/네이버 계정으로 로그인하세요.<br>
+                    승인 문의: 공문 발송 또는 담당자 확인
+                </p>
+            </div>
+
             <div id="alertMessage"></div>
 
             <form id="loginForm">
@@ -361,9 +370,7 @@
             </div>
 
             <div class="auth-links">
-                <a href="/register.html">회원가입</a>
-                <span style="margin: 0 10px; color: #cbd5e0;">|</span>
-                <a href="/forgot-password.html">비밀번호 찾기</a>
+                <span style="color: #94a3b8; font-size: 0.9rem;">이메일 로그인은 승인 후 담당자가 생성해드립니다</span>
             </div>
 
             <div class="back-home">
@@ -380,6 +387,21 @@
         // URL에서 redirect 파라미터 가져오기
         const urlParams = new URLSearchParams(window.location.search);
         const redirectUrl = urlParams.get('redirect') || '/dashboard.html';
+        const errorType = urlParams.get('error');
+        const provider = urlParams.get('provider');
+
+        // 미승인 사용자 에러 메시지 표시
+        if (errorType === 'not_approved') {
+            let providerName = '소셜 로그인';
+            if (provider === 'kakao') providerName = '카카오톡';
+            else if (provider === 'naver') providerName = '네이버';
+            else if (provider === 'google') providerName = '구글';
+            
+            showAlert(
+                `❌ 승인되지 않은 계정입니다.\\n\\n${providerName} 계정(${provider})은 관리자 승인이 필요합니다.\\n공문 또는 담당자를 통해 승인 요청 후 이용하실 수 있습니다.`, 
+                'error'
+            );
+        }
 
         // 이미 로그인되어 있으면 대시보드로 리다이렉트
         if (localStorage.getItem('token')) {
