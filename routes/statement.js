@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { getDB } = require('../database/db-postgres');
 const OpenAI = require('openai');
 
@@ -47,9 +47,9 @@ const upload = multer({
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/transcribe
-// 음성 파일 → STT 변환
+// 음성 파일 → STT 변환 (로그인 불필요)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/transcribe', authenticateToken, upload.single('audio'), async (req, res) => {
+router.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ 
@@ -91,9 +91,9 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/parse
-// STT 텍스트 → AI 문답 분리
+// STT 텍스트 → AI 문답 분리 (로그인 불필요)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/parse', authenticateToken, async (req, res) => {
+router.post('/parse', async (req, res) => {
   try {
     const { transcript } = req.body;
 

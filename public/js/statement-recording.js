@@ -40,8 +40,8 @@ const saveDraftBtn = document.getElementById('saveDraftBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
 const alert = document.getElementById('alert');
 
-// 인증 확인
-checkAuth();
+// 로그인 상태 확인 (선택적)
+checkLoginStatus();
 
 // 이벤트 리스너 - 모드 전환
 recordingModeBtn.addEventListener('click', switchToRecordingMode);
@@ -70,13 +70,20 @@ saveDraftBtn.addEventListener('click', saveDraft);
 exportPdfBtn.addEventListener('click', exportToPdf);
 
 /**
- * 인증 확인
+ * 로그인 상태 확인 (선택적)
+ * 로그인하지 않아도 사용 가능, 로그인 시 저장 기능 활성화
  */
-function checkAuth() {
+function checkLoginStatus() {
     const token = localStorage.getItem('token');
-    if (!token) {
-        window.location.href = '/login.html';
-        return;
+    
+    if (token) {
+        // 로그인 상태: 저장 기능 활성화
+        saveDraftBtn.style.display = 'inline-block';
+        console.log('✅ 로그인 상태: 저장 기능 사용 가능');
+    } else {
+        // 비로그인 상태: 저장 기능 숨김
+        saveDraftBtn.style.display = 'none';
+        console.log('ℹ️ 비로그인 상태: 작성/다운로드만 가능 (저장 불가)');
     }
 }
 
@@ -211,14 +218,9 @@ async function uploadAndConvert() {
         const formData = new FormData();
         formData.append('audio', selectedFile);
         
-        const token = localStorage.getItem('token');
-        
-        // STT 변환 API 호출
+        // STT 변환 API 호출 (인증 불필요)
         const response = await fetch('/api/statement/transcribe', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
         
@@ -349,15 +351,12 @@ function updateRecordingTime() {
  */
 async function transcribeAudio(audioBlob) {
     try {
-        const token = localStorage.getItem('token');
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
         
-        const response = await fetch('/api/transcribe', {
+        // STT 변환 API 호출 (인증 불필요)
+        const response = await fetch('/api/statement/transcribe', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
         
@@ -366,7 +365,7 @@ async function transcribeAudio(audioBlob) {
         }
         
         const data = await response.json();
-        transcribedText = data.text;
+        transcribedText = data.transcript || data.text;
         
         // 변환된 텍스트 표시
         transcriptionText.textContent = transcribedText;
@@ -388,16 +387,14 @@ async function generateStatement() {
         loading.classList.add('active');
         generateStatementBtn.disabled = true;
         
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch('/api/generate-statement', {
+        // AI 문답 분리 API 호출 (인증 불필요)
+        const response = await fetch('/api/statement/parse', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                transcription: transcribedText
+                transcript: transcribedText
             })
         });
         
