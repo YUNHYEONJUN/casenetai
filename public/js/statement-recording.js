@@ -40,8 +40,8 @@ const saveDraftBtn = document.getElementById('saveDraftBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
 const alert = document.getElementById('alert');
 
-// 로그인 상태 확인 (선택적)
-checkLoginStatus();
+// 로그인 필수
+checkAuth();
 
 // 이벤트 리스너 - 모드 전환
 recordingModeBtn.addEventListener('click', switchToRecordingMode);
@@ -70,20 +70,14 @@ saveDraftBtn.addEventListener('click', saveDraft);
 exportPdfBtn.addEventListener('click', exportToPdf);
 
 /**
- * 로그인 상태 확인 (선택적)
- * 로그인하지 않아도 사용 가능, 로그인 시 저장 기능 활성화
+ * 인증 확인 (로그인 필수)
  */
-function checkLoginStatus() {
+function checkAuth() {
     const token = localStorage.getItem('token');
-    
-    if (token) {
-        // 로그인 상태: 저장 기능 활성화
-        saveDraftBtn.style.display = 'inline-block';
-        console.log('✅ 로그인 상태: 저장 기능 사용 가능');
-    } else {
-        // 비로그인 상태: 저장 기능 숨김
-        saveDraftBtn.style.display = 'none';
-        console.log('ℹ️ 비로그인 상태: 작성/다운로드만 가능 (저장 불가)');
+    if (!token) {
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = '/login.html';
+        return;
     }
 }
 
@@ -218,9 +212,14 @@ async function uploadAndConvert() {
         const formData = new FormData();
         formData.append('audio', selectedFile);
         
-        // STT 변환 API 호출 (인증 불필요)
+        const token = localStorage.getItem('token');
+        
+        // STT 변환 API 호출
         const response = await fetch('/api/statement/transcribe', {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
             body: formData
         });
         
@@ -354,9 +353,14 @@ async function transcribeAudio(audioBlob) {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
         
-        // STT 변환 API 호출 (인증 불필요)
+        const token = localStorage.getItem('token');
+        
+        // STT 변환 API 호출
         const response = await fetch('/api/statement/transcribe', {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
             body: formData
         });
         
@@ -387,11 +391,14 @@ async function generateStatement() {
         loading.classList.add('active');
         generateStatementBtn.disabled = true;
         
-        // AI 문답 분리 API 호출 (인증 불필요)
+        const token = localStorage.getItem('token');
+        
+        // AI 문답 분리 API 호출
         const response = await fetch('/api/statement/parse', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 transcript: transcribedText

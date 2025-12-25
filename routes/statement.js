@@ -47,9 +47,9 @@ const upload = multer({
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/transcribe
-// 음성 파일 → STT 변환 (로그인 불필요)
+// 음성 파일 → STT 변환 (로그인 필수)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/transcribe', upload.single('audio'), async (req, res) => {
+router.post('/transcribe', authenticateToken, upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ 
@@ -91,9 +91,9 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/parse
-// STT 텍스트 → AI 문답 분리 (로그인 불필요)
+// STT 텍스트 → AI 문답 분리 (로그인 필수)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/parse', async (req, res) => {
+router.post('/parse', authenticateToken, async (req, res) => {
   try {
     const { transcript } = req.body;
 
