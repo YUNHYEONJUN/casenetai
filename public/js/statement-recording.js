@@ -10,12 +10,25 @@ let recordingStartTime;
 let recordingInterval;
 let transcribedText = '';
 let qaList = [];
+let selectedFile = null;
+let currentMode = 'recording'; // 'recording' or 'upload'
 
 // DOM 요소
+const recordingModeBtn = document.getElementById('recordingModeBtn');
+const uploadModeBtn = document.getElementById('uploadModeBtn');
+const recordingSection = document.getElementById('recordingSection');
+const uploadSection = document.getElementById('uploadSection');
 const startRecordBtn = document.getElementById('startRecordBtn');
 const stopRecordBtn = document.getElementById('stopRecordBtn');
 const recordingIndicator = document.getElementById('recordingIndicator');
 const recordingTime = document.getElementById('recordingTime');
+const audioFileInput = document.getElementById('audioFileInput');
+const uploadBox = document.getElementById('uploadBox');
+const selectedFileInfo = document.getElementById('selectedFileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const removeFileBtn = document.getElementById('removeFileBtn');
+const uploadAndConvertBtn = document.getElementById('uploadAndConvertBtn');
 const transcriptionText = document.getElementById('transcriptionText');
 const generateStatementBtn = document.getElementById('generateStatementBtn');
 const loading = document.getElementById('loading');
@@ -30,9 +43,26 @@ const alert = document.getElementById('alert');
 // 인증 확인
 checkAuth();
 
-// 이벤트 리스너
+// 이벤트 리스너 - 모드 전환
+recordingModeBtn.addEventListener('click', switchToRecordingMode);
+uploadModeBtn.addEventListener('click', switchToUploadMode);
+
+// 이벤트 리스너 - 실시간 녹음
 startRecordBtn.addEventListener('click', startRecording);
 stopRecordBtn.addEventListener('click', stopRecording);
+
+// 이벤트 리스너 - 파일 업로드
+audioFileInput.addEventListener('change', handleFileSelect);
+removeFileBtn.addEventListener('click', removeSelectedFile);
+uploadAndConvertBtn.addEventListener('click', uploadAndConvert);
+
+// 드래그 앤 드롭
+uploadBox.addEventListener('dragover', handleDragOver);
+uploadBox.addEventListener('dragleave', handleDragLeave);
+uploadBox.addEventListener('drop', handleDrop);
+uploadBox.addEventListener('click', () => audioFileInput.click());
+
+// 이벤트 리스너 - 공통
 generateStatementBtn.addEventListener('click', generateStatement);
 addQaBtn.addEventListener('click', addNewQaPair);
 copyToClipboardBtn.addEventListener('click', copyToClipboard);
@@ -47,6 +77,179 @@ function checkAuth() {
     if (!token) {
         window.location.href = '/login.html';
         return;
+    }
+}
+
+/**
+ * 실시간 녹음 모드로 전환
+ */
+function switchToRecordingMode() {
+    currentMode = 'recording';
+    recordingModeBtn.classList.add('active');
+    uploadModeBtn.classList.remove('active');
+    recordingSection.style.display = 'block';
+    uploadSection.style.display = 'none';
+}
+
+/**
+ * 파일 업로드 모드로 전환
+ */
+function switchToUploadMode() {
+    currentMode = 'upload';
+    uploadModeBtn.classList.add('active');
+    recordingModeBtn.classList.remove('active');
+    uploadSection.style.display = 'block';
+    recordingSection.style.display = 'none';
+}
+
+/**
+ * 파일 선택 처리
+ */
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        processSelectedFile(file);
+    }
+}
+
+/**
+ * 드래그 오버
+ */
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    uploadBox.classList.add('drag-over');
+}
+
+/**
+ * 드래그 떠남
+ */
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    uploadBox.classList.remove('drag-over');
+}
+
+/**
+ * 드롭 처리
+ */
+function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    uploadBox.classList.remove('drag-over');
+    
+    const file = event.dataTransfer.files[0];
+    if (file) {
+        // 오디오 파일인지 확인
+        if (file.type.startsWith('audio/')) {
+            processSelectedFile(file);
+        } else {
+            showAlert('오디오 파일만 업로드 가능합니다.');
+        }
+    }
+}
+
+/**
+ * 선택된 파일 처리
+ */
+function processSelectedFile(file) {
+    // 파일 크기 확인 (100MB)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showAlert('파일 크기는 100MB 이하여야 합니다.');
+        return;
+    }
+    
+    selectedFile = file;
+    
+    // 파일 정보 표시
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+    
+    // UI 업데이트
+    uploadBox.style.display = 'none';
+    selectedFileInfo.style.display = 'flex';
+    uploadAndConvertBtn.style.display = 'block';
+}
+
+/**
+ * 선택된 파일 제거
+ */
+function removeSelectedFile() {
+    selectedFile = null;
+    audioFileInput.value = '';
+    
+    // UI 복원
+    uploadBox.style.display = 'block';
+    selectedFileInfo.style.display = 'none';
+    uploadAndConvertBtn.style.display = 'none';
+}
+
+/**
+ * 파일 크기 포맷
+ */
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/**
+ * 파일 업로드 및 변환
+ */
+async function uploadAndConvert() {
+    if (!selectedFile) {
+        showAlert('파일을 선택해주세요.');
+        return;
+    }
+    
+    try {
+        loading.classList.add('active');
+        showAlert('음성 파일을 업로드하고 변환하는 중입니다...', 'success');
+        
+        // FormData 생성
+        const formData = new FormData();
+        formData.append('audio', selectedFile);
+        
+        const token = localStorage.getItem('token');
+        
+        // STT 변환 API 호출
+        const response = await fetch('/api/statement/transcribe', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'STT 변환 실패');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'STT 변환 실패');
+        }
+        
+        // 변환된 텍스트 저장 및 표시
+        transcribedText = data.transcript;
+        transcriptionText.textContent = transcribedText;
+        
+        // 진술서 생성 버튼 활성화
+        generateStatementBtn.disabled = false;
+        
+        showAlert('음성이 텍스트로 변환되었습니다! 이제 "AI 진술서 생성" 버튼을 클릭하세요.', 'success');
+        
+        // 파일 업로드 섹션 숨기기
+        uploadSection.style.display = 'none';
+        
+    } catch (error) {
+        console.error('업로드 및 변환 오류:', error);
+        showAlert('업로드 및 변환 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+        loading.classList.remove('active');
     }
 }
 

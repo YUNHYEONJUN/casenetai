@@ -110,6 +110,115 @@
             color: #1e40af;
         }
 
+        /* 입력 방식 탭 */
+        .input-mode-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .mode-tab {
+            padding: 15px 30px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.3s;
+        }
+
+        .mode-tab:hover {
+            color: #3b82f6;
+            background: #f1f5f9;
+        }
+
+        .mode-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        /* 파일 업로드 섹션 */
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            text-align: center;
+        }
+
+        .upload-box {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 40px;
+            background: #f8fafc;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .upload-box.drag-over {
+            border-color: #3b82f6;
+            background: #dbeafe;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+
+        .selected-file-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selected-file-info span {
+            font-size: 0.95rem;
+            color: #1e40af;
+        }
+
+        .btn-remove {
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-remove:hover {
+            background: #dc2626;
+            transform: rotate(90deg);
+        }
+
         .transcription-section {
             background: #f8fafc;
             border-radius: 12px;
@@ -366,8 +475,18 @@
         <!-- 알림 -->
         <div id="alert" class="alert"></div>
 
-        <!-- 녹음 섹션 -->
-        <div class="recording-section">
+        <!-- 입력 방식 선택 탭 -->
+        <div class="input-mode-tabs">
+            <button id="recordingModeBtn" class="mode-tab active">
+                🎤 실시간 녹음
+            </button>
+            <button id="uploadModeBtn" class="mode-tab">
+                📁 파일 업로드
+            </button>
+        </div>
+
+        <!-- 실시간 녹음 섹션 -->
+        <div id="recordingSection" class="recording-section">
             <div class="recording-controls">
                 <button id="startRecordBtn" class="record-btn start">
                     <span>🎤</span>
@@ -382,6 +501,29 @@
                     <span>녹음 중</span>
                     <span id="recordingTime" class="recording-time">00:00</span>
                 </div>
+            </div>
+        </div>
+
+        <!-- 파일 업로드 섹션 -->
+        <div id="uploadSection" class="upload-section" style="display: none;">
+            <div class="upload-area">
+                <input type="file" id="audioFileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display: none;">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">음성 파일을 선택하거나 드래그하세요</p>
+                    <p class="upload-hint">지원 형식: MP3, WAV, M4A, OGG, WEBM (최대 100MB)</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('audioFileInput').click()">
+                        파일 선택
+                    </button>
+                </div>
+                <div id="selectedFileInfo" class="selected-file-info" style="display: none;">
+                    <span id="fileName"></span>
+                    <span id="fileSize"></span>
+                    <button id="removeFileBtn" class="btn-remove">✕</button>
+                </div>
+                <button id="uploadAndConvertBtn" class="btn btn-primary" style="display: none; margin-top: 15px;">
+                    ⬆️ 업로드 및 변환
+                </button>
             </div>
         </div>
 
