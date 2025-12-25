@@ -224,6 +224,21 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 진술서 작성 페이지
+app.get('/statement-recording.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'statement-recording.html'));
+});
+
+// 상담일지 페이지
+app.get('/elderly-protection.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'elderly-protection.html'));
+});
+
+// 익명화 페이지
+app.get('/anonymization.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'anonymization.html'));
+});
+
 // API 상태 확인
 app.get('/api/status', async (req, res) => {
   const isValid = await checkApiKey();
