@@ -1,3 +1,13 @@
+// 로그인 필수 체크
+(function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = '/login.html';
+        return;
+    }
+})();
+
 // DOM 요소
 const consultationTypeSelect = document.getElementById('consultationType');
 const consultationStageSelect = document.getElementById('consultationStage');
