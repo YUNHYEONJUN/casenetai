@@ -22,6 +22,7 @@ const loading = document.getElementById('loading');
 const statementForm = document.getElementById('statementForm');
 const qaContainer = document.getElementById('qaContainer');
 const addQaBtn = document.getElementById('addQaBtn');
+const copyToClipboardBtn = document.getElementById('copyToClipboardBtn');
 const saveDraftBtn = document.getElementById('saveDraftBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
 const alert = document.getElementById('alert');
@@ -34,6 +35,7 @@ startRecordBtn.addEventListener('click', startRecording);
 stopRecordBtn.addEventListener('click', stopRecording);
 generateStatementBtn.addEventListener('click', generateStatement);
 addQaBtn.addEventListener('click', addNewQaPair);
+copyToClipboardBtn.addEventListener('click', copyToClipboard);
 saveDraftBtn.addEventListener('click', saveDraft);
 exportPdfBtn.addEventListener('click', exportToPdf);
 
@@ -281,6 +283,51 @@ function deleteQa(index) {
 }
 
 /**
+ * 클립보드에 복사
+ */
+async function copyToClipboard() {
+    try {
+        // 현재 편집된 내용 수집
+        const qaElements = document.querySelectorAll('.qa-pair');
+        qaElements.forEach((qaEl, index) => {
+            const questionEl = qaEl.querySelector('[data-type="question"]');
+            const answerEl = qaEl.querySelector('[data-type="answer"]');
+            
+            if (qaList[index]) {
+                qaList[index].question = questionEl.textContent;
+                qaList[index].answer = answerEl.textContent;
+            }
+        });
+        
+        // 텍스트 생성
+        const textContent = generateTextFormat();
+        
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(textContent);
+        
+        showAlert('클립보드에 복사되었습니다! 원하는 곳에 붙여넣기(Ctrl+V)하세요.', 'success');
+    } catch (error) {
+        console.error('클립보드 복사 오류:', error);
+        
+        // 클립보드 API가 작동하지 않을 경우 대체 방법
+        try {
+            const textContent = generateTextFormat();
+            const textarea = document.createElement('textarea');
+            textarea.value = textContent;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showAlert('클립보드에 복사되었습니다!', 'success');
+        } catch (fallbackError) {
+            showAlert('클립보드 복사에 실패했습니다: ' + error.message);
+        }
+    }
+}
+
+/**
  * 임시 저장
  */
 async function saveDraft() {
@@ -333,16 +380,10 @@ async function saveDraft() {
 }
 
 /**
- * PDF 출력
+ * 텍스트 파일로 내보내기
  */
 async function exportToPdf() {
     try {
-        // jsPDF 라이브러리 로드 확인
-        if (typeof jspdf === 'undefined') {
-            showAlert('PDF 라이브러리를 로드하는 중입니다...');
-            await loadJsPDF();
-        }
-        
         // 현재 편집된 내용 수집
         const qaElements = document.querySelectorAll('.qa-pair');
         qaElements.forEach((qaEl, index) => {
@@ -355,83 +396,86 @@ async function exportToPdf() {
             }
         });
         
-        // PDF 생성
-        generatePDF();
+        // 텍스트 파일 생성 및 다운로드
+        const textContent = generateTextFormat();
+        downloadTextFile(textContent);
         
-        showAlert('PDF가 생성되었습니다!', 'success');
+        showAlert('진술서가 텍스트 파일로 저장되었습니다!', 'success');
     } catch (error) {
-        console.error('PDF 생성 오류:', error);
-        showAlert('PDF 생성에 실패했습니다: ' + error.message);
+        console.error('내보내기 오류:', error);
+        showAlert('내보내기에 실패했습니다: ' + error.message);
     }
 }
 
 /**
- * jsPDF 라이브러리 동적 로드
+ * 텍스트 형식으로 진술서 생성
  */
-function loadJsPDF() {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
-
-/**
- * PDF 생성 (간단한 버전 - 나중에 한글 폰트 추가 필요)
- */
-function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+function generateTextFormat() {
+    const investigationDate = document.getElementById('investigationDate').value || '미입력';
+    const investigationLocation = document.getElementById('investigationLocation').value || '미입력';
+    const investigationOrg = document.getElementById('investigationOrg').value || '미입력';
+    const investigator = document.getElementById('investigator').value || '미입력';
     
-    let yPos = 20;
+    const subjectName = document.getElementById('subjectName').value || '미입력';
+    const subjectBirth = document.getElementById('subjectBirth').value || '미입력';
+    const subjectOrg = document.getElementById('subjectOrg').value || '미입력';
+    const subjectPosition = document.getElementById('subjectPosition').value || '미입력';
+    const subjectContact = document.getElementById('subjectContact').value || '미입력';
     
-    // 제목
-    doc.setFontSize(18);
-    doc.text('노인학대 조사 진술서', 105, yPos, { align: 'center' });
-    yPos += 15;
+    let text = '';
     
-    // 기본 정보
-    doc.setFontSize(12);
-    doc.text(`조사일시: ${document.getElementById('investigationDate').value}`, 20, yPos);
-    yPos += 8;
-    doc.text(`조사장소: ${document.getElementById('investigationLocation').value}`, 20, yPos);
-    yPos += 8;
-    doc.text(`조사기관: ${document.getElementById('investigationOrg').value}`, 20, yPos);
-    yPos += 15;
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    text += '                노인학대 조사 진술서\n';
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
     
-    // 피조사자 정보
-    doc.text(`성명: ${document.getElementById('subjectName').value}`, 20, yPos);
-    yPos += 8;
-    doc.text(`소속: ${document.getElementById('subjectOrg').value}`, 20, yPos);
-    yPos += 8;
-    doc.text(`직위: ${document.getElementById('subjectPosition').value}`, 20, yPos);
-    yPos += 15;
+    text += '【 조사 정보 】\n';
+    text += `조사일시: ${investigationDate}\n`;
+    text += `조사장소: ${investigationLocation}\n`;
+    text += `조사기관: ${investigationOrg}\n`;
+    text += `조 사 자: ${investigator}\n\n`;
     
-    // 진술 내용
-    doc.setFontSize(14);
-    doc.text('진술 내용', 20, yPos);
-    yPos += 10;
+    text += '【 피조사자 정보 】\n';
+    text += `성    명: ${subjectName}\n`;
+    text += `생년월일: ${subjectBirth}\n`;
+    text += `소속기관: ${subjectOrg}\n`;
+    text += `직    위: ${subjectPosition}\n`;
+    text += `연 락 처: ${subjectContact}\n\n`;
     
-    doc.setFontSize(10);
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    text += '                  진술 내용\n';
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
     qaList.forEach((qa, index) => {
-        if (yPos > 270) {
-            doc.addPage();
-            yPos = 20;
-        }
-        
-        doc.text(`Q${index + 1}: ${qa.question}`, 20, yPos);
-        yPos += 6;
-        doc.text(`A${index + 1}: ${qa.answer}`, 20, yPos);
-        yPos += 10;
+        text += `문${index + 1}. ${qa.question}\n`;
+        text += `답${index + 1}. ${qa.answer}\n\n`;
     });
     
-    // 서명란
-    if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-    }
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    text += '위 내용은 사실과 다름없음을 확인합니다.\n\n';
+    text += `작성일자: ${new Date().toLocaleDateString('ko-KR')}\n\n`;
+    text += '진술자 성명:                   (서명 또는 인)\n\n';
+    text += '조사자 성명:                   (서명 또는 인)\n\n';
+    
+    return text;
+}
+
+/**
+ * 텍스트 파일 다운로드
+ */
+function downloadTextFile(content) {
+    const subjectName = document.getElementById('subjectName').value || '진술서';
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${subjectName}_진술서_${date}.txt`;
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     yPos += 20;
     doc.text('위 진술이 사실과 다름없음을 확인합니다.', 20, yPos);
     yPos += 15;
