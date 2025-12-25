@@ -4,7 +4,7 @@ const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const { authenticateToken } = require('../middleware/auth');
-const { getDB } = require('../config/db-postgres');
+const { getDB } = require('../database/db-postgres');
 const OpenAI = require('openai');
 
 // OpenAI 클라이언트 초기화
