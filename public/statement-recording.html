@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>진술서 작성 - CaseNetAI</title>
+    <script>
+        // 즉시 실행 인증 체크 (페이지 로드 전)
+        (function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('로그인이 필요한 서비스입니다.');
+                window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .statement-container {
