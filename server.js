@@ -144,6 +144,9 @@ const systemAdminDashboardRouter = require('./routes/system-admin-dashboard');
 // 진술서 라우터
 const statementRouter = require('./routes/statement');
 
+// 노인복지시설 라우터
+const welfareFacilitiesRouter = require('./routes/welfare-facilities');
+
 app.use('/api/auth', authRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/admin', adminRouter);
@@ -158,6 +161,9 @@ app.use('/api/system-admin-dashboard', systemAdminDashboardRouter);
 
 // 진술서 API
 app.use('/api/statement', statementRouter);
+
+// 노인복지시설 API
+app.use('/api/welfare-facilities', welfareFacilitiesRouter);
 
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({
