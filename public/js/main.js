@@ -178,10 +178,26 @@ async function analyzeCost(file) {
         console.log('💰 비용 분석 시작...');
         
         // 서버에 비용 분석 요청
+        const token = localStorage.getItem('token');
         const response = await fetch('/api/analyze-audio', {
             method: 'POST',
+            headers: token ? {
+                'Authorization': `Bearer ${token}`
+            } : {},
             body: formData
         });
+        
+        // JSON 파싱 전에 응답 상태 확인
+        if (!response.ok) {
+            let errorMessage = `비용 분석 실패 (${response.status})`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch {
+                errorMessage = await response.text() || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
         
         const result = await response.json();
         
@@ -301,10 +317,26 @@ uploadBtn.addEventListener('click', async function() {
         }, 2000); // 2초마다 5% 증가
 
         // 파일 업로드 (타임아웃 없음 - 서버가 처리할 때까지 대기)
+        const token = localStorage.getItem('token');
         const uploadResponse = await fetch('/api/upload-audio', {
             method: 'POST',
+            headers: token ? {
+                'Authorization': `Bearer ${token}`
+            } : {},
             body: formData
         });
+
+        // JSON 파싱 전에 응답 상태 확인
+        if (!uploadResponse.ok) {
+            let errorMessage = `서버 오류 (${uploadResponse.status})`;
+            try {
+                const errorData = await uploadResponse.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch {
+                errorMessage = await uploadResponse.text() || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
 
         const result = await uploadResponse.json();
         
