@@ -318,6 +318,8 @@ uploadBtn.addEventListener('click', async function() {
 
         // 파일 업로드 (타임아웃 없음 - 서버가 처리할 때까지 대기)
         const token = localStorage.getItem('token');
+        console.log('🔑 토큰 존재 여부:', !!token);
+        
         const uploadResponse = await fetch('/api/upload-audio', {
             method: 'POST',
             headers: token ? {
@@ -326,19 +328,28 @@ uploadBtn.addEventListener('click', async function() {
             body: formData
         });
 
+        console.log('📡 응답 상태:', uploadResponse.status, uploadResponse.statusText);
+        console.log('📋 응답 헤더 Content-Type:', uploadResponse.headers.get('content-type'));
+
         // JSON 파싱 전에 응답 상태 확인
         if (!uploadResponse.ok) {
+            console.error('❌ 응답 실패:', uploadResponse.status);
+            const responseText = await uploadResponse.text();
+            console.error('📄 응답 내용:', responseText.substring(0, 500));
+            
             let errorMessage = `서버 오류 (${uploadResponse.status})`;
             try {
-                const errorData = await uploadResponse.json();
+                const errorData = JSON.parse(responseText);
                 errorMessage = errorData.error || errorData.message || errorMessage;
-            } catch {
-                errorMessage = await uploadResponse.text() || errorMessage;
+            } catch (parseError) {
+                console.error('❌ JSON 파싱 실패:', parseError.message);
+                errorMessage = responseText.substring(0, 200) || errorMessage;
             }
             throw new Error(errorMessage);
         }
 
         const result = await uploadResponse.json();
+        console.log('✅ 결과 수신:', result);
         
         // 진행 상황 interval 정리
         clearInterval(progressInterval);
