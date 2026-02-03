@@ -7,7 +7,7 @@ const passport = require('passport');
 const KakaoStrategy = require('passport-kakao').Strategy;
 const NaverStrategy = require('passport-naver-v2').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 // 환경 변수에서 OAuth 키 로드
 const KAKAO_CLIENT_ID = process.env.KAKAO_CLIENT_ID || 'YOUR_KAKAO_CLIENT_ID';

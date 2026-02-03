@@ -3,7 +3,7 @@
  */
 
 const axios = require('axios');
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 const creditService = require('./creditService');
 
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_YOUR_SECRET_KEY';

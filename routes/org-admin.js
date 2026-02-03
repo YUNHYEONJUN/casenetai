@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 const { authenticateToken } = require('../middleware/auth');
 const { requireOrgAdmin, requireOwnOrgAdmin } = require('../middleware/roleAuth');
 

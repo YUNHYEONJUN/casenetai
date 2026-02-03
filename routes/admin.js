@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const usageTrackingService = require('../services/usageTrackingService');
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 // 유틸리티 함수: 안전한 parseInt with validation
 function safeParseInt(value, defaultValue, min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) {

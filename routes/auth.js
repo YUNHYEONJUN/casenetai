@@ -223,7 +223,7 @@ router.get('/kakao/callback',
       );
       
       // 세션 저장
-      const { getDB } = require('../database/db');
+      const { getDB } = require('../database/db-postgres');
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
@@ -291,7 +291,7 @@ router.get('/naver/callback',
       );
       
       // 세션 저장
-      const { getDB } = require('../database/db');
+      const { getDB } = require('../database/db-postgres');
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
@@ -361,7 +361,7 @@ router.get('/google/callback',
       );
       
       // 세션 저장
-      const { getDB } = require('../database/db');
+      const { getDB } = require('../database/db-postgres');
       const db = getDB();
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)

@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { requireSystemAdmin } = require('../middleware/roleAuth');
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 1. 전체 시스템 통계 (Overview)
