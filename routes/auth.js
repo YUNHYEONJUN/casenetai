@@ -25,12 +25,21 @@ const loginLimiter = rateLimit({
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 회원가입
+// 회원가입 (관리자 전용 - 마스터 비밀번호 필요)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, phone, organizationId } = req.body;
+    const { email, password, name, phone, organizationId, masterPassword, role, credits } = req.body;
+    
+    // 🔐 관리자 전용: 마스터 비밀번호 검증
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
+    if (masterPassword !== MASTER_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        error: '관리자 권한이 필요합니다. 마스터 비밀번호를 확인하세요.'
+      });
+    }
     
     // 입력 검증
     if (!email || !password || !name) {
@@ -70,12 +79,15 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    const result = await authService.register({
+    // 🔐 관리자 권한으로 계정 생성
+    const result = await authService.registerWithRole({
       email,
       password,
       name,
       phone,
       organizationId,
+      role: role || 'system_admin',  // 기본값: system_admin
+      credits: credits || 10000000,  // 기본값: 10,000,000원
       serviceType: req.body.serviceType || 'elderly_protection'
     });
     

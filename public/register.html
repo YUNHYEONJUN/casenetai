@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>회원가입 - CaseNetAI</title>
+    <title>회원가입 중단 - CaseNetAI</title>
+    <script>
+        // 공개 회원가입 차단 - 관리자 전용 페이지로 리다이렉트
+        alert('공개 회원가입이 중단되었습니다.\n\n관리자에게 문의하여 계정을 발급받으세요.');
+        window.location.href = '/login.html';
+    </script>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .auth-container {
