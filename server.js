@@ -95,6 +95,8 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://casenetai.kr',
+      'https://www.casenetai.kr',
       'https://casenetai.com',
       'https://www.casenetai.com',
       process.env.ALLOWED_ORIGIN // 환경 변수로 추가 도메인 설정 가능
