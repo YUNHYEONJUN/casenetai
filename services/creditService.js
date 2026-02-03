@@ -4,7 +4,7 @@
  * - 무료 체험 관리
  */
 
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 class CreditService {
   

@@ -4,7 +4,7 @@
  * - 기관별 사용량 추적 및 제한
  */
 
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 class UsageTrackingService {
   

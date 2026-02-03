@@ -5,7 +5,7 @@
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 // JWT_SECRET 필수 검증
 if (!process.env.JWT_SECRET) {

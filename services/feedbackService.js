@@ -3,7 +3,7 @@
  * 익명화 결과에 대한 피드백 수집 및 관리
  */
 
-const { getDB } = require('../database/db');
+const { getDB } = require('../database/db-postgres');
 
 // SQLite 콜백 스타일 호환 래퍼
 const db = {
