@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { getDB } = require('../database/db-postgres');
@@ -17,7 +18,7 @@ const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads/statements');
     try {
-      await fs.mkdir(uploadDir, { recursive: true });
+      await fsPromises.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
     } catch (error) {
       cb(error);

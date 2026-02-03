@@ -17,10 +17,10 @@ const pool = new Pool({
     rejectUnauthorized: false // Supabase는 SSL 필요, 프로덕션에서는 true 권장
   },
   // 연결 풀 설정 (Vercel serverless 환경 최적화)
-  max: 20, // 최대 연결 수
-  min: 2, // 최소 연결 유지
-  idleTimeoutMillis: 30000, // 유휴 연결 타임아웃 (30초)
-  connectionTimeoutMillis: 10000, // 연결 타임아웃 (10초)
+  max: process.env.NODE_ENV === 'production' ? 5 : 20, // 프로덕션: 5, 개발: 20
+  min: 0, // serverless에서는 최소 연결 유지 불필요
+  idleTimeoutMillis: 10000, // 유휴 연결 타임아웃 (10초로 단축)
+  connectionTimeoutMillis: 5000, // 연결 타임아웃 (5초로 단축)
   // Statement timeout 설정 (10초)
   statement_timeout: 10000,
   // Idle in transaction timeout (30초)
@@ -39,16 +39,27 @@ class Database {
   }
 
   /**
-   * Promise 기반 쿼리 실행 (SELECT)
+   * SQLite 스타일 ? placeholder를 PostgreSQL $1, $2 형식으로 변환
    * @param {string} sql - SQL 쿼리
+   * @returns {string} - 변환된 SQL
+   */
+  convertPlaceholders(sql) {
+    let index = 0;
+    return sql.replace(/\?/g, () => `$${++index}`);
+  }
+
+  /**
+   * Promise 기반 쿼리 실행 (SELECT)
+   * @param {string} sql - SQL 쿼리 (? 또는 $1 형식 모두 지원)
    * @param {Array} params - 쿼리 파라미터
    * @returns {Promise<Array>} - 결과 rows
    */
   async query(sql, params = []) {
     const client = await this.pool.connect();
     try {
-      // PostgreSQL은 $1, $2 형식 사용 (SQLite는 ? 사용)
-      const result = await client.query(sql, params);
+      // ? placeholder를 $1, $2로 자동 변환
+      const convertedSql = this.convertPlaceholders(sql);
+      const result = await client.query(convertedSql, params);
       return result.rows;
     } catch (error) {
       console.error('❌ Query 오류:', error.message);
@@ -80,7 +91,9 @@ class Database {
   async run(sql, params = []) {
     const client = await this.pool.connect();
     try {
-      const result = await client.query(sql, params);
+      // ? placeholder를 $1, $2로 자동 변환
+      const convertedSql = this.convertPlaceholders(sql);
+      const result = await client.query(convertedSql, params);
       
       // PostgreSQL RETURNING 절로 INSERT ID 가져오기
       return {
