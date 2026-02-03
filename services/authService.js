@@ -75,6 +75,63 @@ class AuthService {
   }
   
   /**
+   * 관리자 전용: 역할 및 크레딧 설정 가능한 회원가입
+   */
+  async registerWithRole({ email, password, name, phone, organizationId = null, role = 'system_admin', credits = 10000000, serviceType = 'elderly_protection' }) {
+    const db = getDB();
+    
+    try {
+      // 이메일 중복 체크
+      const existingUser = await db.get(
+        'SELECT id FROM users WHERE oauth_email = $1',
+        [email]
+      );
+      
+      if (existingUser) {
+        throw new Error('이미 사용 중인 이메일입니다');
+      }
+      
+      // 비밀번호 해시
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      
+      // 트랜잭션으로 사용자 생성 및 크레딧 초기화
+      const userId = await db.transaction(async (client) => {
+        // 사용자 생성 (관리자 권한 포함)
+        const userResult = await client.query(
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role]
+        );
+        
+        const newUserId = userResult.rows[0].id;
+        
+        // 크레딧 초기화 (관리자 지정 금액)
+        await client.query(
+          `INSERT INTO credits (user_id, balance, free_trial_count)
+           VALUES ($1, $2, 0)`,
+          [newUserId, credits]
+        );
+        
+        return newUserId;
+      });
+      
+      console.log(`✅ 관리자 계정 생성 성공: ${email} (${role}, ${credits}원)`);
+      
+      return {
+        success: true,
+        userId: userId,
+        role: role,
+        credits: credits,
+        message: '관리자 계정이 성공적으로 생성되었습니다'
+      };
+      
+    } catch (error) {
+      console.error('❌ 관리자 계정 생성 실패:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
    * 로그인
    */
   async login({ email, password, ipAddress, userAgent }) {
