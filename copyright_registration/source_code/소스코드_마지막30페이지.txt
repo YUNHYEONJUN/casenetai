@@ -1,0 +1,567 @@
+========================================
+CaseNetAI 소스코드 (마지막 30페이지)
+저작권자: 윤현준
+작성일: 2026년 01월 21일
+========================================
+
+========================================
+파일: public/js/statement-recording.js
+========================================
+        const qaElements = document.querySelectorAll('.qa-pair');
+        qaElements.forEach((qaEl, index) => {
+            const questionEl = qaEl.querySelector('[data-type="question"]');
+            const answerEl = qaEl.querySelector('[data-type="answer"]');
+            
+            if (qaList[index]) {
+                qaList[index].question = questionEl.textContent;
+                qaList[index].answer = answerEl.textContent;
+            }
+        });
+        
+        // 텍스트 생성
+        const textContent = generateTextFormat();
+        
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(textContent);
+        
+        showAlert('클립보드에 복사되었습니다! 원하는 곳에 붙여넣기(Ctrl+V)하세요.', 'success');
+    } catch (error) {
+        console.error('클립보드 복사 오류:', error);
+        
+        // 클립보드 API가 작동하지 않을 경우 대체 방법
+        try {
+            const textContent = generateTextFormat();
+            const textarea = document.createElement('textarea');
+            textarea.value = textContent;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showAlert('클립보드에 복사되었습니다!', 'success');
+        } catch (fallbackError) {
+            showAlert('클립보드 복사에 실패했습니다: ' + error.message);
+        }
+    }
+}
+
+/**
+ * 임시 저장
+ */
+async function saveDraft() {
+    try {
+        // 현재 편집된 내용 수집
+        const qaElements = document.querySelectorAll('.qa-pair');
+        qaElements.forEach((qaEl, index) => {
+            const questionEl = qaEl.querySelector('[data-type="question"]');
+            const answerEl = qaEl.querySelector('[data-type="answer"]');
+            
+            if (qaList[index]) {
+                qaList[index].question = questionEl.textContent;
+                qaList[index].answer = answerEl.textContent;
+            }
+        });
+        
+        const statementData = {
+            investigationDate: document.getElementById('investigationDate').value,
+            investigationLocation: document.getElementById('investigationLocation').value,
+            investigationOrg: document.getElementById('investigationOrg').value,
+            investigator: document.getElementById('investigator').value,
+            subjectName: document.getElementById('subjectName').value,
+            subjectBirth: document.getElementById('subjectBirth').value,
+            subjectOrg: document.getElementById('subjectOrg').value,
+            subjectPosition: document.getElementById('subjectPosition').value,
+            subjectContact: document.getElementById('subjectContact').value,
+            qaList: qaList
+        };
+        
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch('/api/save-statement', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(statementData)
+        });
+        
+        if (!response.ok) {
+            throw new Error('저장 실패');
+        }
+        
+        showAlert('진술서가 임시 저장되었습니다.', 'success');
+    } catch (error) {
+        console.error('저장 오류:', error);
+        showAlert('저장에 실패했습니다: ' + error.message);
+    }
+}
+
+/**
+ * 텍스트 파일로 내보내기
+ */
+async function exportToPdf() {
+    try {
+        // 현재 편집된 내용 수집
+        const qaElements = document.querySelectorAll('.qa-pair');
+        qaElements.forEach((qaEl, index) => {
+            const questionEl = qaEl.querySelector('[data-type="question"]');
+            const answerEl = qaEl.querySelector('[data-type="answer"]');
+            
+            if (qaList[index]) {
+                qaList[index].question = questionEl.textContent;
+                qaList[index].answer = answerEl.textContent;
+            }
+        });
+        
+        // 텍스트 파일 생성 및 다운로드
+        const textContent = generateTextFormat();
+        downloadTextFile(textContent);
+        
+        showAlert('진술서가 텍스트 파일로 저장되었습니다!', 'success');
+    } catch (error) {
+        console.error('내보내기 오류:', error);
+        showAlert('내보내기에 실패했습니다: ' + error.message);
+    }
+}
+
+/**
+ * 텍스트 형식으로 진술서 생성
+ */
+function generateTextFormat() {
+    const investigationDate = document.getElementById('investigationDate').value || '미입력';
+    const investigationLocation = document.getElementById('investigationLocation').value || '미입력';
+    const investigationOrg = document.getElementById('investigationOrg').value || '미입력';
+    const investigator = document.getElementById('investigator').value || '미입력';
+    
+    const subjectName = document.getElementById('subjectName').value || '미입력';
+    const subjectBirth = document.getElementById('subjectBirth').value || '미입력';
+    const subjectOrg = document.getElementById('subjectOrg').value || '미입력';
+    const subjectPosition = document.getElementById('subjectPosition').value || '미입력';
+    const subjectContact = document.getElementById('subjectContact').value || '미입력';
+    
+    let text = '';
+    
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    text += '                노인학대 조사 진술서\n';
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    text += '【 조사 정보 】\n';
+    text += `조사일시: ${investigationDate}\n`;
+    text += `조사장소: ${investigationLocation}\n`;
+    text += `조사기관: ${investigationOrg}\n`;
+    text += `조 사 자: ${investigator}\n\n`;
+    
+    text += '【 피조사자 정보 】\n';
+    text += `성    명: ${subjectName}\n`;
+    text += `생년월일: ${subjectBirth}\n`;
+    text += `소속기관: ${subjectOrg}\n`;
+    text += `직    위: ${subjectPosition}\n`;
+    text += `연 락 처: ${subjectContact}\n\n`;
+    
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    text += '                  진술 내용\n';
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    qaList.forEach((qa, index) => {
+        text += `문${index + 1}. ${qa.question}\n`;
+        text += `답${index + 1}. ${qa.answer}\n\n`;
+    });
+    
+    text += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    text += '위 내용은 사실과 다름없음을 확인합니다.\n\n';
+    text += `작성일자: ${new Date().toLocaleDateString('ko-KR')}\n\n`;
+    text += '진술자 성명:                   (서명 또는 인)\n\n';
+    text += '조사자 성명:                   (서명 또는 인)\n\n';
+    
+    return text;
+}
+
+/**
+ * 텍스트 파일 다운로드
+ */
+function downloadTextFile(content) {
+    const subjectName = document.getElementById('subjectName').value || '진술서';
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${subjectName}_진술서_${date}.txt`;
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    yPos += 20;
+    doc.text('위 진술이 사실과 다름없음을 확인합니다.', 20, yPos);
+    yPos += 15;
+    doc.text('진술자: _________________ (서명)', 20, yPos);
+    yPos += 10;
+    doc.text('조사자: _________________ (서명)', 20, yPos);
+    
+    // 파일명
+    const filename = `진술서_${document.getElementById('subjectName').value || 'unknown'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    doc.save(filename);
+}
+
+========================================
+파일: public/js/main.js
+========================================
+    // 편집 모드일 때는 취소
+    if (isEditMode) {
+        // 편집 취소 - 원래 데이터로 다시 표시
+        if (confirm('수정 내용을 취소하시겠습니까?')) {
+            exitEditMode();
+            displayReport(currentReport); // 원래 데이터로 다시 표시
+        }
+        return;
+    }
+    
+    if (!currentReport) {
+        alert('다운로드할 상담일지가 없습니다.');
+        return;
+    }
+
+    try {
+        // TXT 형식으로 변환
+        const txtContent = convertReportToTxt(currentReport);
+        
+        // Blob 생성 (UTF-8 with BOM for Windows compatibility)
+        const blob = new Blob(['\ufeff' + txtContent], { type: 'text/plain;charset=utf-8' });
+        
+        // 다운로드 링크 생성
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `상담일지_${currentReport.기본정보.접수번호}_${currentReport.기본정보.상담일자}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('✅ TXT 파일 다운로드 완료');
+        
+    } catch (error) {
+        console.error('다운로드 오류:', error);
+        alert('TXT 파일 다운로드 중 오류가 발생했습니다: ' + error.message);
+    }
+});
+
+// 상담일지를 TXT 형식으로 변환하는 함수
+function convertReportToTxt(report) {
+    const consultationTypeText = {
+        'phone': '전화상담',
+        'visit': '방문상담',
+        'office': '내방상담'
+    };
+    
+    let txt = '';
+    
+    // 헤더
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    txt += '노인보호전문기관 상담일지\n';
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 1. 기본정보
+    txt += '■ 1. 기본정보\n\n';
+    txt += `상담일자: ${report.기본정보.상담일자}\n`;
+    txt += `상담유형: ${consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형}\n`;
+    txt += `접수번호: ${report.기본정보.접수번호}\n`;
+    txt += `상담원: ${report.기본정보.상담원 || '미입력'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 2. 상담 요약
+    txt += '■ 2. 상담 요약\n\n';
+    txt += `${report.상담요약 || '정보 없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 3. 상담 내용 정리
+    txt += '■ 3. 상담 내용 정리 (시간순 서술)\n\n';
+    txt += `${report.상담내용정리 || '정보 없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 4. 신고자/내담자 정보
+    txt += '■ 4. 신고자/내담자 정보\n\n';
+    txt += `신고자명: ${report.신고자정보?.신고자명 || '미입력'}\n`;
+    txt += `관계: ${report.신고자정보?.관계 || '미입력'}\n`;
+    txt += `연락처: ${report.신고자정보?.연락처 || '미입력'}\n`;
+    txt += `신고 경위: ${report.신고자정보?.신고경위 || '미입력'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 5. 피해노인(클라이언트) 정보
+    txt += '■ 5. 피해노인(클라이언트) 정보\n\n';
+    txt += '▶ 인적사항\n';
+    txt += `성명: ${report.피해노인정보?.성명 || '미입력'}\n`;
+    txt += `성별: ${report.피해노인정보?.성별 || '미입력'}\n`;
+    txt += `생년월일: ${report.피해노인정보?.생년월일 || '미입력'}\n`;
+    txt += `연령: ${report.피해노인정보?.연령 || '미입력'}세\n`;
+    txt += `연락처: ${report.피해노인정보?.연락처 || '미입력'}\n`;
+    txt += `주소: ${report.피해노인정보?.주소 || '미입력'}\n\n`;
+    
+    txt += '▶ 건강상태\n';
+    txt += `신체적 건강: ${report.피해노인정보?.건강상태?.신체 || '미입력'}\n`;
+    txt += `정신적 건강: ${report.피해노인정보?.건강상태?.정신 || '미입력'}\n`;
+    txt += `복용 약물: ${report.피해노인정보?.건강상태?.복용약물 || '없음'}\n\n`;
+    
+    txt += '▶ 경제상태\n';
+    txt += `${report.피해노인정보?.경제상태 || '미입력'}\n\n`;
+    
+    txt += '▶ 가족관계\n';
+    txt += `${report.피해노인정보?.가족관계 || '미입력'}\n`;
+    txt += `주 돌봄 제공자: ${report.피해노인정보?.주돌봄제공자 || '없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 6. 행위자(학대의심자) 정보
+    txt += '■ 6. 행위자(학대의심자) 정보\n\n';
+    txt += `성명: ${report.행위자정보?.성명 || '미입력'}\n`;
+    txt += `관계: ${report.행위자정보?.관계 || '미입력'}\n`;
+    txt += `성별: ${report.행위자정보?.성별 || '미입력'}\n`;
+    txt += `연령: ${report.행위자정보?.연령 || '미입력'}세\n`;
+    txt += `연락처: ${report.행위자정보?.연락처 || '미입력'}\n`;
+    txt += `특성: ${report.행위자정보?.특성 || '미입력'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 7. 학대 의심 내용
+    txt += '■ 7. 학대 의심 내용\n\n';
+    txt += `학대 유형: ${report.학대내용?.학대유형 || '미입력'}\n`;
+    txt += `발생 시기: ${report.학대내용?.발생시기 || '미입력'}\n`;
+    txt += `발생 장소: ${report.학대내용?.발생장소 || '미입력'}\n`;
+    txt += `구체적 행위: ${report.학대내용?.구체적행위 || '미입력'}\n`;
+    txt += `심각성: ${report.학대내용?.심각성 || '미입력'}\n`;
+    txt += `증거: ${report.학대내용?.증거 || '없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 8. 피해노인의 현재 상태
+    txt += '■ 8. 피해노인의 현재 상태\n\n';
+    txt += `신체 상태: ${report.현재상태?.신체상태 || '미입력'}\n`;
+    txt += `정서 상태: ${report.현재상태?.정서상태 || '미입력'}\n`;
+    txt += `생활 환경: ${report.현재상태?.생활환경 || '미입력'}\n`;
+    txt += `위험도: ${report.현재상태?.위험도 || '미입력'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 9. 현장조사 내용
+    txt += '■ 9. 현장조사 내용\n\n';
+    txt += `실시 여부: ${report.현장조사?.실시여부 ? '실시함' : '실시 안 함'}\n`;
+    txt += `방문 일시: ${report.현장조사?.방문일시 || '해당없음'}\n`;
+    txt += `관찰 내용: ${report.현장조사?.관찰내용 || '해당없음'}\n`;
+    txt += `면담 내용: ${report.현장조사?.면담내용 || '해당없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 10. 즉시 조치사항
+    txt += '■ 10. 즉시 조치사항\n\n';
+    txt += `응급 조치: ${report.즉시조치?.응급조치 || '없음'}\n`;
+    txt += `분리 보호: ${report.즉시조치?.분리보호 || '없음'}\n`;
+    txt += `의료 연계: ${report.즉시조치?.의료연계 || '없음'}\n`;
+    txt += `기타 조치: ${report.즉시조치?.기타조치 || '없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 11. 향후 계획
+    txt += '■ 11. 향후 계획\n\n';
+    txt += `단기 계획: ${report.향후계획?.단기계획 || '미입력'}\n`;
+    txt += `장기 계획: ${report.향후계획?.장기계획 || '미입력'}\n`;
+    txt += `모니터링: ${report.향후계획?.모니터링 || '미입력'}\n`;
+    txt += `연계 기관: ${report.향후계획?.연계기관 || '없음'}\n\n`;
+    
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // 12. 상담원 의견 및 특이사항
+    txt += '■ 12. 상담원 의견 및 특이사항\n\n';
+    txt += `상담원 종합 의견: ${report.상담원의견 || '미입력'}\n`;
+    txt += `특이사항: ${report.특이사항 || '없음'}\n\n`;
+    
+    // 푸터
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    txt += `생성일시: ${new Date().toLocaleString('ko-KR')}\n`;
+    txt += '시스템: CaseNetAI by WellPartners\n';
+    txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    
+    return txt;
+}
+
+// 스무스 스크롤
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// 페이지 로드 시 초기 상태 체크
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 페이지 로드 완료');
+    checkFormValid();
+});
+
+========================================
+파일: routes/statement.js
+========================================
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '진술서를 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      statement: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ 진술서 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '진술서 조회 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GET /api/statement/list
+// 진술서 목록 조회
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/list', authenticateToken, async (req, res) => {
+  const db = await getDB();
+  
+  try {
+    const userId = req.user.userId;
+    const { status, page = 1, limit = 20, search } = req.query;
+
+    let query = `
+      SELECT s.*, u.username as creator_name
+      FROM statements s
+      LEFT JOIN users u ON s.user_id = u.id
+      WHERE s.user_id = $1
+    `;
+    const params = [userId];
+    let paramIndex = 2;
+
+    // 상태 필터
+    if (status) {
+      query += ` AND s.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    // 검색
+    if (search) {
+      query += ` AND (
+        s.subject_name ILIKE $${paramIndex} OR
+        s.subject_organization ILIKE $${paramIndex} OR
+        s.investigation_agency ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // 정렬 및 페이징
+    query += ` ORDER BY s.investigation_date DESC, s.created_at DESC`;
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, (page - 1) * limit);
+
+    const result = await db.query(query, params);
+
+    // 전체 개수 조회
+    let countQuery = `SELECT COUNT(*) FROM statements WHERE user_id = $1`;
+    const countParams = [userId];
+    
+    if (status) {
+      countQuery += ` AND status = $2`;
+      countParams.push(status);
+    }
+
+    const countResult = await db.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    res.json({
+      success: true,
+      statements: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ 진술서 목록 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '진술서 목록 조회 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DELETE /api/statement/:id
+// 진술서 삭제
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.delete('/:id', authenticateToken, async (req, res) => {
+  const db = await getDB();
+  
+  try {
+    const statementId = req.params.id;
+    const userId = req.user.userId;
+
+    // 권한 확인
+    const checkResult = await db.query(
+      'SELECT * FROM statements WHERE id = $1 AND user_id = $2',
+      [statementId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '삭제 권한이 없거나 존재하지 않는 진술서입니다.'
+      });
+    }
+
+    console.log('🗑️ 진술서 삭제: ID', statementId);
+
+    await db.query(
+      'DELETE FROM statements WHERE id = $1 AND user_id = $2',
+      [statementId, userId]
+    );
+
+    console.log('✅ 진술서 삭제 완료');
+
+    res.json({
+      success: true,
+      message: '진술서가 삭제되었습니다.'
+    });
+
+  } catch (error) {
+    console.error('❌ 진술서 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '진술서 삭제 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+module.exports = router;
