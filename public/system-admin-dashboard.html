@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>최고 관리자 대시보드 - CaseNetAI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-left h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .header-left p {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .user-info {
+      text-align: right;
+    }
+
+    .user-info .name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .user-info .role {
+      font-size: 12px;
+      opacity: 0.8;
+      background: rgba(255,255,255,0.2);
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-top: 3px;
+    }
+
+    .logout-btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .logout-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+
+    .stat-card h3 {
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+
+    .stat-card .subtitle {
+      font-size: 13px;
+      color: #95a5a6;
+    }
+
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e1e8ed;
+    }
+
+    .section-header h2 {
+      font-size: 20px;
+      color: #2c3e50;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #38a169;
+    }
+
+    .btn-danger {
+      background: #f56565;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #e53e3e;
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .btn-secondary:hover {
+      background: #cbd5e0;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 10px 15px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .search-bar select {
+      padding: 10px 15px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #f7fafc;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      color: #4a5568;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+
+    tr:hover {
+      background: #f7fafc;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .badge-success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .badge-warning {
+      background: #feebc8;
+      color: #7c2d12;
+    }
+
+    .badge-info {
+      background: #bee3f8;
+      color: #2c5282;
+    }
+
+    .badge-admin {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    .badge-system {
+      background: #d6bcfa;
+      color: #44337a;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: #718096;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #4a5568;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h3 {
+      font-size: 20px;
+      color: #2c3e50;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #7f8c8d;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      color: #4a5568;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #a0aec0;
+    }
+
+    .empty-state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #a0aec0;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-buttons button {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>🔐 최고 관리자 대시보드</h1>
+      <p>CaseNetAI 시스템 전체 관리</p>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <div class="name" id="userName">관리자</div>
+        <div class="role">SYSTEM ADMIN</div>
+      </div>
+      <button class="logout-btn" onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+
+  <!-- Container -->
+  <div class="container">
+    
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>전체 기관 수</h3>
+        <div class="value" id="totalOrganizations">0</div>
+        <div class="subtitle">등록된 기관</div>
+      </div>
+      <div class="stat-card">
+        <h3>전체 사용자 수</h3>
+        <div class="value" id="totalUsers">0</div>
+        <div class="subtitle">활성 사용자</div>
+      </div>
+      <div class="stat-card">
+        <h3>기관 관리자 수</h3>
+        <div class="value" id="totalOrgAdmins">0</div>
+        <div class="subtitle">조직 관리자</div>
+      </div>
+      <div class="stat-card">
+        <h3>대기 중인 요청</h3>
+        <div class="value" id="pendingRequests">0</div>
+        <div class="subtitle">승인 대기</div>
+      </div>
+    </div>
+
+    <!-- Main Tabs -->
+    <div class="section">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('organizations')">기관 관리</button>
+        <button class="tab" onclick="switchTab('users')">사용자 관리</button>
+        <button class="tab" onclick="switchTab('audit-logs')">감사 로그</button>
+      </div>
+
+      <!-- Organizations Tab -->
+      <div id="organizations-tab" class="tab-content active">
+        <div class="section-header">
+          <h2>기관 관리</h2>
+          <button class="btn btn-primary" onclick="openCreateOrgModal()">+ 새 기관 추가</button>
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="orgSearch" placeholder="기관명 검색..." onkeyup="searchOrganizations()">
+          <select id="orgStatusFilter" onchange="filterOrganizations()">
+            <option value="">전체 상태</option>
+            <option value="active">활성</option>
+            <option value="inactive">비활성</option>
+          </select>
+        </div>
+
+        <div id="organizationsTable"></div>
+      </div>
+
+      <!-- Users Tab -->
+      <div id="users-tab" class="tab-content">
+        <div class="section-header">
+          <h2>사용자 관리</h2>
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="userSearch" placeholder="이름, 이메일 검색..." onkeyup="searchUsers()">
+          <select id="orgFilter" onchange="filterUsers()">
+            <option value="">전체 기관</option>
+          </select>
+          <select id="roleFilter" onchange="filterUsers()">
+            <option value="">전체 역할</option>
+            <option value="system_admin">최고 관리자</option>
+            <option value="org_admin">기관 관리자</option>
+            <option value="user">일반 사용자</option>
+          </select>
+        </div>
+
+        <div id="usersTable"></div>
+      </div>
+
+      <!-- Audit Logs Tab -->
+      <div id="audit-logs-tab" class="tab-content">
+        <div class="section-header">
+          <h2>감사 로그</h2>
+        </div>
+
+        <div class="search-bar">
+          <select id="actionFilter" onchange="filterAuditLogs()">
+            <option value="">전체 작업</option>
+            <option value="create">생성</option>
+            <option value="update">수정</option>
+            <option value="delete">삭제</option>
+          </select>
+          <select id="resourceFilter" onchange="filterAuditLogs()">
+            <option value="">전체 리소스</option>
+            <option value="organization">기관</option>
+            <option value="user">사용자</option>
+          </select>
+        </div>
+
+        <div id="auditLogsTable"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Create Organization Modal -->
+  <div id="createOrgModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>새 기관 추가</h3>
+        <button class="close-btn" onclick="closeCreateOrgModal()">&times;</button>
+      </div>
+      <form id="createOrgForm" onsubmit="createOrganization(event)">
+        <div class="form-group">
+          <label>기관명 *</label>
+          <input type="text" name="name" required>
+        </div>
+        <div class="form-group">
+          <label>사업자등록번호</label>
+          <input type="text" name="business_registration_number" placeholder="123-45-67890">
+        </div>
+        <div class="form-group">
+          <label>플랜 *</label>
+          <select name="plan_type" required>
+            <option value="free">무료</option>
+            <option value="basic">기본</option>
+            <option value="premium">프리미엄</option>
+            <option value="enterprise">엔터프라이즈</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>최대 사용자 수</label>
+          <input type="number" name="max_users" value="10" min="1">
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeCreateOrgModal()">취소</button>
+          <button type="submit" class="btn btn-primary">생성</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change Role Modal -->
+  <div id="changeRoleModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>사용자 권한 변경</h3>
+        <button class="close-btn" onclick="closeChangeRoleModal()">&times;</button>
+      </div>
+      <form id="changeRoleForm" onsubmit="changeUserRole(event)">
+        <input type="hidden" name="userId" id="changeRoleUserId">
+        <div class="form-group">
+          <label>사용자</label>
+          <input type="text" id="changeRoleUserName" readonly style="background: #f7fafc;">
+        </div>
+        <div class="form-group">
+          <label>현재 역할</label>
+          <input type="text" id="changeRoleCurrentRole" readonly style="background: #f7fafc;">
+        </div>
+        <div class="form-group">
+          <label>새 역할 *</label>
+          <select name="role" id="changeRoleNewRole" required>
+            <option value="user">일반 사용자</option>
+            <option value="org_admin">기관 관리자</option>
+            <option value="system_admin">최고 관리자</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>소속 기관 (기관 관리자인 경우 필수)</label>
+          <select name="organization_id" id="changeRoleOrgId">
+            <option value="">없음</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeChangeRoleModal()">취소</button>
+          <button type="submit" class="btn btn-success">변경</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Organization Users Modal -->
+  <div id="viewOrgUsersModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 id="orgUsersModalTitle">기관 사용자 목록</h3>
+        <button class="close-btn" onclick="closeViewOrgUsersModal()">&times;</button>
+      </div>
+      <div id="orgUsersContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let token = localStorage.getItem('token');
+    let currentUser = null;
+    let allOrganizations = [];
+    let allUsers = [];
+    let allAuditLogs = [];
+
+    // Initialize
+    async function init() {
+      if (!token) {
+        alert('로그인이 필요합니다');
+        window.location.href = '/login.html';
+        return;
+      }
+
+      try {
+        // Get current user info
+        const userRes = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!userRes.ok) throw new Error('인증 실패');
+        
+        const userData = await userRes.json();
+        currentUser = userData.user;
+
+        // Check if system_admin
+        if (currentUser.role !== 'system_admin') {
+          alert('최고 관리자만 접근 가능합니다');
+          window.location.href = '/dashboard.html';
+          return;
+        }
+
+        document.getElementById('userName').textContent = currentUser.name;
+
+        // Load data
+        await Promise.all([
+          loadStats(),
+          loadOrganizations(),
+          loadUsers(),
+          loadAuditLogs()
+        ]);
+      } catch (error) {
+        console.error('초기화 실패:', error);
+        alert('데이터 로딩에 실패했습니다');
+      }
+    }
+
+    // Load Statistics
+    async function loadStats() {
+      try {
+        const [orgsRes, usersRes] = await Promise.all([
+          fetch(`${API_BASE}/api/system-admin/organizations`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_BASE}/api/system-admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        const orgsData = await orgsRes.json();
+        const usersData = await usersRes.json();
+
+        document.getElementById('totalOrganizations').textContent = orgsData.organizations?.length || 0;
+        document.getElementById('totalUsers').textContent = usersData.users?.length || 0;
+        
+        const orgAdmins = usersData.users?.filter(u => u.role === 'org_admin').length || 0;
+        document.getElementById('totalOrgAdmins').textContent = orgAdmins;
+
+        // Calculate pending requests (users without approval)
+        const pending = usersData.users?.filter(u => !u.is_approved && u.role === 'user').length || 0;
+        document.getElementById('pendingRequests').textContent = pending;
+
+      } catch (error) {
+        console.error('통계 로딩 실패:', error);
+      }
+    }
+
+    // Load Organizations
+    async function loadOrganizations() {
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/organizations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        allOrganizations = data.organizations || [];
+        renderOrganizations(allOrganizations);
+      } catch (error) {
+        console.error('기관 목록 로딩 실패:', error);
+        document.getElementById('organizationsTable').innerHTML = '<div class="empty-state">기관 목록을 불러오는데 실패했습니다</div>';
+      }
+    }
+
+    function renderOrganizations(organizations) {
+      const container = document.getElementById('organizationsTable');
+      
+      if (!organizations || organizations.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>등록된 기관이 없습니다</p></div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>기관명</th>
+              <th>사업자번호</th>
+              <th>플랜</th>
+              <th>상태</th>
+              <th>사용자 수</th>
+              <th>등록일</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      organizations.forEach(org => {
+        const statusBadge = org.subscription_status === 'active' 
+          ? '<span class="badge badge-success">활성</span>'
+          : '<span class="badge badge-warning">비활성</span>';
+        
+        html += `
+          <tr>
+            <td>${org.id}</td>
+            <td><strong>${org.name}</strong></td>
+            <td>${org.business_registration_number || '-'}</td>
+            <td>${org.plan_type || 'free'}</td>
+            <td>${statusBadge}</td>
+            <td>${org.user_count || 0} / ${org.max_users || '∞'}</td>
+            <td>${new Date(org.created_at).toLocaleDateString('ko-KR')}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-primary" onclick="viewOrganizationUsers(${org.id}, '${org.name}')">사용자 목록</button>
+                <button class="btn btn-danger" onclick="deleteOrganization(${org.id}, '${org.name}')">삭제</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Load Users
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/users?limit=1000`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        allUsers = data.users || [];
+        
+        // Populate organization filter
+        const orgFilter = document.getElementById('orgFilter');
+        const uniqueOrgs = [...new Set(allUsers.filter(u => u.organization_name).map(u => ({
+          id: u.organization_id,
+          name: u.organization_name
+        })))];
+        
+        uniqueOrgs.forEach(org => {
+          const option = document.createElement('option');
+          option.value = org.id;
+          option.textContent = org.name;
+          orgFilter.appendChild(option);
+        });
+
+        // Populate organization selector in role change modal
+        const changeRoleOrgId = document.getElementById('changeRoleOrgId');
+        allOrganizations.forEach(org => {
+          const option = document.createElement('option');
+          option.value = org.id;
+          option.textContent = org.name;
+          changeRoleOrgId.appendChild(option);
+        });
+
+        renderUsers(allUsers);
+      } catch (error) {
+        console.error('사용자 목록 로딩 실패:', error);
+        document.getElementById('usersTable').innerHTML = '<div class="empty-state">사용자 목록을 불러오는데 실패했습니다</div>';
+      }
+    }
+
+    function renderUsers(users) {
+      const container = document.getElementById('usersTable');
+      
+      if (!users || users.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>등록된 사용자가 없습니다</p></div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>이름</th>
+              <th>이메일</th>
+              <th>소속 기관</th>
+              <th>역할</th>
+              <th>승인 상태</th>
+              <th>로그인</th>
+              <th>등록일</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      users.forEach(user => {
+        let roleBadge = '';
+        if (user.role === 'system_admin') {
+          roleBadge = '<span class="badge badge-system">최고 관리자</span>';
+        } else if (user.role === 'org_admin') {
+          roleBadge = '<span class="badge badge-admin">기관 관리자</span>';
+        } else {
+          roleBadge = '<span class="badge badge-info">일반 사용자</span>';
+        }
+
+        const approvalBadge = user.is_approved 
+          ? '<span class="badge badge-success">승인됨</span>'
+          : '<span class="badge badge-warning">대기중</span>';
+
+        html += `
+          <tr>
+            <td>${user.id}</td>
+            <td><strong>${user.name}</strong></td>
+            <td>${user.oauth_email || user.oauth_nickname || '-'}</td>
+            <td>${user.organization_name || '-'}</td>
+            <td>${roleBadge}</td>
+            <td>${approvalBadge}</td>
+            <td>${user.oauth_provider || '-'}</td>
+            <td>${new Date(user.created_at).toLocaleDateString('ko-KR')}</td>
+            <td>
+              <button class="btn btn-success" onclick="openChangeRoleModal(${user.id}, '${user.name}', '${user.role}', ${user.organization_id || 'null'})">권한 변경</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // View Organization Users
+    async function viewOrganizationUsers(orgId, orgName) {
+      try {
+        const users = allUsers.filter(u => u.organization_id === orgId);
+        
+        document.getElementById('orgUsersModalTitle').textContent = `${orgName} - 사용자 목록`;
+        
+        let html = '';
+        if (users.length === 0) {
+          html = '<div class="empty-state"><p>이 기관에 소속된 사용자가 없습니다</p></div>';
+        } else {
+          html = `
+            <table>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>이메일</th>
+                  <th>역할</th>
+                  <th>승인</th>
+                  <th>작업</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          users.forEach(user => {
+            let roleBadge = user.role === 'org_admin' 
+              ? '<span class="badge badge-admin">기관 관리자</span>'
+              : '<span class="badge badge-info">일반 사용자</span>';
+
+            const approvalBadge = user.is_approved 
+              ? '<span class="badge badge-success">승인됨</span>'
+              : '<span class="badge badge-warning">대기중</span>';
+
+            html += `
+              <tr>
+                <td><strong>${user.name}</strong></td>
+                <td>${user.oauth_email || user.oauth_nickname || '-'}</td>
+                <td>${roleBadge}</td>
+                <td>${approvalBadge}</td>
+                <td>
+                  <button class="btn btn-success" onclick="openChangeRoleModal(${user.id}, '${user.name}', '${user.role}', ${user.organization_id})">권한 변경</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+        }
+
+        document.getElementById('orgUsersContent').innerHTML = html;
+        document.getElementById('viewOrgUsersModal').classList.add('active');
+      } catch (error) {
+        console.error('기관 사용자 조회 실패:', error);
+        alert('사용자 목록을 불러오는데 실패했습니다');
+      }
+    }
+
+    function closeViewOrgUsersModal() {
+      document.getElementById('viewOrgUsersModal').classList.remove('active');
+    }
+
+    // Load Audit Logs
+    async function loadAuditLogs() {
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/audit-logs?limit=100`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        allAuditLogs = data.logs || [];
+        renderAuditLogs(allAuditLogs);
+      } catch (error) {
+        console.error('감사 로그 로딩 실패:', error);
+        document.getElementById('auditLogsTable').innerHTML = '<div class="empty-state">감사 로그를 불러오는데 실패했습니다</div>';
+      }
+    }
+
+    function renderAuditLogs(logs) {
+      const container = document.getElementById('auditLogsTable');
+      
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>감사 로그가 없습니다</p></div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>시간</th>
+              <th>작업자</th>
+              <th>역할</th>
+              <th>작업</th>
+              <th>리소스</th>
+              <th>설명</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      logs.forEach(log => {
+        html += `
+          <tr>
+            <td>${new Date(log.created_at).toLocaleString('ko-KR')}</td>
+            <td>${log.user_name || log.user_id}</td>
+            <td>${log.user_role || '-'}</td>
+            <td><span class="badge badge-info">${log.action}</span></td>
+            <td>${log.resource_type}</td>
+            <td>${log.description || '-'}</td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Tab Switching
+    function switchTab(tabName) {
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      // Add active class to selected tab
+      event.target.classList.add('active');
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+
+    // Search and Filter Functions
+    function searchOrganizations() {
+      const searchTerm = document.getElementById('orgSearch').value.toLowerCase();
+      const filtered = allOrganizations.filter(org => 
+        org.name.toLowerCase().includes(searchTerm)
+      );
+      renderOrganizations(filtered);
+    }
+
+    function filterOrganizations() {
+      const status = document.getElementById('orgStatusFilter').value;
+      const filtered = status 
+        ? allOrganizations.filter(org => org.subscription_status === status)
+        : allOrganizations;
+      renderOrganizations(filtered);
+    }
+
+    function searchUsers() {
+      const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+      const filtered = allUsers.filter(user => 
+        user.name.toLowerCase().includes(searchTerm) ||
+        (user.oauth_email && user.oauth_email.toLowerCase().includes(searchTerm)) ||
+        (user.oauth_nickname && user.oauth_nickname.toLowerCase().includes(searchTerm))
+      );
+      renderUsers(filtered);
+    }
+
+    function filterUsers() {
+      const orgId = document.getElementById('orgFilter').value;
+      const role = document.getElementById('roleFilter').value;
+      
+      let filtered = allUsers;
+      
+      if (orgId) {
+        filtered = filtered.filter(user => user.organization_id == orgId);
+      }
+      
+      if (role) {
+        filtered = filtered.filter(user => user.role === role);
+      }
+      
+      renderUsers(filtered);
+    }
+
+    function filterAuditLogs() {
+      const action = document.getElementById('actionFilter').value;
+      const resource = document.getElementById('resourceFilter').value;
+      
+      let filtered = allAuditLogs;
+      
+      if (action) {
+        filtered = filtered.filter(log => log.action === action);
+      }
+      
+      if (resource) {
+        filtered = filtered.filter(log => log.resource_type === resource);
+      }
+      
+      renderAuditLogs(filtered);
+    }
+
+    // Create Organization Modal
+    function openCreateOrgModal() {
+      document.getElementById('createOrgModal').classList.add('active');
+    }
+
+    function closeCreateOrgModal() {
+      document.getElementById('createOrgModal').classList.remove('active');
+      document.getElementById('createOrgForm').reset();
+    }
+
+    async function createOrganization(event) {
+      event.preventDefault();
+      
+      const formData = new FormData(event.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/organizations`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) throw new Error('기관 생성 실패');
+        
+        alert('기관이 생성되었습니다');
+        closeCreateOrgModal();
+        await Promise.all([loadStats(), loadOrganizations()]);
+      } catch (error) {
+        console.error('기관 생성 실패:', error);
+        alert('기관 생성에 실패했습니다');
+      }
+    }
+
+    async function deleteOrganization(id, name) {
+      if (!confirm(`"${name}" 기관을 삭제하시겠습니까?`)) return;
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/organizations/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) throw new Error('기관 삭제 실패');
+        
+        alert('기관이 삭제되었습니다');
+        await Promise.all([loadStats(), loadOrganizations()]);
+      } catch (error) {
+        console.error('기관 삭제 실패:', error);
+        alert('기관 삭제에 실패했습니다');
+      }
+    }
+
+    // Change Role Modal
+    function openChangeRoleModal(userId, userName, currentRole, orgId) {
+      document.getElementById('changeRoleUserId').value = userId;
+      document.getElementById('changeRoleUserName').value = userName;
+      document.getElementById('changeRoleCurrentRole').value = getRoleText(currentRole);
+      document.getElementById('changeRoleNewRole').value = currentRole;
+      document.getElementById('changeRoleOrgId').value = orgId || '';
+      document.getElementById('changeRoleModal').classList.add('active');
+    }
+
+    function closeChangeRoleModal() {
+      document.getElementById('changeRoleModal').classList.remove('active');
+      document.getElementById('changeRoleForm').reset();
+    }
+
+    function getRoleText(role) {
+      const roleMap = {
+        'system_admin': '최고 관리자',
+        'org_admin': '기관 관리자',
+        'user': '일반 사용자'
+      };
+      return roleMap[role] || role;
+    }
+
+    async function changeUserRole(event) {
+      event.preventDefault();
+      
+      const userId = document.getElementById('changeRoleUserId').value;
+      const role = document.getElementById('changeRoleNewRole').value;
+      const orgId = document.getElementById('changeRoleOrgId').value;
+      
+      if (role === 'org_admin' && !orgId) {
+        alert('기관 관리자는 소속 기관을 선택해야 합니다');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/system-admin/users/${userId}/role`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            role: role,
+            organization_id: orgId || null
+          })
+        });
+        
+        if (!res.ok) throw new Error('권한 변경 실패');
+        
+        alert('사용자 권한이 변경되었습니다');
+        closeChangeRoleModal();
+        closeViewOrgUsersModal();
+        await Promise.all([loadStats(), loadUsers()]);
+      } catch (error) {
+        console.error('권한 변경 실패:', error);
+        alert('권한 변경에 실패했습니다');
+      }
+    }
+
+    // Logout
+    function logout() {
+      if (confirm('로그아웃 하시겠습니까?')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

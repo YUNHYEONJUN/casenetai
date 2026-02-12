@@ -1,0 +1,68 @@
+# Vercel 배포 시 제외할 파일
+
+# Node modules (자동 설치됨)
+node_modules/
+
+# SQLite 데이터베이스 (PostgreSQL 사용)
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# 로그 파일
+*.log
+logs/
+
+# 테스트 파일
+test*.js
+*test.js
+*.test.js
+
+# 백업 파일
+*.backup
+*.bak
+*-backup.js
+
+# 임시 파일
+uploads/
+temp/
+tmp/
+
+# 개발 전용 파일
+.env.local
+.env.development
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# 보안 리포트
+*-report.json
+*-scan*.json
+security-report.json
+comprehensive-scan*.json
+ultimate-security*.json
+deep-*.json
+critical-*.json
+
+# 체크 스크립트
+check-*.js
+test-*.js
+create-admin.js
+
+# 마이그레이션 (이미 실행됨)
+database/migrate.js
+database/run-migration-*.js
+database/seed-*.js
+database/init.js
+database/test-*.js
+database/*-backup.js
+
+# 문서
+README.md
+*.md
+!package.json

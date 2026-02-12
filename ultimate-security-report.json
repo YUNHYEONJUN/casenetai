@@ -1,0 +1,145 @@
+{
+  "timestamp": "2025-12-10T14:21:28.550Z",
+  "filesScanned": 35,
+  "summary": {
+    "critical": 4,
+    "high": 12,
+    "medium": 5,
+    "low": 0
+  },
+  "issues": {
+    "critical": [
+      {
+        "file": "services/authService.js",
+        "issue": "잔액 차감이 원자적이지 않음",
+        "fix": "UPDATE credits SET balance = balance - ? WHERE id = ?",
+        "impact": "CRITICAL - 이중 차감 또는 무한 크레딧 가능"
+      },
+      {
+        "file": "services/creditService.js",
+        "issue": "잔액 차감이 원자적이지 않음",
+        "fix": "UPDATE credits SET balance = balance - ? WHERE id = ?",
+        "impact": "CRITICAL - 이중 차감 또는 무한 크레딧 가능"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "잔액 차감이 원자적이지 않음",
+        "fix": "UPDATE credits SET balance = balance - ? WHERE id = ?",
+        "impact": "CRITICAL - 이중 차감 또는 무한 크레딧 가능"
+      },
+      {
+        "file": "config/passport.js",
+        "issue": "잔액 차감이 원자적이지 않음",
+        "fix": "UPDATE credits SET balance = balance - ? WHERE id = ?",
+        "impact": "CRITICAL - 이중 차감 또는 무한 크레딧 가능"
+      }
+    ],
+    "high": [
+      {
+        "file": "routes/admin.js",
+        "issue": "트랜잭션 없이 2개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "트랜잭션 없이 4개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "services/authService.js",
+        "issue": "트랜잭션 없이 5개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "services/authService.js",
+        "issue": "Race condition: SELECT 후 UPDATE (Check-Then-Act)",
+        "fix": "SELECT ... FOR UPDATE 또는 낙관적 잠금 사용",
+        "impact": "동시 요청 시 데이터 불일치"
+      },
+      {
+        "file": "services/creditService.js",
+        "issue": "크레딧 잔액 음수 방지 체크 없음",
+        "fix": "IF balance < amount THEN RAISE ERROR",
+        "impact": "무한 크레딧 사용 가능"
+      },
+      {
+        "file": "services/feedbackService.js",
+        "issue": "트랜잭션 없이 2개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "트랜잭션 없이 3개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "Race condition: SELECT 후 UPDATE (Check-Then-Act)",
+        "fix": "SELECT ... FOR UPDATE 또는 낙관적 잠금 사용",
+        "impact": "동시 요청 시 데이터 불일치"
+      },
+      {
+        "file": "services/usageTrackingService.js",
+        "issue": "트랜잭션 없이 2개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "database/seed-organizations-old.js",
+        "issue": "트랜잭션 없이 2개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "database/seed-organizations.js",
+        "issue": "트랜잭션 없이 2개의 쓰기 작업",
+        "fix": "BEGIN ... COMMIT/ROLLBACK 사용",
+        "impact": "데이터 불일치 발생 가능"
+      },
+      {
+        "file": "config/passport.js",
+        "issue": "Race condition: SELECT 후 UPDATE (Check-Then-Act)",
+        "fix": "SELECT ... FOR UPDATE 또는 낙관적 잠금 사용",
+        "impact": "동시 요청 시 데이터 불일치"
+      }
+    ],
+    "medium": [
+      {
+        "file": "services/aiService.js",
+        "issue": "Promise.all 사용 (하나 실패 시 전체 실패)",
+        "fix": "Promise.allSettled 사용 고려",
+        "impact": "부분 실패 처리 불가"
+      },
+      {
+        "file": "services/analyticsService.js",
+        "issue": "Promise.all 사용 (하나 실패 시 전체 실패)",
+        "fix": "Promise.allSettled 사용 고려",
+        "impact": "부분 실패 처리 불가"
+      },
+      {
+        "file": "services/hybridAnonymizationService.js",
+        "issue": "Promise.all 사용 (하나 실패 시 전체 실패)",
+        "fix": "Promise.allSettled 사용 고려",
+        "impact": "부분 실패 처리 불가"
+      },
+      {
+        "file": "database/migrations/002_add_oauth_support.sql",
+        "issue": "외래키에 ON DELETE 정책 없음",
+        "fix": "ON DELETE CASCADE/SET NULL/RESTRICT 추가",
+        "impact": "고아 레코드 발생 가능"
+      },
+      {
+        "file": "server.js",
+        "issue": "업로드 파일명 sanitization 누락",
+        "fix": "path.basename() + UUID 사용",
+        "impact": "경로 탐색 공격 가능"
+      }
+    ],
+    "low": []
+  }
+}
