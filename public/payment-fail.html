@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>결제 실패 - CaseNetAI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .result-container {
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-message {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .error-card {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .error-details {
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        .error-row {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .error-row:last-child {
+            border-bottom: none;
+        }
+
+        .error-label {
+            font-weight: 600;
+            color: #856404;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .error-value {
+            color: #666;
+        }
+
+        .result-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .help-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .help-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .help-list {
+            text-align: left;
+            margin: 15px auto;
+            max-width: 400px;
+        }
+
+        .help-list li {
+            padding: 8px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div class="result-icon">✕</div>
+        <div class="result-title">결제가 취소되었습니다</div>
+        <div class="result-message">결제 과정에서 문제가 발생했습니다</div>
+
+        <div class="error-card">
+            <div style="font-size: 1.2rem; font-weight: 600; color: #856404; margin-bottom: 15px;">
+                결제 실패 정보
+            </div>
+            <div class="error-details">
+                <div class="error-row">
+                    <span class="error-label">오류 코드</span>
+                    <span class="error-value" id="errorCode">-</span>
+                </div>
+                <div class="error-row">
+                    <span class="error-label">오류 메시지</span>
+                    <span class="error-value" id="errorMessage">-</span>
+                </div>
+                <div class="error-row">
+                    <span class="error-label">주문번호</span>
+                    <span class="error-value" id="orderId">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-buttons">
+            <a href="/payment.html" class="btn btn-primary">다시 시도하기</a>
+            <a href="/dashboard.html" class="btn btn-secondary">대시보드로</a>
+            <a href="/" class="btn btn-secondary">홈으로</a>
+        </div>
+
+        <div class="help-section">
+            <div class="help-title">💡 결제 실패 시 확인사항</div>
+            <ul class="help-list">
+                <li>✓ 카드 한도를 확인해주세요</li>
+                <li>✓ 카드 정보를 정확히 입력했는지 확인해주세요</li>
+                <li>✓ 해외결제가 가능한 카드인지 확인해주세요</li>
+                <li>✓ 인터넷 연결 상태를 확인해주세요</li>
+                <li>✓ 문제가 지속되면 고객센터로 문의해주세요</li>
+            </ul>
+            <div style="margin-top: 20px;">
+                <strong>고객센터</strong><br>
+                <span style="color: #666;">이메일: support@casenetai.com</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function loadErrorInfo() {
+            // URL에서 파라미터 추출
+            const urlParams = new URLSearchParams(window.location.search);
+            const errorCode = urlParams.get('code');
+            const errorMessage = urlParams.get('message');
+            const orderId = urlParams.get('orderId');
+
+            // 에러 정보 표시
+            document.getElementById('errorCode').textContent = 
+                errorCode || '알 수 없음';
+            document.getElementById('errorMessage').textContent = 
+                decodeURIComponent(errorMessage || '결제가 취소되었습니다');
+            document.getElementById('orderId').textContent = 
+                orderId || '-';
+        }
+
+        // 페이지 로드시 에러 정보 로드
+        window.addEventListener('DOMContentLoaded', loadErrorInfo);
+    </script>
+</body>
+</html>

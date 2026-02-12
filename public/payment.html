@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>크레딧 충전 - CaseNetAI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        .payment-container {
+            max-width: 1200px;
+            margin: 80px auto 40px;
+            padding: 20px;
+        }
+
+        .payment-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .payment-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .payment-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .payment-plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .plan-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(30, 64, 175, 0.15);
+            border-color: #3b82f6;
+        }
+
+        .plan-card.selected {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, rgba(30, 64, 175, 0.03) 0%, rgba(59, 130, 246, 0.03) 100%);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(30, 64, 175, 0.25);
+        }
+
+        .plan-amount {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .plan-bonus {
+            color: #3b82f6;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        .plan-total {
+            font-size: 1rem;
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .plan-features {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0 0;
+        }
+
+        .plan-features li {
+            padding: 8px 0;
+            color: #555;
+            display: flex;
+            align-items: center;
+        }
+
+        .plan-features li:before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .payment-summary {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        .summary-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+            margin-top: 10px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+
+        .summary-label {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .summary-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .summary-value.bonus {
+            color: #667eea;
+        }
+
+        .summary-value.total {
+            font-size: 1.5rem;
+            color: #667eea;
+        }
+
+        .payment-button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .payment-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .current-balance {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .balance-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .balance-amount {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .free-trial-notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 968px) {
+            .payment-content {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-summary {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1><a href="/" style="color: inherit; text-decoration: none;">CaseNetAI</a></h1>
+                    <p class="tagline">노인보호전문기관 업무자동화 시스템</p>
+                </div>
+                <nav class="nav">
+                    <a href="/" class="nav-link">홈</a>
+                    <a href="/dashboard.html" class="nav-link">대시보드</a>
+                    <a href="/payment.html" class="nav-link active">충전하기</a>
+                    <a href="/legal-cases.html" class="nav-link">판례검색</a>
+                    <a href="#" class="nav-link" onclick="logout(); return false;">로그아웃</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <div class="payment-container">
+        <div class="payment-header">
+            <h1>크레딧 충전</h1>
+            <p>크레딧을 충전하고 더 많은 서비스를 이용하세요</p>
+        </div>
+
+        <!-- 현재 잔액 표시 -->
+        <div class="current-balance">
+            <div class="balance-label">현재 잔액</div>
+            <div class="balance-amount" id="currentBalance">-</div>
+        </div>
+
+        <!-- 무료 체험 알림 -->
+        <div class="free-trial-notice" id="freeTrialNotice" style="display: none;">
+            <strong>🎉 무료 체험 횟수: <span id="freeTrialCount">3</span>회 남음</strong>
+            <p style="margin: 5px 0 0;">무료 체험을 모두 사용한 후 크레딧을 충전하세요</p>
+        </div>
+
+        <div class="payment-content">
+            <!-- 충전 플랜 -->
+            <div>
+                <h2 style="margin-bottom: 20px; color: #333;">충전 플랜 선택</h2>
+                <div class="payment-plans">
+                    <!-- 5,000원 플랜 -->
+                    <div class="plan-card" data-amount="5000" data-bonus="500" onclick="selectPlan(this)">
+                        <div class="plan-badge">+10%</div>
+                        <div class="plan-amount">5,000원</div>
+                        <div class="plan-bonus">+ 보너스 500원</div>
+                        <div class="plan-total">총 5,500 크레딧</div>
+                        <ul class="plan-features">
+                            <li>약 183분 (3시간) 사용 가능</li>
+                            <li>입문자 추천</li>
+                        </ul>
+                    </div>
+
+                    <!-- 10,000원 플랜 -->
+                    <div class="plan-card" data-amount="10000" data-bonus="2000" onclick="selectPlan(this)">
+                        <div class="plan-badge">+20%</div>
+                        <div class="plan-amount">10,000원</div>
+                        <div class="plan-bonus">+ 보너스 2,000원</div>
+                        <div class="plan-total">총 12,000 크레딧</div>
+                        <ul class="plan-features">
+                            <li>약 400분 (6.7시간) 사용 가능</li>
+                            <li>베스트셀러 🔥</li>
+                        </ul>
+                    </div>
+
+                    <!-- 30,000원 플랜 -->
+                    <div class="plan-card" data-amount="30000" data-bonus="7500" onclick="selectPlan(this)">
+                        <div class="plan-badge">+25%</div>
+                        <div class="plan-amount">30,000원</div>
+                        <div class="plan-bonus">+ 보너스 7,500원</div>
+                        <div class="plan-total">총 37,500 크레딧</div>
+                        <ul class="plan-features">
+                            <li>약 1,250분 (20.8시간) 사용 가능</li>
+                            <li>프로 사용자 추천</li>
+                        </ul>
+                    </div>
+
+                    <!-- 50,000원 플랜 -->
+                    <div class="plan-card" data-amount="50000" data-bonus="15000" onclick="selectPlan(this)">
+                        <div class="plan-badge">+30%</div>
+                        <div class="plan-amount">50,000원</div>
+                        <div class="plan-bonus">+ 보너스 15,000원</div>
+                        <div class="plan-total">총 65,000 크레딧</div>
+                        <ul class="plan-features">
+                            <li>약 2,167분 (36.1시간) 사용 가능</li>
+                            <li>최고 가성비 ⭐</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 결제 요약 -->
+            <div class="payment-summary">
+                <h3 class="summary-title">결제 요약</h3>
+                <div class="summary-row">
+                    <span class="summary-label">선택한 플랜</span>
+                    <span class="summary-value" id="selectedPlan">-</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">결제 금액</span>
+                    <span class="summary-value" id="paymentAmount">0원</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">보너스 크레딧</span>
+                    <span class="summary-value bonus" id="bonusAmount">+ 0원</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">받으실 크레딧</span>
+                    <span class="summary-value total" id="totalCredit">0 크레딧</span>
+                </div>
+                <button class="payment-button" id="paymentBtn" disabled onclick="processPayment()">
+                    플랜을 선택해주세요
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <h3>CaseNetAI</h3>
+                    <p>Powered by <a href="https://wellpartners.kr" target="_blank">WellPartners</a></p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">이용약관</a>
+                    <a href="#">개인정보처리방침</a>
+                    <a href="#">고객센터</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://js.tosspayments.com/v1"></script>
+    <script>
+        let selectedAmount = 0;
+        let selectedBonus = 0;
+
+        // 로그아웃 함수
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            alert('로그아웃되었습니다.');
+            window.location.href = '/';
+        }
+
+        // 인증 확인
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('로그인이 필요합니다.');
+                window.location.href = '/login.html';
+                return false;
+            }
+            return true;
+        }
+
+        // 현재 잔액 조회
+        async function loadBalance() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/payment/credit/balance', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('currentBalance').textContent = 
+                        data.balance.toLocaleString() + ' 크레딧';
+                    
+                    // 무료 체험 횟수 표시
+                    if (data.freeTrialCount > 0) {
+                        document.getElementById('freeTrialNotice').style.display = 'block';
+                        document.getElementById('freeTrialCount').textContent = data.freeTrialCount;
+                    }
+                }
+            } catch (error) {
+                console.error('잔액 조회 실패:', error);
+            }
+        }
+
+        // 플랜 선택
+        function selectPlan(element) {
+            // 모든 플랜 카드의 선택 해제
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // 선택한 플랜 카드 활성화
+            element.classList.add('selected');
+
+            // 선택한 플랜 정보 저장
+            selectedAmount = parseInt(element.dataset.amount);
+            selectedBonus = parseInt(element.dataset.bonus);
+
+            // 결제 요약 업데이트
+            updateSummary();
+        }
+
+        // 결제 요약 업데이트
+        function updateSummary() {
+            const totalCredit = selectedAmount + selectedBonus;
+
+            document.getElementById('selectedPlan').textContent = 
+                selectedAmount.toLocaleString() + '원 플랜';
+            document.getElementById('paymentAmount').textContent = 
+                selectedAmount.toLocaleString() + '원';
+            document.getElementById('bonusAmount').textContent = 
+                '+ ' + selectedBonus.toLocaleString() + '원';
+            document.getElementById('totalCredit').textContent = 
+                totalCredit.toLocaleString() + ' 크레딧';
+
+            // 결제 버튼 활성화
+            const paymentBtn = document.getElementById('paymentBtn');
+            paymentBtn.disabled = false;
+            paymentBtn.textContent = selectedAmount.toLocaleString() + '원 결제하기';
+        }
+
+        // 결제 처리
+        async function processPayment() {
+            if (selectedAmount === 0) {
+                alert('플랜을 선택해주세요.');
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                
+                // 1. 결제 준비 API 호출
+                const prepareResponse = await fetch('/api/payment/prepare', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        amount: selectedAmount
+                    })
+                });
+
+                const prepareData = await prepareResponse.json();
+                
+                if (!prepareData.success) {
+                    alert('결제 준비 실패: ' + prepareData.message);
+                    return;
+                }
+
+                // 2. 토스페이먼츠 결제 위젯 초기화
+                const clientKey = prepareData.clientKey;
+                const tossPayments = TossPayments(clientKey);
+
+                // 3. 결제 요청
+                tossPayments.requestPayment('카드', {
+                    amount: prepareData.amount,
+                    orderId: prepareData.orderId,
+                    orderName: `크레딧 ${(selectedAmount + selectedBonus).toLocaleString()}원 충전`,
+                    customerName: '사용자',
+                    successUrl: prepareData.successUrl,
+                    failUrl: prepareData.failUrl,
+                });
+
+            } catch (error) {
+                console.error('결제 처리 오류:', error);
+                alert('결제 처리 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 페이지 로드시 실행
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (await checkAuth()) {
+                await loadBalance();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대시보드 - CaseNetAI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- 헤더 -->
+        <div class="dashboard-header">
+            <div class="user-info">
+                <h2>안녕하세요, <span id="userName">사용자</span>님! 👋</h2>
+                <p id="userEmail">user@example.com</p>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">홈으로</a>
+                <button class="btn btn-secondary" onclick="logout()">로그아웃</button>
+            </div>
+        </div>
+
+        <!-- 통계 카드 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">현재 잔액</div>
+                    <div class="stat-icon blue">💰</div>
+                </div>
+                <div class="stat-value" id="creditBalance">0원</div>
+                <div class="stat-change">
+                    <button class="btn btn-primary" style="padding: 8px 16px; font-size: 13px; margin-top: 10px;" onclick="location.href='/payment.html'">
+                        충전하기
+                    </button>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">무료 체험</div>
+                    <div class="stat-icon green">🎁</div>
+                </div>
+                <div class="stat-value" id="freeTrialCount">0회</div>
+                <div class="stat-change">남은 무료 체험 횟수</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">이번 달 사용</div>
+                    <div class="stat-icon orange"></div>
+                </div>
+                <div class="stat-value" id="monthlyUsage">0건</div>
+                <div class="stat-change" id="monthlyUsageDetail">0분 / 0원</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">총 사용</div>
+                    <div class="stat-icon purple"></div>
+                </div>
+                <div class="stat-value" id="totalUsage">0건</div>
+                <div class="stat-change" id="totalUsageDetail">0분 / 0원</div>
+            </div>
+        </div>
+
+        <!-- 빠른 액션 -->
+        <div class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">빠른 실행</h2>
+            </div>
+            <div class="quick-actions">
+                <a href="/#upload" class="quick-action-btn">
+                    <div class="quick-action-icon"></div>
+                    <div class="quick-action-title">상담일지 생성</div>
+                    <div class="quick-action-desc">음성 파일 업로드</div>
+                </a>
+                <a href="/legal-cases.html" class="quick-action-btn">
+                    <div class="quick-action-icon"></div>
+                    <div class="quick-action-title">판례 검색</div>
+                    <div class="quick-action-desc">법률 판례 찾기</div>
+                </a>
+                <a href="/payment.html" class="quick-action-btn">
+                    <div class="quick-action-icon"></div>
+                    <div class="quick-action-title">크레딧 충전</div>
+                    <div class="quick-action-desc">결제 및 보너스</div>
+                </a>
+                <a href="#" onclick="loadTransactions(); return false;" class="quick-action-btn">
+                    <div class="quick-action-icon"></div>
+                    <div class="quick-action-title">사용 내역</div>
+                    <div class="quick-action-desc">거래 내역 조회</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- 최근 거래 내역 -->
+        <div class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">최근 거래 내역</h2>
+                <a href="#" onclick="loadTransactions(); return false;" class="btn btn-secondary" style="padding: 8px 16px; font-size: 13px;">
+                    전체 보기
+                </a>
+            </div>
+            
+            <div id="transactionsLoading" class="loading">
+                <div class="spinner"></div>
+                <p>거래 내역을 불러오는 중...</p>
+            </div>
+
+            <div id="transactionsContent" style="display: none;">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>유형</th>
+                            <th>설명</th>
+                            <th style="text-align: right;">금액</th>
+                            <th style="text-align: right;">잔액</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTable">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="transactionsEmpty" style="display: none;">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>거래 내역이 없습니다</h3>
+                    <p>크레딧을 충전하거나 상담일지를 생성해보세요</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 인증 체크
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+
+        // System Admin 자동 리다이렉션
+        async function checkUserRoleAndRedirect() {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user.role === 'system_admin') {
+                        // System Admin은 전용 대시보드로 리다이렉트
+                        window.location.href = '/system-admin-dashboard.html';
+                        return true;
+                    }
+                }
+                return false;
+            } catch (error) {
+                console.error('역할 확인 실패:', error);
+                return false;
+            }
+        }
+
+        // 페이지 로드 시 역할 확인
+        checkUserRoleAndRedirect();
+
+        // API 호출 헬퍼
+        async function apiCall(url, options = {}) {
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            const response = await fetch(url, {
+                ...options,
+                headers
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                // 토큰 만료
+                localStorage.clear();
+                window.location.href = '/login.html';
+                return;
+            }
+
+            return response.json();
+        }
+
+        // 로그아웃
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.clear();
+                window.location.href = '/';
+            }
+        }
+
+        // 사용자 정보 로드
+        async function loadUserInfo() {
+            try {
+                const data = await apiCall('/api/auth/me');
+                
+                if (data.success) {
+                    document.getElementById('userName').textContent = data.user.name;
+                    document.getElementById('userEmail').textContent = data.user.email;
+                }
+            } catch (error) {
+                console.error('사용자 정보 로드 실패:', error);
+            }
+        }
+
+        // 크레딧 잔액 로드
+        async function loadBalance() {
+            try {
+                const data = await apiCall('/api/payment/credit/balance');
+                
+                if (data.success) {
+                    document.getElementById('creditBalance').textContent = 
+                        data.balance.toLocaleString() + '원';
+                    document.getElementById('freeTrialCount').textContent = 
+                        data.freeTrialCount + '회';
+                }
+            } catch (error) {
+                console.error('잔액 로드 실패:', error);
+            }
+        }
+
+        // 사용 통계 로드
+        async function loadStats() {
+            try {
+                const data = await apiCall('/api/payment/credit/stats');
+                
+                if (data.success) {
+                    // 이번 달
+                    document.getElementById('monthlyUsage').textContent = data.thisMonth.count + '건';
+                    document.getElementById('monthlyUsageDetail').textContent = 
+                        `${Math.round(data.thisMonth.minutes)}분 / ${data.thisMonth.cost.toLocaleString()}원`;
+                    
+                    // 전체
+                    document.getElementById('totalUsage').textContent = data.total.count + '건';
+                    document.getElementById('totalUsageDetail').textContent = 
+                        `${Math.round(data.total.minutes)}분 / ${data.total.cost.toLocaleString()}원`;
+                }
+            } catch (error) {
+                console.error('통계 로드 실패:', error);
+            }
+        }
+
+        // 거래 내역 로드
+        async function loadTransactions(limit = 10) {
+            try {
+                const data = await apiCall(`/api/payment/credit/transactions?limit=${limit}`);
+                
+                document.getElementById('transactionsLoading').style.display = 'none';
+
+                if (data.success && data.transactions.length > 0) {
+                    document.getElementById('transactionsContent').style.display = 'block';
+                    document.getElementById('transactionsEmpty').style.display = 'none';
+
+                    const tbody = document.getElementById('transactionsTable');
+                    tbody.innerHTML = data.transactions.map(tx => {
+                        const typeLabels = {
+                            'purchase': '충전',
+                            'usage': '사용',
+                            'bonus': '보너스',
+                            'free_trial': '무료체험'
+                        };
+
+                        const typeClasses = {
+                            'purchase': 'type-purchase',
+                            'usage': 'type-usage',
+                            'bonus': 'type-bonus',
+                            'free_trial': 'type-free-trial'
+                        };
+
+                        const amountClass = tx.amount >= 0 ? 'amount-positive' : 'amount-negative';
+                        const amountSign = tx.amount >= 0 ? '+' : '';
+
+                        return `
+                            <tr>
+                                <td>${new Date(tx.created_at).toLocaleDateString('ko-KR', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}</td>
+                                <td><span class="transaction-type ${typeClasses[tx.type]}">${typeLabels[tx.type]}</span></td>
+                                <td>${tx.description}</td>
+                                <td style="text-align: right;" class="${amountClass}">
+                                    ${amountSign}${Math.abs(tx.amount).toLocaleString()}원
+                                </td>
+                                <td style="text-align: right;">${tx.balance_after.toLocaleString()}원</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    document.getElementById('transactionsContent').style.display = 'none';
+                    document.getElementById('transactionsEmpty').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('거래 내역 로드 실패:', error);
+                document.getElementById('transactionsLoading').style.display = 'none';
+                document.getElementById('transactionsEmpty').style.display = 'block';
+            }
+        }
+
+        // 페이지 로드 시 실행
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('대시보드 로드 시작');
+            
+            await loadUserInfo();
+            await loadBalance();
+            await loadStats();
+            await loadTransactions();
+
+            console.log('대시보드 로드 완료');
+        });
+    </script>
+</body>
+</html>

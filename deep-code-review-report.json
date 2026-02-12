@@ -1,0 +1,329 @@
+{
+  "timestamp": "2025-12-10T14:02:29.344Z",
+  "totalFiles": 31,
+  "summary": {
+    "critical": 0,
+    "high": 2,
+    "medium": 7,
+    "low": 50,
+    "info": 1,
+    "total": 60
+  },
+  "issues": {
+    "critical": [],
+    "high": [
+      {
+        "file": "database/init.js",
+        "issue": "Database 연결 close 후 재사용 가능성",
+        "recommendation": "연결 풀(pool) 사용 또는 적절한 연결 관리 필요"
+      },
+      {
+        "file": "database/run-migration-004.js",
+        "issue": "Database 연결 close 후 재사용 가능성",
+        "recommendation": "연결 풀(pool) 사용 또는 적절한 연결 관리 필요"
+      }
+    ],
+    "medium": [
+      {
+        "file": "routes/auth.js",
+        "issue": "입력 검증 부족 (req.body 사용 vs 검증 비율)",
+        "recommendation": "모든 사용자 입력에 대해 검증 필요"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "API 응답 형식이 일관되지 않음 (success 필드 누락)",
+        "recommendation": "모든 API 응답에 success 필드 포함 권장"
+      },
+      {
+        "file": "routes/feedback.js",
+        "line": 197,
+        "issue": "Null safety 체크 누락: req.params.id",
+        "code": "const feedbackId = parseInt(req.params.id);",
+        "recommendation": "값 사용 전 존재 여부 확인 필요"
+      },
+      {
+        "file": "routes/feedback.js",
+        "issue": "API 응답 형식이 일관되지 않음 (success 필드 누락)",
+        "recommendation": "모든 API 응답에 success 필드 포함 권장"
+      },
+      {
+        "file": "routes/payment.js",
+        "line": 172,
+        "issue": "Null safety 체크 누락: req.params.amount",
+        "code": "const amount = parseInt(req.params.amount);",
+        "recommendation": "값 사용 전 존재 여부 확인 필요"
+      },
+      {
+        "file": "routes/payment.js",
+        "issue": "API 응답 형식이 일관되지 않음 (success 필드 누락)",
+        "recommendation": "모든 API 응답에 success 필드 포함 권장"
+      },
+      {
+        "file": "server.js",
+        "line": 845,
+        "issue": "Null safety 체크 누락: req.body.report",
+        "code": "const report = req.body.report;",
+        "recommendation": "값 사용 전 존재 여부 확인 필요"
+      }
+    ],
+    "low": [
+      {
+        "file": "routes/admin.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "routes/admin.js",
+        "issue": "동일 변수(usageStats)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "routes/admin.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "routes/analytics.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "routes/analytics.js",
+        "issue": "동일 변수(result, result, result, result, result, result, result, result, result)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "동일 변수(result, result, result, result)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "routes/auth.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "routes/feedback.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "routes/feedback.js",
+        "issue": "동일 변수(result, result, userInfo, result, result, result, result, result, result)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "routes/payment.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "routes/payment.js",
+        "issue": "동일 변수(result, result, result, result, result)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/aiAnonymizationService.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "services/aiAnonymizationService.js",
+        "issue": "동일 변수(response)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/aiAnonymizationService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/aiService.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "services/aiService.js",
+        "issue": "동일 변수(result, result, response)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/aiService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/authService.js",
+        "issue": "동일 변수(user, user)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/authService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/clovaAnonymizationService.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "services/clovaSttService.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "services/clovaSttService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/creditService.js",
+        "issue": "동일 변수(credit, credit)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/creditService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/documentParser.js",
+        "issue": "동일 변수(buffer)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/hybridAnonymizationService.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "services/hybridAnonymizationService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "동일 변수(payment, tossResponse)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "하드코딩된 포트 번호: :3000",
+        "recommendation": "환경 변수 사용 권장"
+      },
+      {
+        "file": "services/paymentService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "services/usageTrackingService.js",
+        "issue": "동일 변수(quota, quota, logs, quota)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "services/usageTrackingService.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "middleware/auth.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "database/db.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/init.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/migrate.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/run-migration-003.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/run-migration-004.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/seed-organizations-old.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "database/seed-organizations.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "public/js/anonymization.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "public/js/feedback-widget.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "public/js/feedback-widget.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "public/js/main.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      },
+      {
+        "file": "public/js/main.js",
+        "issue": "동일 변수(result)에 대한 여러 async 할당",
+        "recommendation": "Race condition 가능성 검토 필요"
+      },
+      {
+        "file": "public/js/main.js",
+        "issue": "환경별 로그 레벨 구분 없음",
+        "recommendation": "NODE_ENV에 따라 로그 레벨 조정"
+      },
+      {
+        "file": "public/js/security-utils.js",
+        "issue": "이메일 검증 정규식이 불완전할 수 있음",
+        "recommendation": "표준 이메일 정규식 사용 권장"
+      },
+      {
+        "file": "server.js",
+        "issue": "이벤트 리스너가 제거되지 않을 수 있음",
+        "recommendation": "컴포넌트 언마운트 시 이벤트 리스너 제거"
+      }
+    ],
+    "info": [
+      {
+        "file": "services/aiService.js",
+        "issue": "과도한 console 사용 (68회)",
+        "recommendation": "구조화된 로깅 라이브러리(winston, pino) 사용 권장"
+      }
+    ]
+  }
+}

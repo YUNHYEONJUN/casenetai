@@ -1,0 +1,462 @@
+{
+  "critical": [
+    {
+      "severity": "CRITICAL",
+      "file": "routes/admin.js",
+      "line": 415,
+      "issue": "SQL Injection 위험: 템플릿 리터럴에 변수 직접 삽입",
+      "fix": "파라미터 바인딩(?) 사용"
+    }
+  ],
+  "high": [
+    {
+      "severity": "HIGH",
+      "file": "routes/admin.js",
+      "line": 27,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "const targetYear = year ? parseInt(year) : now.getFullYear();",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/admin.js",
+      "line": 28,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "const targetMonth = month ? parseInt(month) : (now.getMonth() + 1);",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/admin.js",
+      "line": 411,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "[...params, parseInt(limit), parseInt(offset)]",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/admin.js",
+      "line": 446,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "const targetYear = year ? parseInt(year) : now.getFullYear();",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/admin.js",
+      "line": 447,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "const targetMonth = month ? parseInt(month) : (now.getMonth() + 1);",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/analytics.js",
+      "line": 24,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/analytics.js",
+      "line": 49,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/analytics.js",
+      "line": 76,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/analytics.js",
+      "line": 103,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/analytics.js",
+      "line": 251,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "limit: parseInt(limit)",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 48,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "limit: limit ? parseInt(limit) : 50,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 49,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "offset: offset ? parseInt(offset) : 0,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 51,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "minRating: minRating ? parseInt(minRating) : undefined,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 52,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "maxRating: maxRating ? parseInt(maxRating) : undefined",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 144,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "limit: limit ? parseInt(limit) : 50,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 145,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "offset: offset ? parseInt(offset) : 0",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 171,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 173,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "minRating: minRating ? parseInt(minRating) : undefined,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 174,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "maxRating: maxRating ? parseInt(maxRating) : undefined,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 177,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "limit: limit ? parseInt(limit) : 100,",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 178,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "offset: offset ? parseInt(offset) : 0",
+      "fix": "if (isNaN(value)) { return error... }"
+    },
+    {
+      "severity": "HIGH",
+      "file": "routes/feedback.js",
+      "line": 251,
+      "issue": "parseInt 결과가 NaN 체크 없이 사용됨",
+      "code": "organizationId: organizationId ? parseInt(organizationId) : undefined,",
+      "fix": "if (isNaN(value)) { return error... }"
+    }
+  ],
+  "medium": [
+    {
+      "severity": "MEDIUM",
+      "file": "routes/admin.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (4곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "routes/auth.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (4곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/aiAnonymizationService.js",
+      "line": 43,
+      "issue": "배열 choices 길이 체크 없이 접근",
+      "code": "const result = JSON.parse(response.choices[0].message.content);",
+      "fix": "if (choices && choices.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/aiService.js",
+      "line": 431,
+      "issue": "배열 choices 길이 체크 없이 접근",
+      "code": "const text = response.choices[0].message.content;",
+      "fix": "if (choices && choices.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/aiService.js",
+      "line": 589,
+      "issue": "배열 jsonMatch 길이 체크 없이 접근",
+      "code": "jsonText = jsonMatch[0];",
+      "fix": "if (jsonMatch && jsonMatch.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/aiService.js",
+      "line": 922,
+      "issue": "배열 types 길이 체크 없이 접근",
+      "code": "return types[type] || type;",
+      "fix": "if (types && types.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/anonymizationService.js",
+      "line": 313,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "const fullMatch = match[0];",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/authService.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (6곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 173,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "text: match[0],",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 176,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "end: match.index + match[0].length,",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 186,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "text: match[0],",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 189,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "end: match.index + match[0].length,",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 199,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "text: match[0],",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 202,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "end: match.index + match[0].length,",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 212,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "const name = match[1];",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 215,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "text: match[0],",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 218,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "end: match.index + match[0].length,",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 285,
+      "issue": "배열 typeMap 길이 체크 없이 접근",
+      "code": "return typeMap[clovaType] || 'unknown';",
+      "fix": "if (typeMap && typeMap.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/clovaAnonymizationService.js",
+      "line": 301,
+      "issue": "배열 tagMap 길이 체크 없이 접근",
+      "code": "const tagName = tagMap[type] || '정보';",
+      "fix": "if (tagMap && tagMap.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/creditService.js",
+      "line": 257,
+      "issue": "async 함수 '_logUsage'에 try-catch 없음",
+      "fix": "try-catch로 에러 처리 추가"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/documentParser.js",
+      "line": 15,
+      "issue": "async 함수 'parse'에 try-catch 없음",
+      "fix": "try-catch로 에러 처리 추가"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 371,
+      "issue": "배열 entity_counts 길이 체크 없이 접근",
+      "code": "comparison.entity_counts[method] = result.stats?.total_entities || 0;",
+      "fix": "if (entity_counts && entity_counts.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 372,
+      "issue": "배열 speed 길이 체크 없이 접근",
+      "code": "comparison.speed[method] = result.processing_time_ms;",
+      "fix": "if (speed && speed.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 373,
+      "issue": "배열 cost 길이 체크 없이 접근",
+      "code": "comparison.cost[method] = result.cost_estimate?.krw || 0;",
+      "fix": "if (cost && cost.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 377,
+      "issue": "배열 accuracy_estimate 길이 체크 없이 접근",
+      "code": "comparison.accuracy_estimate[method] = 0.85;",
+      "fix": "if (accuracy_estimate && accuracy_estimate.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 379,
+      "issue": "배열 accuracy_estimate 길이 체크 없이 접근",
+      "code": "comparison.accuracy_estimate[method] = 0.95;",
+      "fix": "if (accuracy_estimate && accuracy_estimate.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 381,
+      "issue": "배열 accuracy_estimate 길이 체크 없이 접근",
+      "code": "comparison.accuracy_estimate[method] = 0.90;",
+      "fix": "if (accuracy_estimate && accuracy_estimate.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/hybridAnonymizationService.js",
+      "line": 179,
+      "issue": "async 함수 'compareAllMethods'에 try-catch 없음",
+      "fix": "try-catch로 에러 처리 추가"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/paymentService.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (5곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "services/usageTrackingService.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (6곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "database/migrate.js",
+      "line": 33,
+      "issue": "async 함수 'migrate'에 try-catch 없음",
+      "fix": "try-catch로 에러 처리 추가"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "database/run-migration-003.js",
+      "line": 57,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "console.log(`✅ 테이블 생성: ${match[1]}`);",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "database/run-migration-003.js",
+      "line": 62,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "console.log(`✅ 테이블 수정: ${match[1]}`);",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "database/run-migration-003.js",
+      "line": 67,
+      "issue": "배열 match 길이 체크 없이 접근",
+      "code": "console.log(`✅ 인덱스 생성: ${match[1]}`);",
+      "fix": "if (match && match.length > index) { ... }"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "database/seed-organizations.js",
+      "issue": "여러 DB write 작업이 transaction 없이 실행됨 (4곳)",
+      "fix": "db.transaction 또는 db.serialize 사용"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "server.js",
+      "line": 130,
+      "issue": "async 함수 'checkApiKey'에 try-catch 없음",
+      "fix": "try-catch로 에러 처리 추가"
+    }
+  ]
+}
