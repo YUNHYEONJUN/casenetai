@@ -138,9 +138,9 @@ class AuthService {
     const db = getDB();
     
     try {
-      // 사용자 조회
+      // 사용자 조회 (password_hash 포함)
       const user = await db.get(
-        `SELECT id, oauth_email as email, name, role, organization_id, service_type
+        `SELECT id, oauth_email as email, password_hash, name, role, organization_id, service_type
          FROM users WHERE oauth_email = $1`,
         [email]
       );
