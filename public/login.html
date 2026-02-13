@@ -299,6 +299,30 @@
 
             <div id="alertMessage"></div>
 
+            <!-- 이메일 로그인 폼 -->
+            <form id="loginForm" style="margin-bottom: 30px;">
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input type="email" id="email" name="email" placeholder="admin@casenetai.kr" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" required>
+                </div>
+                <button type="submit" class="btn-login">
+                    <span id="loginText">로그인</span>
+                    <div id="loginSpinner" class="spinner" style="display: none;"></div>
+                </button>
+            </form>
+
+            <!-- 구분선 -->
+            <div style="text-align: center; margin: 30px 0; position: relative;">
+                <span style="background: white; padding: 0 15px; color: #94a3b8; font-size: 14px; position: relative; z-index: 1;">
+                    또는
+                </span>
+                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e2e8f0; z-index: 0;"></div>
+            </div>
+
             <!-- 소셜 로그인 -->
             <div class="social-login">
                 <a href="/api/auth/kakao" class="social-btn btn-kakao">
@@ -360,6 +384,60 @@
                 'error'
             );
         }
+
+        // 이메일 로그인 폼 처리
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginText = document.getElementById('loginText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            
+            // 로딩 상태
+            submitButton.disabled = true;
+            loginText.style.display = 'none';
+            loginSpinner.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // 토큰 저장
+                    localStorage.setItem('token', data.token);
+                    if (data.refreshToken) {
+                        localStorage.setItem('refreshToken', data.refreshToken);
+                    }
+                    
+                    showAlert('✅ 로그인 성공!', 'success');
+                    
+                    // 대시보드로 이동
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 500);
+                } else {
+                    showAlert(data.error || '로그인에 실패했습니다.', 'error');
+                    submitButton.disabled = false;
+                    loginText.style.display = 'inline';
+                    loginSpinner.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('로그인 중 오류가 발생했습니다.', 'error');
+                submitButton.disabled = false;
+                loginText.style.display = 'inline';
+                loginSpinner.style.display = 'none';
+            }
+        });
 
         // 이미 로그인되어 있으면 대시보드로 리다이렉트
         if (localStorage.getItem('token')) {
