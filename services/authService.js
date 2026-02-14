@@ -139,11 +139,13 @@ class AuthService {
     
     try {
       // 사용자 조회 (password_hash 포함)
-      const user = await db.get(
+      const result = await db.query(
         `SELECT id, oauth_email as email, password_hash, name, role, organization_id, service_type
          FROM users WHERE oauth_email = $1`,
         [email]
       );
+      
+      const user = result.rows[0];
       
       if (!user) {
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
