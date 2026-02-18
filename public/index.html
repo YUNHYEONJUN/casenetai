@@ -436,7 +436,7 @@
         </div>
         <div class="services-grid">
             <!-- 노인보호 상담일지 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/elderly-protection.html')" class="service-card">
+            <a href="#" onclick="return requireLogin('/elderly-protection.html')" class="service-card">
                 <div class="service-icon">🎙️</div>
                 <h3>노인보호 상담일지</h3>
                 <p>음성 녹음을 자동으로 텍스트 변환하고 구조화된 상담일지를 생성합니다</p>
@@ -444,7 +444,7 @@
             </a>
 
             <!-- 문서 익명화 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/anonymization.html')" class="service-card">
+            <a href="#" onclick="return requireLogin('/anonymization.html')" class="service-card">
                 <div class="service-icon">🔒</div>
                 <h3>문서 익명화</h3>
                 <p>개인정보를 자동으로 감지하고 안전하게 익명처리합니다</p>
@@ -452,7 +452,7 @@
             </a>
 
             <!-- 진술서 작성 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/statement-recording.html')" class="service-card">
+            <a href="#" onclick="return requireLogin('/statement-recording.html')" class="service-card">
                 <div class="service-icon">📝</div>
                 <h3>진술서 자동 작성</h3>
                 <p>실시간 녹취로 문답 형식의 진술서를 자동 생성합니다</p>
@@ -460,7 +460,7 @@
             </a>
 
             <!-- 사실확인서 생성 (NEW) -->
-            <a href="javascript:void(0)" onclick="requireLogin('/fact-confirmation.html')" class="service-card">
+            <a href="#" onclick="return requireLogin('/fact-confirmation.html')" class="service-card">
                 <div class="service-icon">📋</div>
                 <h3>사실확인서 생성</h3>
                 <p>녹음파일을 업로드하면 AI가 사실확인서로 자동 변환합니다</p>
@@ -535,16 +535,16 @@
                 <div class="footer-section">
                     <h4>서비스</h4>
                     <ul>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/elderly-protection.html')">노인보호 상담일지</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/anonymization.html')">문서 익명화</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/analytics-dashboard.html')">분석 대시보드</a></li>
+                        <li><a href="#" onclick="return requireLogin('/elderly-protection.html')">노인보호 상담일지</a></li>
+                        <li><a href="#" onclick="return requireLogin('/anonymization.html')">문서 익명화</a></li>
+                        <li><a href="#" onclick="return requireLogin('/analytics-dashboard.html')">분석 대시보드</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>지원</h4>
                     <ul>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/dashboard.html')">대시보드</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/payment.html')">가격 정책</a></li>
+                        <li><a href="#" onclick="return requireLogin('/dashboard.html')">대시보드</a></li>
+                        <li><a href="#" onclick="return requireLogin('/payment.html')">가격 정책</a></li>
                         <li><a href="mailto:support@casenetai.com">고객 지원</a></li>
                     </ul>
                 </div>
@@ -595,6 +595,7 @@
         /**
          * 로그인 필수 기능 접근 체크
          * @param {string} targetUrl - 접근하려는 페이지 URL
+         * @returns {boolean} - false를 반환하여 기본 동작 방지
          */
         function requireLogin(targetUrl) {
             const token = localStorage.getItem('token');
@@ -606,6 +607,8 @@
                 // 비로그인 상태: 로그인 페이지로 리다이렉트 (원래 URL 저장)
                 window.location.href = '/login.html?redirect=' + encodeURIComponent(targetUrl);
             }
+            
+            return false; // 기본 <a> 태그 동작 방지
         }
     </script>
 </body>
