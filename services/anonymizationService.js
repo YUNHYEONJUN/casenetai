@@ -206,12 +206,6 @@ ${text}
     fallbackAnonymize(text) {
         let result = text;
 
-    /**
-     * AI 실패 시 폴백 익명화 (기본 정규식)
-     */
-    fallbackAnonymize(text) {
-        let result = text;
-
         // 주민등록번호
         const idPattern = /\d{6}[-\s]?\d{7}/g;
         result = result.replace(idPattern, (match) => {
