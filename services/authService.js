@@ -145,7 +145,7 @@ class AuthService {
         [email]
       );
       
-      const user = result.rows[0];
+      const user = result[0]; // db.query()는 이미 rows 배열을 반환
       
       if (!user) {
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
