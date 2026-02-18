@@ -66,10 +66,10 @@ const apiLimiter = rateLimit({
   }
 });
 
-// 로그인 Rate Limiter (15분당 5회 - 무차별 대입 공격 방어)
+// 로그인 Rate Limiter (15분당 100회 - 테스트용으로 임시 증가)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 100,
   message: {
     success: false,
     error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
