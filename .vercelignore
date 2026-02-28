@@ -17,6 +17,8 @@ logs/
 test*.js
 *test.js
 *.test.js
+test-*.js
+test_*.txt
 
 # 백업 파일
 *.backup
@@ -28,19 +30,23 @@ uploads/
 temp/
 tmp/
 
-# 개발 전용 파일
+# 환경 변수 (Vercel 환경 변수 사용)
+.env
 .env.local
 .env.development
+_env.local
+_env.production
 
 # Git
 .git/
 .gitignore
+_gitignore
 
 # IDE
 .vscode/
 .idea/
 
-# 보안 리포트
+# 보안 리포트 (민감 정보 포함 가능)
 *-report.json
 *-scan*.json
 security-report.json
@@ -49,10 +55,19 @@ ultimate-security*.json
 deep-*.json
 critical-*.json
 
-# 체크 스크립트
-check-*.js
-test-*.js
+# 관리자 생성 스크립트 (프로덕션에서 직접 실행 금지)
 create-admin.js
+create-admin-postgres.js
+create-test-admin.js
+create-statements-table.js
+
+# 체크/감사 스크립트
+check-*.js
+comprehensive-scan.js
+deep-code-review.js
+deep-security-analysis.js
+ultimate-security-audit.js
+critical-bug-check.js
 
 # 마이그레이션 (이미 실행됨)
 database/migrate.js
@@ -62,7 +77,6 @@ database/init.js
 database/test-*.js
 database/*-backup.js
 
-# 문서
-README.md
+# 문서 (서비스 제공에 불필요)
 *.md
 !package.json
