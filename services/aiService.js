@@ -1035,8 +1035,23 @@ async function generateDetailedConsultationContent(transcript) {
         processTranscriptChunk(chunk, i + idx, chunks.length)
       );
       
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
+      const batchResults = await Promise.allSettled(batchPromises);
+      // 성공한 결과만 수집 (일부 실패해도 계속 진행)
+      const successfulResults = batchResults
+        .filter(result => result.status === 'fulfilled')
+        .map(result => result.value);
+      
+      if (successfulResults.length === 0) {
+        throw new Error('모든 배치 처리가 실패했습니다');
+      }
+      
+      results.push(...successfulResults);
+      
+      // 실패한 청크가 있으면 경고
+      const failedCount = batchResults.filter(r => r.status === 'rejected').length;
+      if (failedCount > 0) {
+        console.warn(`⚠️ ${failedCount}개 청크 처리 실패 (계속 진행)`);
+      }
       
       console.log(`[AI 분석 2단계] ${i + batchResults.length}/${chunks.length} 청크 처리 완료`);
     }

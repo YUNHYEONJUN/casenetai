@@ -36,7 +36,14 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
+      connectSrc: [
+        "'self'", 
+        "https://api.openai.com", 
+        "https://*.supabase.co",
+        "https://generativelanguage.googleapis.com", // Google Gemini API
+        "https://naveropenapi.apigw.ntruss.com",    // Naver CLOVA API
+        "https://clovaspeech-gw.ncloud.com"          // Naver CLOVA Speech API
+      ],
     },
   },
   hsts: {
@@ -406,8 +413,8 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
     
     res.status(500).json({
       success: false,
-      error: '파일 분석 중 오류가 발생했습니다.',
-      details: error.message
+      error: '파일 분석 중 오류가 발생했습니다.'
+      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
     });
   }
 });
@@ -541,9 +548,17 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         res.status(500).json({
           success: false,
           error: userMessage,
-          details: error.message,
+          // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
           message: '처리 실패. 다시 시도해주세요.'
         });
+      } finally {
+        // 처리 완료 후 업로드된 파일 자동 삭제
+        try {
+          fs.unlinkSync(audioFilePath);
+          console.log('🗑️ 임시 파일 삭제:', audioFilePath);
+        } catch (unlinkError) {
+          console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
+        }
       }
     } else {
       // Mock 모드
@@ -557,17 +572,29 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         warning: 'OpenAI API 키가 설정되지 않아 기본 양식을 제공합니다.',
         message: '기본 상담일지 양식이 생성되었습니다. 실제 AI 분석을 사용하려면 API 키를 설정해주세요.'
       });
+      
+      // Mock 모드에서도 파일 삭제
+      try {
+        fs.unlinkSync(audioFilePath);
+        console.log('🗑️ 임시 파일 삭제:', audioFilePath);
+      } catch (unlinkError) {
+        console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
+      }
     }
-
-    // 처리 완료 후 파일 삭제 (선택사항)
-    // setTimeout(() => {
-    //   fs.unlink(audioFilePath, (err) => {
-    //     if (err) console.error('파일 삭제 오류:', err);
-    //   });
-    // }, 60000); // 1분 후 삭제
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
+    
+    // 에러 발생 시에도 업로드된 파일 삭제
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('🗑️ 에러 후 임시 파일 삭제:', req.file.path);
+      } catch (unlinkError) {
+        console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
+      }
+    }
+    
     res.status(500).json({ 
       error: '파일 업로드 중 오류가 발생했습니다.'
       // details 제거: 보안상 내부 오류 정보 노출 방지
@@ -586,7 +613,7 @@ function generateMockReport(consultationType) {
       상담일자: currentDate,
       상담유형: consultationType,
       상담원: '(자동입력 필요)',
-      접수번호: `2025-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+      접수번호: `${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
     },
     피해노인정보: {
       성명: '(자동입력 필요)',
@@ -728,8 +755,8 @@ app.post('/api/anonymize-text-compare', express.json(), async (req, res) => {
     console.error('❌ 텍스트 비교 오류:', error);
     res.status(500).json({
       success: false,
-      error: '텍스트 비교 중 오류가 발생했습니다.',
-      details: error.message
+      error: '텍스트 비교 중 오류가 발생했습니다.'
+      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
     });
   }
 });
@@ -936,8 +963,8 @@ app.post('/api/anonymize-document', authenticateToken, documentUpload.single('do
     
     res.status(500).json({
       success: false,
-      error: '문서 익명화 중 오류가 발생했습니다.',
-      details: error.message
+      error: '문서 익명화 중 오류가 발생했습니다.'
+      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
     });
   } finally {
     // 업로드된 파일 삭제
