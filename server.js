@@ -8,8 +8,6 @@ const fs = require('fs');
 const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
-const wordService = require('./services/wordService');
-const { generateMockReport } = require('./utils/mockData');
 const { optionalAuth } = require('./middleware/auth');
 
 // 환경 변수 검증
@@ -29,6 +27,12 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 업로드 디렉토리 확인 및 생성 (로컬 개발 환경)
+const uploadDir = process.env.NODE_ENV === 'production' ? '/tmp' : 'uploads/';
+if (uploadDir !== '/tmp' && !fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // 보안 헤더 설정 (Helmet)
 app.use(helmet({
   contentSecurityPolicy: {
@@ -38,14 +42,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: [
-        "'self'", 
-        "https://api.openai.com", 
-        "https://*.supabase.co",
-        "https://generativelanguage.googleapis.com", // Google Gemini API
-        "https://naveropenapi.apigw.ntruss.com",    // Naver CLOVA API
-        "https://clovaspeech-gw.ncloud.com"          // Naver CLOVA Speech API
-      ],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
     },
   },
   hsts: {
@@ -75,10 +72,10 @@ const apiLimiter = rateLimit({
   }
 });
 
-// 로그인 Rate Limiter (15분당 100회 - 테스트용으로 임시 증가)
+// 로그인 Rate Limiter (15분당 5회 - 무차별 대입 공격 방어)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 5,
   message: {
     success: false,
     error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
@@ -177,10 +174,10 @@ app.use('/api/statement', statementRouter);
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
 // Multer 설정 (음성 파일 업로드)
+// Vercel Serverless 환경에서는 /tmp만 쓰기 가능
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Vercel Serverless 환경: /tmp/만 쓰기 가능
-    cb(null, '/tmp/');
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -278,20 +275,18 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
     const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
     
     // ffprobe로 오디오 길이 측정
-    const { exec } = require('child_process');
+    const { execFile } = require('child_process');
     const { promisify } = require('util');
-    const execPromise = promisify(exec);
+    const execFilePromise = promisify(execFile);
     
     try {
-      // Command Injection 방지: 파일 경로 검증
-      const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
-      if (safePath !== audioFilePath) {
-        throw new Error('Invalid file path detected');
-      }
-      
-      const { stdout } = await execPromise(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
-      );
+      // Command Injection 방지: execFile은 쉘을 거치지 않으므로 안전
+      const { stdout } = await execFilePromise('ffprobe', [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        audioFilePath
+      ]);
       
       const durationSeconds = parseFloat(stdout.trim());
       const durationMinutes = Math.ceil(durationSeconds / 60);
@@ -416,7 +411,7 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
     res.status(500).json({
       success: false,
       error: '파일 분석 중 오류가 발생했습니다.'
-      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
+      // details 제거: 보안상 내부 오류 정보 노출 방지
     });
   }
 });
@@ -454,21 +449,19 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         const startTime = Date.now();
         
         // 오디오 길이 측정 (실제 비용 계산용)
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execPromise = promisify(exec);
+        const { execFile: execFile2 } = require('child_process');
+        const { promisify: promisify2 } = require('util');
+        const execFilePromise2 = promisify2(execFile2);
         
         let actualCost = null;
         try {
-          // Command Injection 방지: 파일 경로 검증
-          const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
-          if (safePath !== audioFilePath) {
-            throw new Error('Invalid file path detected');
-          }
-          
-          const { stdout } = await execPromise(
-            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
-          );
+          // Command Injection 방지: execFile은 쉘을 거치지 않으므로 안전
+          const { stdout } = await execFilePromise2('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            audioFilePath
+          ]);
           const durationSeconds = parseFloat(stdout.trim());
           const durationMinutes = Math.ceil(durationSeconds / 60);
           
@@ -550,17 +543,8 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         res.status(500).json({
           success: false,
           error: userMessage,
-          // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
           message: '처리 실패. 다시 시도해주세요.'
         });
-      } finally {
-        // 처리 완료 후 업로드된 파일 자동 삭제
-        try {
-          fs.unlinkSync(audioFilePath);
-          console.log('🗑️ 임시 파일 삭제:', audioFilePath);
-        } catch (unlinkError) {
-          console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
-        }
       }
     } else {
       // Mock 모드
@@ -574,39 +558,76 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
         warning: 'OpenAI API 키가 설정되지 않아 기본 양식을 제공합니다.',
         message: '기본 상담일지 양식이 생성되었습니다. 실제 AI 분석을 사용하려면 API 키를 설정해주세요.'
       });
-      
-      // Mock 모드에서도 파일 삭제
+    }
+
+    // 처리 완료 후 파일 삭제
+    if (audioFilePath) {
       try {
         fs.unlinkSync(audioFilePath);
-        console.log('🗑️ 임시 파일 삭제:', audioFilePath);
-      } catch (unlinkError) {
-        console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
+      } catch (e) {
+        console.error('파일 삭제 실패:', e.message);
       }
     }
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
     
-    // 에러 발생 시에도 업로드된 파일 삭제
+    // 오류 시에도 파일 삭제
     if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
-        console.log('🗑️ 에러 후 임시 파일 삭제:', req.file.path);
-      } catch (unlinkError) {
-        console.warn('⚠️ 파일 삭제 실패:', unlinkError.message);
+      } catch (e) {
+        console.error('파일 삭제 실패:', e.message);
       }
     }
     
     res.status(500).json({ 
       error: '파일 업로드 중 오류가 발생했습니다.'
-      // details 제거: 보안상 내부 오류 정보 노출 방지
     });
   }
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Mock 상담일지 생성은 utils/mockData.js로 이동
+// Mock 상담일지 생성 함수
+function generateMockReport(consultationType) {
+  const currentDate = new Date().toISOString().split('T')[0];
+  
+  return {
+    기본정보: {
+      상담일자: currentDate,
+      상담유형: consultationType,
+      상담원: '(자동입력 필요)',
+      접수번호: `${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+    },
+    피해노인정보: {
+      성명: '(자동입력 필요)',
+      성별: '(자동입력 필요)',
+      연령: '(자동입력 필요)',
+      연락처: '(자동입력 필요)',
+      주소: '(자동입력 필요)'
+    },
+    행위자정보: {
+      성명: '(자동입력 필요)',
+      관계: '(자동입력 필요)',
+      연령: '(자동입력 필요)',
+      연락처: '(자동입력 필요)'
+    },
+    상담내용: {
+      신고경위: '(자동입력 필요)',
+      학대유형: '(자동입력 필요)',
+      학대내용: '(자동입력 필요)',
+      피해노인상태: '(자동입력 필요)',
+      현장상황: '(자동입력 필요)'
+    },
+    조치사항: {
+      즉시조치내용: '(자동입력 필요)',
+      연계기관: '(자동입력 필요)',
+      향후계획: '(자동입력 필요)'
+    },
+    특이사항: '(자동입력 필요)'
+  };
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 문서 익명화 API
@@ -617,8 +638,7 @@ const documentParser = require('./services/documentParser');
 // 문서 익명화용 Multer 설정
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Vercel Serverless 환경: /tmp/만 쓰기 가능
-    cb(null, '/tmp/');
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -720,7 +740,6 @@ app.post('/api/anonymize-text-compare', express.json(), async (req, res) => {
     res.status(500).json({
       success: false,
       error: '텍스트 비교 중 오류가 발생했습니다.'
-      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
     });
   }
 });
@@ -928,7 +947,6 @@ app.post('/api/anonymize-document', authenticateToken, documentUpload.single('do
     res.status(500).json({
       success: false,
       error: '문서 익명화 중 오류가 발생했습니다.'
-      // details 제거: 프로덕션에서 내부 오류 정보 노출 방지
     });
   } finally {
     // 업로드된 파일 삭제
