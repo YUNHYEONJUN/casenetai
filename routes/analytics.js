@@ -7,6 +7,14 @@ const router = express.Router();
 const analyticsService = require('../services/analyticsService');
 const { isAdmin } = require('../middleware/auth');
 
+// 유틸리티 함수: 안전한 parseInt with validation
+function safeParseInt(value, defaultValue, min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) {
+  if (value === undefined || value === null) return defaultValue;
+  const parsed = parseInt(value);
+  if (isNaN(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
 // 모든 분석 API는 관리자 전용
 router.use(isAdmin);
 
@@ -21,7 +29,7 @@ router.get('/dashboard', async (req, res) => {
     const result = await analyticsService.getDashboardSummary({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined
+      organizationId: safeParseInt(organizationId, undefined, 1)
     });
 
     res.json(result);
@@ -29,8 +37,7 @@ router.get('/dashboard', async (req, res) => {
     console.error('대시보드 조회 오류:', error);
     res.status(500).json({
       success: false,
-      error: '대시보드 조회 중 오류가 발생했습니다.',
-      details: error.message
+      error: '대시보드 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -46,7 +53,7 @@ router.get('/usage', async (req, res) => {
     const result = await analyticsService.getUsageStatistics({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined
+      organizationId: safeParseInt(organizationId, undefined, 1)
     });
 
     res.json({
@@ -73,7 +80,7 @@ router.get('/anonymization', async (req, res) => {
     const result = await analyticsService.getAnonymizationStatistics({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined
+      organizationId: safeParseInt(organizationId, undefined, 1)
     });
 
     res.json({
@@ -100,7 +107,7 @@ router.get('/feedback-summary', async (req, res) => {
     const result = await analyticsService.getFeedbackSummary({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined
+      organizationId: safeParseInt(organizationId, undefined, 1)
     });
 
     res.json({
@@ -248,7 +255,7 @@ router.get('/top-issues', async (req, res) => {
     const { limit = 10 } = req.query;
     
     const result = await analyticsService.getTopIssues({
-      limit: parseInt(limit)
+      limit: safeParseInt(limit, 10, 1, 100)
     });
 
     res.json(result);

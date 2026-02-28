@@ -32,8 +32,15 @@ router.get('/dashboard/overview', async (req, res) => {
     const { year, month } = req.query;
     
     const now = new Date();
-    const targetYear = year ? parseInt(year) : now.getFullYear();
-    const targetMonth = month ? parseInt(month) : (now.getMonth() + 1);
+    const targetYear = safeParseInt(year, now.getFullYear(), 2000, 2100);
+    const targetMonth = safeParseInt(month, now.getMonth() + 1, 1, 12);
+    
+    if (targetYear === null || targetMonth === null) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 연도 또는 월입니다.'
+      });
+    }
     
     // 전체 기관 사용량
     const usageStats = await usageTrackingService.getAllOrganizationsUsage(targetYear, targetMonth);
@@ -88,7 +95,7 @@ router.get('/dashboard/overview', async (req, res) => {
     console.error('❌ 대시보드 개요 조회 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '대시보드 개요 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -127,7 +134,7 @@ router.get('/organizations', async (req, res) => {
     console.error('❌ 기관 목록 조회 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '기관 목록 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -185,7 +192,7 @@ router.get('/organizations/:id', async (req, res) => {
     console.error('❌ 기관 상세 조회 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '기관 상세 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -243,7 +250,7 @@ router.post('/organizations', async (req, res) => {
     console.error('❌ 기관 등록 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '기관 등록 중 오류가 발생했습니다.'
     });
   }
 });
@@ -299,7 +306,7 @@ router.put('/organizations/:id', async (req, res) => {
     console.error('❌ 기관 정보 수정 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '기관 정보 수정 중 오류가 발생했습니다.'
     });
   }
 });
@@ -364,7 +371,7 @@ router.put('/organizations/:id/quota', async (req, res) => {
     console.error('❌ 할당량 수정 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '할당량 수정 중 오류가 발생했습니다.'
     });
   }
 });
@@ -376,6 +383,16 @@ router.put('/organizations/:id/quota', async (req, res) => {
 router.get('/logs/anonymization', async (req, res) => {
   try {
     const { limit = 100, offset = 0, organizationId, status, startDate, endDate } = req.query;
+    
+    // 입력 검증
+    const parsedLimit = safeParseInt(limit, 100, 1, 1000);
+    const parsedOffset = safeParseInt(offset, 0, 0);
+    if (parsedLimit === null || parsedOffset === null) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 페이지네이션 파라미터입니다.'
+      });
+    }
     
     const db = getDB();
     
@@ -405,24 +422,6 @@ router.get('/logs/anonymization', async (req, res) => {
     
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     
-    // LIMIT과 OFFSET 파라미터 추가
-    const limitParam = parseInt(limit);
-    const offsetParam = parseInt(offset);
-    
-    // NaN 체크 추가
-    if (isNaN(limitParam) || limitParam < 1) {
-      return res.status(400).json({
-        success: false,
-        error: '유효한 limit 값을 입력하세요'
-      });
-    }
-    if (isNaN(offsetParam) || offsetParam < 0) {
-      return res.status(400).json({
-        success: false,
-        error: '유효한 offset 값을 입력하세요'
-      });
-    }
-    
     const logs = await db.query(
       `SELECT 
          al.*,
@@ -435,7 +434,7 @@ router.get('/logs/anonymization', async (req, res) => {
        ${whereClause}
        ORDER BY al.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-      [...params, limitParam, offsetParam]
+      [...params, parsedLimit, parsedOffset]
     );
     
     // 전체 개수
@@ -447,8 +446,8 @@ router.get('/logs/anonymization', async (req, res) => {
     res.json({
       success: true,
       total: countResult.count,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: parsedLimit,
+      offset: parsedOffset,
       logs: logs
     });
     
@@ -456,7 +455,7 @@ router.get('/logs/anonymization', async (req, res) => {
     console.error('❌ 익명화 로그 조회 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '익명화 로그 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -470,8 +469,15 @@ router.get('/reports/monthly', async (req, res) => {
     const { year, month } = req.query;
     
     const now = new Date();
-    const targetYear = year ? parseInt(year) : now.getFullYear();
-    const targetMonth = month ? parseInt(month) : (now.getMonth() + 1);
+    const targetYear = safeParseInt(year, now.getFullYear(), 2000, 2100);
+    const targetMonth = safeParseInt(month, now.getMonth() + 1, 1, 12);
+    
+    if (targetYear === null || targetMonth === null) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 연도 또는 월입니다.'
+      });
+    }
     
     // 전체 기관 사용량
     const usageStats = await usageTrackingService.getAllOrganizationsUsage(targetYear, targetMonth);
@@ -514,7 +520,7 @@ router.get('/reports/monthly', async (req, res) => {
     console.error('❌ 월별 리포트 생성 실패:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: '월별 리포트 생성 중 오류가 발생했습니다.'
     });
   }
 });

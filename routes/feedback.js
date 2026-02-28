@@ -8,6 +8,14 @@ const feedbackService = require('../services/feedbackService');
 const analyticsService = require('../services/analyticsService');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
+// 유틸리티 함수: 안전한 parseInt with validation
+function safeParseInt(value, defaultValue, min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) {
+  if (value === undefined || value === null) return defaultValue;
+  const parsed = parseInt(value);
+  if (isNaN(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 사용자 피드백 API
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -29,8 +37,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
     console.error('피드백 제출 오류:', error);
     res.status(500).json({
       success: false,
-      error: '피드백 제출 중 오류가 발생했습니다.',
-      details: error.message
+      error: '피드백 제출 중 오류가 발생했습니다.'
     });
   }
 });
@@ -45,11 +52,11 @@ router.get('/my-feedbacks', authenticateToken, async (req, res) => {
     
     const result = await feedbackService.getFeedbacks({
       userId: req.user.userId,
-      limit: limit ? parseInt(limit) : 50,
-      offset: offset ? parseInt(offset) : 0,
+      limit: safeParseInt(limit, 50, 1, 1000),
+      offset: safeParseInt(offset, 0, 0),
       method,
-      minRating: minRating ? parseInt(minRating) : undefined,
-      maxRating: maxRating ? parseInt(maxRating) : undefined
+      minRating: safeParseInt(minRating, undefined, 1, 5),
+      maxRating: safeParseInt(maxRating, undefined, 1, 5)
     });
 
     res.json(result);
@@ -141,8 +148,8 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
     const result = await feedbackService.getSuggestions({
       category,
       status,
-      limit: limit ? parseInt(limit) : 50,
-      offset: offset ? parseInt(offset) : 0
+      limit: safeParseInt(limit, 50, 1, 1000),
+      offset: safeParseInt(offset, 0, 0)
     });
 
     res.json(result);
@@ -168,14 +175,14 @@ router.get('/admin/all', isAdmin, async (req, res) => {
     const { organizationId, method, minRating, maxRating, hasErrors, isReviewed, limit, offset } = req.query;
     
     const result = await feedbackService.getFeedbacks({
-      organizationId: organizationId ? parseInt(organizationId) : undefined,
+      organizationId: safeParseInt(organizationId, undefined, 1),
       method,
-      minRating: minRating ? parseInt(minRating) : undefined,
-      maxRating: maxRating ? parseInt(maxRating) : undefined,
+      minRating: safeParseInt(minRating, undefined, 1, 5),
+      maxRating: safeParseInt(maxRating, undefined, 1, 5),
       hasErrors: hasErrors === 'true',
       isReviewed: isReviewed === 'true',
-      limit: limit ? parseInt(limit) : 100,
-      offset: offset ? parseInt(offset) : 0
+      limit: safeParseInt(limit, 100, 1, 1000),
+      offset: safeParseInt(offset, 0, 0)
     });
 
     res.json(result);
@@ -248,7 +255,7 @@ router.get('/admin/statistics', isAdmin, async (req, res) => {
     const result = await feedbackService.getFeedbackStatistics({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined,
+      organizationId: safeParseInt(organizationId, undefined, 1),
       method
     });
 
