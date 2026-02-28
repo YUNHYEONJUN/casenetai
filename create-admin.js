@@ -1,5 +1,8 @@
 /**
- * 관리자 계정 생성 스크립트
+ * 관리자 계정 생성 스크립트 (SQLite용)
+ * 
+ * 사용법:
+ *   ADMIN_PASSWORD=안전한비밀번호 node create-admin.js
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -12,15 +15,22 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
 console.log('👤 관리자 계정 생성');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-// 관리자 정보 - 환경 변수 또는 커맨드 라인 입력으로 변경
+// 관리자 정보 - 환경 변수에서 읽기 (하드코딩 금지)
 const adminEmail = process.env.ADMIN_EMAIL || 'admin@casenetai.com';
-const adminPassword = process.env.ADMIN_PASSWORD || (() => {
-  // 비밀번호가 환경 변수에 없으면 경고 메시지 출력
-  console.error('\n⚠️  경고: ADMIN_PASSWORD 환경 변수가 설정되지 않았습니다!');
-  console.error('   보안을 위해 환경 변수로 설정하세요: ADMIN_PASSWORD=your_secure_password\n');
-  return 'ChangeMe123!@#'; // 임시 기본값 (반드시 변경 필요)
-})();
+const adminPassword = process.env.ADMIN_PASSWORD;
 const adminName = process.env.ADMIN_NAME || 'System Admin';
+
+// 비밀번호 필수 검증
+if (!adminPassword) {
+  console.error('❌ ADMIN_PASSWORD 환경변수가 설정되지 않았습니다.');
+  console.error('   사용법: ADMIN_PASSWORD=안전한비밀번호 node create-admin.js');
+  process.exit(1);
+}
+
+if (adminPassword.length < 8) {
+  console.error('❌ 비밀번호는 최소 8자 이상이어야 합니다.');
+  process.exit(1);
+}
 
 // 데이터베이스 연결
 const db = new sqlite3.Database(DB_PATH, (err) => {
@@ -93,7 +103,7 @@ bcrypt.hash(adminPassword, 10, (err, hash) => {
                   console.log('📝 로그인 정보:');
                   console.log(`   URL: http://localhost:3000/login.html`);
                   console.log(`   이메일: ${adminEmail}`);
-                  console.log(`   비밀번호: (보안상 표시 안 함 - 환경 변수 확인)`);
+                  console.log(`   비밀번호: (환경변수로 설정한 비밀번호 사용)`);
                   console.log('\n⚠️  보안을 위해 첫 로그인 후 비밀번호를 변경하세요!\n');
                 }
                 

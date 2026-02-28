@@ -3,11 +3,10 @@ node_modules/
 .env.local
 .env.production
 .env.*.local
-_env*
-*.env
+_env.production
+_env.local
 uploads/
 *.log
-logs/
 .DS_Store
 database/*.db
 database/*.db-shm
@@ -17,3 +16,7 @@ database/*.db-journal
 *.backup
 .vscode/
 .idea/
+
+# 보안: 테스트/감사 리포트
+*-report.json
+critical-bugs.json

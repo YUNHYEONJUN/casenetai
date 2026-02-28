@@ -1,5 +1,8 @@
 /**
  * PostgreSQL용 관리자 계정 생성 스크립트
+ * 
+ * 사용법:
+ *   ADMIN_PASSWORD=안전한비밀번호 node create-admin-postgres.js
  */
 
 require('dotenv').config();
@@ -12,8 +15,21 @@ const pool = new Pool({
 });
 
 const adminEmail = process.env.ADMIN_EMAIL || 'admin@casenetai.com';
-const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+const adminPassword = process.env.ADMIN_PASSWORD;
 const adminName = process.env.ADMIN_NAME || 'System Admin';
+
+// 비밀번호 필수 검증
+if (!adminPassword) {
+  console.error('❌ ADMIN_PASSWORD 환경변수가 설정되지 않았습니다.');
+  console.error('   사용법: ADMIN_PASSWORD=안전한비밀번호 node create-admin-postgres.js');
+  process.exit(1);
+}
+
+// 비밀번호 강도 검증
+if (adminPassword.length < 8) {
+  console.error('❌ 비밀번호는 최소 8자 이상이어야 합니다.');
+  process.exit(1);
+}
 
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log('👤 PostgreSQL 관리자 계정 생성');
@@ -43,7 +59,7 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
     console.log('✅ 관리자 계정 생성 완료');
     console.log(`   ID: ${adminId}`);
     console.log(`   이메일: ${adminEmail}`);
-    console.log(`   비밀번호: ${adminPassword}`);
+    console.log(`   비밀번호: ********** (보안상 표시 안 함)`);
     console.log(`   이름: ${adminName}`);
     console.log(`   권한: system_admin\n`);
     
@@ -64,7 +80,7 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
     console.log('📝 로그인 정보:');
     console.log(`   URL: https://casenetai.kr/login.html`);
     console.log(`   이메일: ${adminEmail}`);
-    console.log(`   비밀번호: ${adminPassword}`);
+    console.log(`   비밀번호: (환경변수로 설정한 비밀번호 사용)`);
     console.log('\n⚠️  보안을 위해 첫 로그인 후 비밀번호를 변경하세요!\n');
     
     await pool.end();
