@@ -42,7 +42,14 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
+      connectSrc: [
+        "'self'", 
+        "https://api.openai.com", 
+        "https://*.supabase.co",
+        "https://generativelanguage.googleapis.com", // Google Gemini API
+        "https://naveropenapi.apigw.ntruss.com",    // Naver CLOVA API
+        "https://clovaspeech-gw.ncloud.com"          // Naver CLOVA Speech API
+      ],
     },
   },
   hsts: {
