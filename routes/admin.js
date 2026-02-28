@@ -381,28 +381,47 @@ router.get('/logs/anonymization', async (req, res) => {
     
     let whereClauses = [];
     let params = [];
+    let paramIndex = 1;
     
     if (organizationId) {
-      whereClauses.push('al.organization_id = $1');
+      whereClauses.push(`al.organization_id = $${paramIndex++}`);
       params.push(organizationId);
     }
     
     if (status) {
-      whereClauses.push('al.status = $1');
+      whereClauses.push(`al.status = $${paramIndex++}`);
       params.push(status);
     }
     
     if (startDate) {
-      whereClauses.push('al.created_at >= $1');
+      whereClauses.push(`al.created_at >= $${paramIndex++}`);
       params.push(startDate);
     }
     
     if (endDate) {
-      whereClauses.push('al.created_at <= $1');
+      whereClauses.push(`al.created_at <= $${paramIndex++}`);
       params.push(endDate);
     }
     
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    
+    // LIMIT과 OFFSET 파라미터 추가
+    const limitParam = parseInt(limit);
+    const offsetParam = parseInt(offset);
+    
+    // NaN 체크 추가
+    if (isNaN(limitParam) || limitParam < 1) {
+      return res.status(400).json({
+        success: false,
+        error: '유효한 limit 값을 입력하세요'
+      });
+    }
+    if (isNaN(offsetParam) || offsetParam < 0) {
+      return res.status(400).json({
+        success: false,
+        error: '유효한 offset 값을 입력하세요'
+      });
+    }
     
     const logs = await db.query(
       `SELECT 
@@ -415,8 +434,8 @@ router.get('/logs/anonymization', async (req, res) => {
        LEFT JOIN organizations o ON al.organization_id = o.id
        ${whereClause}
        ORDER BY al.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), parseInt(offset)]
+       LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+      [...params, limitParam, offsetParam]
     );
     
     // 전체 개수

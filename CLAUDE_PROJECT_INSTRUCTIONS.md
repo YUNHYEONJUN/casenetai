@@ -82,13 +82,13 @@
 ## 필수 환경 변수
 
 ```env
-GOOGLE_AI_API_KEY=AIzaSy...
-OPENAI_API_KEY=sk-proj-...
-CLOVA_CLIENT_ID=1umwh86goy
-CLOVA_CLIENT_SECRET=T2JgPr...
-JWT_SECRET=d9719e2505...
-DATABASE_URL=postgresql://...
-MASTER_PASSWORD=***REMOVED***
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+CLOVA_CLIENT_ID=your_clova_client_id_here
+CLOVA_CLIENT_SECRET=your_clova_client_secret_here
+JWT_SECRET=your_jwt_secret_min_32_chars_here
+DATABASE_URL=postgresql://user:password@host:port/database
+MASTER_PASSWORD=your_master_password_here
 NODE_ENV=production
 ```
 
@@ -96,9 +96,11 @@ NODE_ENV=production
 
 ## 테스트 계정
 
-- **관리자**: admin@casenetai.kr / Admin2026!
-- **개발자**: dev@casenetai.kr / Dev2026!
-- **테스트**: test@casenetai.kr / Test2026!
+- **관리자**: admin@casenetai.kr / [Supabase에서 설정]
+- **개발자**: dev@casenetai.kr / [Supabase에서 설정]
+- **테스트**: test@casenetai.kr / [Supabase에서 설정]
+
+**참고**: 실제 비밀번호는 Supabase 대시보드에서 직접 확인하거나, 비밀번호 재설정 기능을 사용하세요.
 
 ---
 

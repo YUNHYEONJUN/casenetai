@@ -3,6 +3,8 @@ node_modules/
 .env.local
 .env.production
 .env.*.local
+_env*
+*.env
 uploads/
 *.log
 .DS_Store

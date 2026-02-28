@@ -170,7 +170,8 @@ app.use('/api/fact-confirmation', factConfirmationRouter);
 // Multer 설정 (음성 파일 업로드)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    // Vercel Serverless 환경: /tmp/만 쓰기 가능
+    cb(null, '/tmp/');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -625,7 +626,8 @@ const documentParser = require('./services/documentParser');
 // 문서 익명화용 Multer 설정
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    // Vercel Serverless 환경: /tmp/만 쓰기 가능
+    cb(null, '/tmp/');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
