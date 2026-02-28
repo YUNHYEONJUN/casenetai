@@ -7,6 +7,7 @@ _env*
 *.env
 uploads/
 *.log
+logs/
 .DS_Store
 database/*.db
 database/*.db-shm

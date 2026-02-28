@@ -8,6 +8,8 @@ const fs = require('fs');
 const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
+const wordService = require('./services/wordService');
+const { generateMockReport } = require('./utils/mockData');
 const { optionalAuth } = require('./middleware/auth');
 
 // 환경 변수 검증
@@ -604,45 +606,7 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Mock 상담일지 생성 함수
-function generateMockReport(consultationType) {
-  const currentDate = new Date().toISOString().split('T')[0];
-  
-  return {
-    기본정보: {
-      상담일자: currentDate,
-      상담유형: consultationType,
-      상담원: '(자동입력 필요)',
-      접수번호: `${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-    },
-    피해노인정보: {
-      성명: '(자동입력 필요)',
-      성별: '(자동입력 필요)',
-      연령: '(자동입력 필요)',
-      연락처: '(자동입력 필요)',
-      주소: '(자동입력 필요)'
-    },
-    행위자정보: {
-      성명: '(자동입력 필요)',
-      관계: '(자동입력 필요)',
-      연령: '(자동입력 필요)',
-      연락처: '(자동입력 필요)'
-    },
-    상담내용: {
-      신고경위: '(자동입력 필요)',
-      학대유형: '(자동입력 필요)',
-      학대내용: '(자동입력 필요)',
-      피해노인상태: '(자동입력 필요)',
-      현장상황: '(자동입력 필요)'
-    },
-    조치사항: {
-      즉시조치내용: '(자동입력 필요)',
-      연계기관: '(자동입력 필요)',
-      향후계획: '(자동입력 필요)'
-    },
-    특이사항: '(자동입력 필요)'
-  };
-}
+// Mock 상담일지 생성은 utils/mockData.js로 이동
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 문서 익명화 API
