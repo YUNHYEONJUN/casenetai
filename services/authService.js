@@ -1,6 +1,7 @@
 /**
  * 인증 서비스
  * - 회원가입, 로그인, JWT 토큰 관리
+ * - 비밀번호 강도 검증 포함
  */
 
 const bcrypt = require('bcrypt');
@@ -13,9 +14,60 @@ if (!process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '1h'; // 1시간 (보안 강화)
-const REFRESH_TOKEN_EXPIRES_IN = '7d'; // 7일
+const JWT_EXPIRES_IN = '2h'; // 2시간 (업무용 앱 UX 고려)
+const REFRESH_TOKEN_EXPIRES_IN = '14d'; // 14일 (장기 세션 유지)
 const SALT_ROUNDS = 12; // 보안 강화 (10 → 12)
+
+/**
+ * 비밀번호 강도 검증
+ * - 최소 8자 이상
+ * - 대문자 1개 이상
+ * - 소문자 1개 이상
+ * - 숫자 1개 이상
+ * - 특수문자 1개 이상
+ * @param {string} password
+ * @returns {{ valid: boolean, message: string }}
+ */
+function validatePasswordStrength(password) {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, message: '비밀번호를 입력해주세요' };
+  }
+
+  const errors = [];
+
+  if (password.length < 8) {
+    errors.push('8자 이상');
+  }
+  if (password.length > 128) {
+    errors.push('128자 이하');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('대문자 1개 이상');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('소문자 1개 이상');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('숫자 1개 이상');
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password)) {
+    errors.push('특수문자 1개 이상');
+  }
+
+  // 연속 문자/숫자 3개 이상 금지 (예: abc, 123)
+  if (/(.)\1{2,}/.test(password)) {
+    errors.push('같은 문자 3회 이상 연속 사용 불가');
+  }
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      message: `비밀번호 조건을 충족하지 않습니다: ${errors.join(', ')}`
+    };
+  }
+
+  return { valid: true, message: '비밀번호가 유효합니다' };
+}
 
 class AuthService {
   
@@ -26,6 +78,12 @@ class AuthService {
     const db = getDB();
     
     try {
+      // 비밀번호 강도 검증
+      const passwordCheck = validatePasswordStrength(password);
+      if (!passwordCheck.valid) {
+        throw new Error(passwordCheck.message);
+      }
+
       // 이메일 중복 체크
       const existingUser = await db.get(
         'SELECT id FROM users WHERE oauth_email = $1',
@@ -41,11 +99,11 @@ class AuthService {
       
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const result = await db.transaction(async (client) => {
-        // 사용자 생성
+        // 사용자 생성 (password_hash 포함)
         const userResult = await client.query(
-          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id)
-           VALUES ($1, $2, $3, $4, $5, 'local', $6) RETURNING id`,
-          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now()]
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, password_hash)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now(), passwordHash]
         );
         
         const userId = userResult.rows[0].id;
@@ -81,6 +139,12 @@ class AuthService {
     const db = getDB();
     
     try {
+      // 비밀번호 강도 검증
+      const passwordCheck = validatePasswordStrength(password);
+      if (!passwordCheck.valid) {
+        throw new Error(passwordCheck.message);
+      }
+
       // 이메일 중복 체크
       const existingUser = await db.get(
         'SELECT id FROM users WHERE oauth_email = $1',
@@ -96,11 +160,11 @@ class AuthService {
       
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const userId = await db.transaction(async (client) => {
-        // 사용자 생성 (관리자 권한 포함)
+        // 사용자 생성 (관리자 권한 + password_hash 포함)
         const userResult = await client.query(
-          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved)
-           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true) RETURNING id`,
-          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role]
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved, password_hash)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true, $8) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role, passwordHash]
         );
         
         const newUserId = userResult.rows[0].id;
@@ -139,16 +203,19 @@ class AuthService {
     
     try {
       // 사용자 조회 (password_hash 포함)
-      const result = await db.query(
-        `SELECT id, oauth_email as email, password_hash, name, role, organization_id, service_type
+      const user = await db.get(
+        `SELECT id, oauth_email as email, name, role, organization_id, service_type, password_hash
          FROM users WHERE oauth_email = $1`,
         [email]
       );
       
-      const user = result[0]; // db.query()는 이미 rows 배열을 반환
-      
       if (!user) {
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
+      }
+
+      // password_hash가 없는 경우 (OAuth 전용 계정)
+      if (!user.password_hash) {
+        throw new Error('소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 이용해주세요');
       }
       
       // 비밀번호 확인
@@ -176,9 +243,9 @@ class AuthService {
         { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
       );
       
-      // 세션 저장 (Access Token 만료 시간에 맞춤)
+      // 세션 저장 (Access Token 만료 시간에 맞춤 - 2시간)
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 1); // 1시간
+      expiresAt.setHours(expiresAt.getHours() + 2);
       
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
@@ -283,10 +350,13 @@ class AuthService {
         { expiresIn: JWT_EXPIRES_IN }
       );
       
-      // 세션 업데이트
+      // 세션 업데이트 (만료 시간도 갱신)
+      const newExpiresAt = new Date();
+      newExpiresAt.setHours(newExpiresAt.getHours() + 2);
+
       await db.run(
-        'UPDATE sessions SET token = $1 WHERE refresh_token = $2',
-        [newToken, refreshToken]
+        'UPDATE sessions SET token = $1, expires_at = $2 WHERE refresh_token = $3',
+        [newToken, newExpiresAt.toISOString(), refreshToken]
       );
       
       return {
