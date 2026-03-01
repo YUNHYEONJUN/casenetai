@@ -243,24 +243,90 @@ async function checkApiKey() {
   return apiKeyValid;
 }
 
+// ========================================
+// 페이지 라우트 (모든 HTML 페이지)
+// ========================================
+
 // 메인 페이지
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 진술서 작성 페이지
+// 인증 관련 페이지
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/register.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+app.get('/login-success.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login-success.html'));
+});
+
+// 서비스 페이지
 app.get('/statement-recording.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'statement-recording.html'));
 });
 
-// 상담일지 페이지
 app.get('/elderly-protection.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'elderly-protection.html'));
 });
 
-// 익명화 페이지
 app.get('/anonymization.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'anonymization.html'));
+});
+
+app.get('/anonymization-compare.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'anonymization-compare.html'));
+});
+
+app.get('/fact-confirmation.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'fact-confirmation.html'));
+});
+
+// 대시보드 페이지
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/analytics-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'analytics-dashboard.html'));
+});
+
+// 결제 페이지
+app.get('/payment.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'payment.html'));
+});
+
+app.get('/payment-success.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'payment-success.html'));
+});
+
+app.get('/payment-fail.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'payment-fail.html'));
+});
+
+// 관리자 페이지
+app.get('/admin-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
+});
+
+app.get('/admin-setup.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-setup.html'));
+});
+
+app.get('/org-admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'org-admin.html'));
+});
+
+app.get('/system-admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'system-admin.html'));
+});
+
+app.get('/system-admin-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'system-admin-dashboard.html'));
 });
 
 // API 상태 확인
