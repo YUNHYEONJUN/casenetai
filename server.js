@@ -3,12 +3,13 @@ const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
-const { optionalAuth, authenticateToken: authTokenTop } = require('./middleware/auth');
+const { optionalAuth } = require('./middleware/auth');
 
 // 환경 변수 검증
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -103,7 +104,9 @@ const corsOptions = {
     ].filter(Boolean);
     
     // origin이 undefined인 경우 (같은 도메인, Vercel serverless) 또는 허용 목록에 있는 경우 허용
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Vercel Preview URL 패턴도 허용 (casenetai-*.vercel.app)
+    const isVercelPreview = origin && /^https:\/\/casenetai(-[a-z0-9]+)?\.vercel\.app$/.test(origin);
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || isVercelPreview) {
       callback(null, true);
     } else {
       console.warn('⚠️  CORS 차단:', origin);
@@ -149,14 +152,6 @@ const statementRouter = require('./routes/statement');
 // 사실확인서 라우터
 const factConfirmationRouter = require('./routes/fact-confirmation');
 
-// Rate Limiter 적용: 로그인 관련 (무차별 대입 공격 방어)
-app.use('/api/auth/login', loginLimiter);
-app.use('/api/auth/register', loginLimiter);
-
-// Rate Limiter 적용: 익명화 API
-app.use('/api/anonymize-document', anonymizationLimiter);
-app.use('/api/anonymize-text-compare', anonymizationLimiter);
-
 app.use('/api/auth', authRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/admin', adminRouter);
@@ -176,20 +171,12 @@ app.use('/api/statement', statementRouter);
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
 // Multer 설정 (음성 파일 업로드)
-// Vercel Serverless는 /tmp만 쓰기 가능
-const UPLOAD_DIR = process.env.NODE_ENV === 'production' ? '/tmp' : 'uploads';
-
-// uploads 디렉토리가 없으면 생성 (로컬 개발용)
-if (UPLOAD_DIR === 'uploads' && !fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads', { recursive: true });
-}
-
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, UPLOAD_DIR);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + crypto.randomInt(0, 1000000000);
     // 경로 탐색 공격 방지: basename으로 파일명만 추출
     const safeExtname = path.extname(path.basename(file.originalname));
     cb(null, file.fieldname + '-' + uniqueSuffix + safeExtname);
@@ -273,22 +260,23 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
-// 오디오 파일 분석 및 비용 견적 API (인증 필수)
-app.post('/api/analyze-audio', authTokenTop, upload.single('audioFile'), async (req, res) => {
+// 오디오 파일 분석 및 비용 견적 API
+app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+      return res.status(400).json({ success: false, error: '파일이 업로드되지 않았습니다.' });
     }
 
     const audioFilePath = req.file.path;
     const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
     
-    // ffprobe로 오디오 길이 측정 (execFile 사용 — Command Injection 방지)
-    const { execFile } = require('child_process');
-    const { promisify } = require('util');
-    const execFilePromise = promisify(execFile);
-    
+    // ffprobe로 오디오 길이 측정
     try {
+      // Command Injection 방지: execFile 사용 (쉘 해석 없이 직접 실행)
+      const { execFile } = require('child_process');
+      const { promisify } = require('util');
+      const execFilePromise = promisify(execFile);
+      
       const { stdout } = await execFilePromise('ffprobe', [
         '-v', 'error',
         '-show_entries', 'format=duration',
@@ -407,30 +395,28 @@ app.post('/api/analyze-audio', authTokenTop, upload.single('audioFile'), async (
   } catch (error) {
     console.error('❌ 파일 분석 오류:', error);
     
-    res.status(500).json({
-      success: false,
-      error: '파일 분석 중 오류가 발생했습니다.',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
-    });
-  } finally {
-    // 성공/실패 무관하게 업로드 파일 반드시 삭제
+    // 업로드된 파일 삭제
     if (req.file && req.file.path) {
       try {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
+        fs.unlinkSync(req.file.path);
       } catch (e) {
         console.error('파일 삭제 실패:', e);
       }
     }
+    
+    res.status(500).json({
+      success: false,
+      error: '파일 분석 중 오류가 발생했습니다.',
+      details: error.message
+    });
   }
 });
 
-// 음성 파일 업로드 및 처리 API (통합 버전) - 인증 필수
-app.post('/api/upload-audio', authTokenTop, upload.single('audioFile'), async (req, res) => {
+// 음성 파일 업로드 및 처리 API (통합 버전)
+app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+      return res.status(400).json({ success: false, error: '파일이 업로드되지 않았습니다.' });
     }
 
     const { consultationType, consultationStage, sttEngine } = req.body;
@@ -458,14 +444,15 @@ app.post('/api/upload-audio', authTokenTop, upload.single('audioFile'), async (r
         // 비용 추적 시작
         const startTime = Date.now();
         
-        // 오디오 길이 측정 (실제 비용 계산용) — execFile로 Command Injection 방지
-        const { execFile: execFileUpload } = require('child_process');
-        const { promisify: promisifyUpload } = require('util');
-        const execFilePromiseUpload = promisifyUpload(execFileUpload);
+        // 오디오 길이 측정 (실제 비용 계산용)
+        const { execFile: execFileCmd } = require('child_process');
+        const { promisify: promisifyUtil } = require('util');
+        const execFileAsync = promisifyUtil(execFileCmd);
         
         let actualCost = null;
         try {
-          const { stdout } = await execFilePromiseUpload('ffprobe', [
+          // Command Injection 방지: execFile 사용 (쉘 해석 없이 직접 실행)
+          const { stdout } = await execFileAsync('ffprobe', [
             '-v', 'error',
             '-show_entries', 'format=duration',
             '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -552,7 +539,7 @@ app.post('/api/upload-audio', authTokenTop, upload.single('audioFile'), async (r
         res.status(500).json({
           success: false,
           error: userMessage,
-          details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+          details: error.message,
           message: '처리 실패. 다시 시도해주세요.'
         });
       }
@@ -570,26 +557,20 @@ app.post('/api/upload-audio', authTokenTop, upload.single('audioFile'), async (r
       });
     }
 
-    // 처리 완료 후 파일 삭제 (보안상 반드시 필요 — 민감한 상담 녹음)
+    // 처리 완료 후 파일 삭제 (선택사항)
+    // setTimeout(() => {
+    //   fs.unlink(audioFilePath, (err) => {
+    //     if (err) console.error('파일 삭제 오류:', err);
+    //   });
+    // }, 60000); // 1분 후 삭제
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
     res.status(500).json({ 
+      success: false,
       error: '파일 업로드 중 오류가 발생했습니다.'
       // details 제거: 보안상 내부 오류 정보 노출 방지
     });
-  } finally {
-    // 성공/실패 무관하게 업로드 파일 반드시 삭제 (민감 데이터 보호)
-    if (req.file && req.file.path) {
-      try {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-          console.log('🗑️ 업로드 파일 삭제 완료:', req.file.filename);
-        }
-      } catch (cleanupError) {
-        console.error('⚠️ 파일 삭제 실패:', cleanupError.message);
-      }
-    }
   }
 });
 
@@ -604,7 +585,7 @@ function generateMockReport(consultationType) {
       상담일자: currentDate,
       상담유형: consultationType,
       상담원: '(자동입력 필요)',
-      접수번호: `2025-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+      접수번호: `2025-${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`
     },
     피해노인정보: {
       성명: '(자동입력 필요)',
@@ -641,13 +622,13 @@ function generateMockReport(consultationType) {
 const anonymizationService = require('./services/anonymizationService');
 const documentParser = require('./services/documentParser');
 
-// 문서 익명화용 Multer 설정 (같은 UPLOAD_DIR 사용)
+// 문서 익명화용 Multer 설정
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, UPLOAD_DIR);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + crypto.randomInt(0, 1000000000);
     // 경로 탐색 공격 방지: basename으로 파일명만 추출
     const safeExtname = path.extname(path.basename(file.originalname));
     cb(null, 'doc-' + uniqueSuffix + safeExtname);
@@ -696,8 +677,8 @@ const hybridService = new HybridAnonymizationService({
   minConfidence: 0.7
 });
 
-// 텍스트 직접 비교 API (인증 필수 — 개발/테스트 시에도 로그인 필요)
-app.post('/api/anonymize-text-compare', authTokenTop, express.json(), async (req, res) => {
+// 텍스트 직접 비교 API (로그인 불필요, 테스트용)
+app.post('/api/anonymize-text-compare', express.json(), async (req, res) => {
   try {
     const { text, method = 'compare' } = req.body;
 
@@ -746,7 +727,7 @@ app.post('/api/anonymize-text-compare', authTokenTop, express.json(), async (req
     res.status(500).json({
       success: false,
       error: '텍스트 비교 중 오류가 발생했습니다.',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+      details: error.message
     });
   }
 });
@@ -774,7 +755,7 @@ app.post('/api/anonymize-document', authenticateToken, documentUpload.single('do
 
   try {
     if (!req.file) {
-      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+      return res.status(400).json({ success: false, error: '파일이 업로드되지 않았습니다.' });
     }
 
     // 사용자 정보 조회 (기관 ID 포함)
@@ -954,7 +935,7 @@ app.post('/api/anonymize-document', authenticateToken, documentUpload.single('do
     res.status(500).json({
       success: false,
       error: '문서 익명화 중 오류가 발생했습니다.',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+      details: error.message
     });
   } finally {
     // 업로드된 파일 삭제
@@ -985,14 +966,14 @@ function createParagraphsFromText(text, spacing = {}) {
   }));
 }
 
-// 워드 파일 다운로드 API (인증 필수)
-app.post('/api/download-word', authTokenTop, express.json(), async (req, res) => {
+// 워드 파일 다운로드 API
+app.post('/api/download-word', express.json(), async (req, res) => {
   try {
     const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = require('docx');
     const report = req.body.report;
     
     if (!report) {
-      return res.status(400).json({ error: '상담일지 데이터가 없습니다.' });
+      return res.status(400).json({ success: false, error: '상담일지 데이터가 없습니다.' });
     }
     
     const consultationTypeText = {
@@ -1184,7 +1165,7 @@ app.post('/api/download-word', authTokenTop, express.json(), async (req, res) =>
     
   } catch (error) {
     console.error('워드 파일 생성 오류:', error);
-    res.status(500).json({ error: '워드 파일 생성 중 오류가 발생했습니다.' });
+    res.status(500).json({ success: false, error: '워드 파일 생성 중 오류가 발생했습니다.' });
   }
 });
 
@@ -1199,28 +1180,6 @@ if (require.main === module) {
     
     // API 키 확인
     await checkApiKey();
-    
-    // 만료된 세션 정리 (서버 시작 시)
-    try {
-      const { getDB } = require('./database/db-postgres');
-      const db = getDB();
-      const result = await db.run('DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP');
-      console.log('🧹 만료 세션 정리 완료');
-    } catch (cleanupError) {
-      console.warn('⚠️ 세션 정리 실패 (DB 미연결 가능):', cleanupError.message);
-    }
-    
-    // 주기적 세션 정리 (6시간마다)
-    setInterval(async () => {
-      try {
-        const { getDB } = require('./database/db-postgres');
-        const db = getDB();
-        await db.run('DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP');
-        console.log('🧹 정기 세션 정리 완료:', new Date().toISOString());
-      } catch (e) {
-        // 무시 — 다음 주기에 재시도
-      }
-    }, 6 * 60 * 60 * 1000); // 6시간
     
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✨ 서버가 정상적으로 시작되었습니다.');

@@ -1,12 +1,19 @@
 {
   "name": "casenetai",
-  "version": "1.0.0",
-  "description": "노인보호전문기관 업무자동화 시스템",
+  "version": "1.1.0",
+  "description": "노인보호전문기관 업무자동화 시스템 - AI 기반 상담일지/진술조서/사실확인서 자동 생성",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "lint": "echo 'No linter configured yet'"
+    "dev": "NODE_ENV=development node server.js",
+    "build": "echo 'No build step required'",
+    "test": "echo 'Tests not configured yet' && exit 0",
+    "security-check": "npm audit --audit-level=high",
+    "db:migrate": "node database/run-migration-005.js",
+    "vercel-build": "echo 'Build complete'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "elder-care",
@@ -37,6 +44,7 @@
     "passport-naver-v2": "^2.0.8",
     "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
+    "sqlite3": "^5.1.7",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

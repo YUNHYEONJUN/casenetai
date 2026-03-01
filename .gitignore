@@ -1,31 +1,51 @@
+# 의존성
 node_modules/
+
+# 환경 변수 (절대 커밋 금지)
 .env
 .env.local
 .env.production
 .env.*.local
-_env.production
-_env.local
+
+# 업로드 파일 (사용자 데이터)
 uploads/
+temp/
+
+# 로그 파일
 *.log
-.DS_Store
+npm-debug.log*
+
+# 데이터베이스 파일
 database/*.db
 database/*.db-shm
 database/*.db-wal
 database/*.db-journal
-.vercel
-*.backup
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# 보안: 관리자 스크립트 (비밀번호 포함 가능)
-create-admin.js
-create-admin-postgres.js
-create-test-admin.js
+# Vercel
+.vercel
 
-# 보안 감사 보고서 (내부 취약점 정보)
+# 백업 파일
+*.backup
+*.bak
+
+# 보안 분석 보고서 (민감 정보 포함 가능)
 *-report.json
 security-report.json
+comprehensive-scan-report.json
+deep-code-review-report.json
+ultimate-security-report.json
 critical-bugs.json
 
-# 임시 테스트 파일
-test_document.txt
+# 테스트 출력
+coverage/
+.nyc_output/
