@@ -6,6 +6,8 @@ node_modules/
 .env.local
 .env.production
 .env.*.local
+_env
+_env.*
 
 # 업로드 파일 (사용자 데이터)
 uploads/
@@ -49,3 +51,15 @@ critical-bugs.json
 # 테스트 출력
 coverage/
 .nyc_output/
+
+# DB 연결 테스트 스크립트 (하드코딩된 자격증명 포함 가능)
+test-db.js
+test-db-new.js
+test-register-api.js
+check-db.js
+
+# 관리자 계정 생성 스크립트 (민감 정보 포함 가능)
+create-admin.js
+create-admin-postgres.js
+create-test-admin.js
+create-statements-table.js

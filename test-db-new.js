@@ -1,7 +1,16 @@
+require('dotenv').config();
 const { Pool } = require('pg');
 
+// 환경 변수에서 DATABASE_URL 읽기
+if (!process.env.DATABASE_URL) {
+  console.error('❌ 오류: DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+  console.error('📝 .env 파일에 다음을 추가하세요:');
+  console.error('   DATABASE_URL=postgresql://user:password@host:port/database');
+  process.exit(1);
+}
+
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:***REMOVED***@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres',
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
