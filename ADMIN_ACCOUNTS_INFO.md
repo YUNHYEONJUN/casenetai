@@ -1,65 +1,58 @@
-# 🔐 CaseNetAI 테스트 계정 정보
+# 🔐 CaseNetAI 계정 관리 가이드
 
-## 📋 관리자 및 개발자 계정
+## ⚠️ 보안 원칙
+
+**비밀번호는 절대 이 문서에 기록하지 마세요.**
+모든 비밀번호는 환경 변수 또는 비밀 관리 시스템을 통해서만 관리합니다.
+
+---
+
+## 📋 계정 구조
 
 ### 1️⃣ 시스템 관리자 계정
-```
-📧 이메일: admin@casenetai.kr
-🔑 비밀번호: (Vercel 환경변수 ADMIN_PASSWORD 참조)
-👤 이름: 시스템 관리자
-🎭 역할: system_admin
-```
+- 📧 이메일: 환경 변수 `ADMIN_EMAIL`로 설정
+- 🔑 비밀번호: 환경 변수 `ADMIN_PASSWORD`로 설정
+- 🎭 역할: `system_admin`
 
 ### 2️⃣ 개발자 계정
-```
-📧 이메일: dev@casenetai.kr
-🔑 비밀번호: (Vercel 환경변수 DEV_PASSWORD 참조)
-👤 이름: 개발자
-🎭 역할: system_admin
-```
+- 📧 이메일: 환경 변수 `DEV_EMAIL`로 설정
+- 🔑 비밀번호: 환경 변수 `DEV_PASSWORD`로 설정
+- 🎭 역할: `system_admin`
 
 ### 3️⃣ 테스트 사용자 계정
-```
-📧 이메일: test@casenetai.kr
-🔑 비밀번호: (Vercel 환경변수 TEST_PASSWORD 참조)
-👤 이름: 테스트 사용자
-🎭 역할: user
-```
+- 📧 이메일: 환경 변수 `TEST_EMAIL`로 설정
+- 🔑 비밀번호: 환경 변수 `TEST_PASSWORD`로 설정
+- 🎭 역할: `user`
 
 ---
 
-## ⚠️ 보안 주의사항
+## 🛠️ 계정 생성 방법
 
-- **비밀번호를 이 파일이나 코드에 절대 직접 작성하지 마세요**
-- 모든 비밀번호는 Vercel 환경변수 또는 로컬 .env 파일에서만 관리
-- 계정 생성 시: `ADMIN_PASSWORD=비밀번호 node create-test-admin.js`
-- 첫 로그인 후 반드시 비밀번호 변경
+### 환경 변수 설정 후 스크립트 실행:
 
----
-
-## 🌐 로그인 방법
-
-### **URL:**
-```
-https://casenetai.kr/login.html
-```
-
-### **로그인 단계:**
-1. 위 URL 접속
-2. 이메일과 비밀번호 입력
-3. "로그인" 버튼 클릭
-4. ✅ 대시보드로 이동
-
----
-
-## 📝 계정 생성 방법
-
-### 환경변수로 비밀번호 전달하여 실행:
 ```bash
-ADMIN_PASSWORD=안전한비밀번호 DEV_PASSWORD=안전한비밀번호 TEST_PASSWORD=안전한비밀번호 node create-test-admin.js
+# .env 파일에 설정하거나 커맨드라인에서 직접 전달
+ADMIN_PASSWORD="(강력한비밀번호)" \
+DEV_PASSWORD="(강력한비밀번호)" \
+TEST_PASSWORD="(강력한비밀번호)" \
+node create-test-admin.js
 ```
+
+### 비밀번호 요구사항:
+- 최소 8자 이상
+- 대문자 1자 이상
+- 소문자 1자 이상
+- 숫자 1자 이상
+- 특수문자 1자 이상
 
 ---
 
-**작성일:** 2026-01-21
-**작성자:** AI Developer
+## 🔒 비밀번호 관리
+
+1. **초기 생성**: 환경 변수로만 전달
+2. **변경**: 로그인 후 프로필에서 변경 (또는 DB에서 직접 hash 업데이트)
+3. **분실**: 위 스크립트를 새 비밀번호로 재실행
+
+---
+
+**작성일**: 2026-02-28

@@ -3,8 +3,6 @@ node_modules/
 .env.local
 .env.production
 .env.*.local
-_env.production
-_env.local
 uploads/
 *.log
 .DS_Store
@@ -17,6 +15,15 @@ database/*.db-journal
 .vscode/
 .idea/
 
-# 보안: 테스트/감사 리포트
+# 보안: 관리자 스크립트 (비밀번호 포함 가능)
+create-admin.js
+create-admin-postgres.js
+create-test-admin.js
+
+# 보안 감사 보고서 (내부 취약점 정보)
 *-report.json
+security-report.json
 critical-bugs.json
+
+# 임시 테스트 파일
+test_document.txt
