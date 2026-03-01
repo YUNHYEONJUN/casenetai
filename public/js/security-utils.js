@@ -131,10 +131,13 @@ function validatePassword(password) {
 }
 
 /**
- * CSRF 토큰 생성 (간단한 구현)
+ * CSRF 토큰 생성 (암호학적으로 안전한 랜덤 값 사용)
  */
 function generateCsrfToken() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  // crypto.getRandomValues를 사용하여 암호학적으로 안전한 랜덤 값 생성
+  const array = new Uint8Array(32);
+  window.crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('') + Date.now().toString(36);
 }
 
 /**

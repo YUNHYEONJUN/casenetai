@@ -47,6 +47,9 @@ app.use(helmet({
   }
 }));
 
+// Vercel/프록시 환경에서 클라이언트 IP 올바르게 식별
+app.set('trust proxy', 1);
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Rate Limiting (DDoS 방어)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -179,9 +182,11 @@ app.use('/api/statement', statementRouter);
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
 // Multer 설정 (음성 파일 업로드)
+// Vercel Serverless 환경에서는 /tmp만 쓰기 가능
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    const uploadDir = process.env.VERCEL ? '/tmp' : 'uploads/';
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + crypto.randomInt(0, 1000000000);
@@ -415,7 +420,7 @@ app.post('/api/analyze-audio', authenticateToken, upload.single('audioFile'), as
     res.status(500).json({
       success: false,
       error: '파일 분석 중 오류가 발생했습니다.',
-      details: error.message
+      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
     });
   }
 });
@@ -547,7 +552,7 @@ app.post('/api/upload-audio', authenticateToken, upload.single('audioFile'), asy
         res.status(500).json({
           success: false,
           error: userMessage,
-          details: error.message,
+          ...(process.env.NODE_ENV !== 'production' && { details: error.message }),
           message: '처리 실패. 다시 시도해주세요.'
         });
       }
@@ -565,12 +570,13 @@ app.post('/api/upload-audio', authenticateToken, upload.single('audioFile'), asy
       });
     }
 
-    // 처리 완료 후 파일 삭제 (선택사항)
-    // setTimeout(() => {
-    //   fs.unlink(audioFilePath, (err) => {
-    //     if (err) console.error('파일 삭제 오류:', err);
-    //   });
-    // }, 60000); // 1분 후 삭제
+    // 처리 완료 후 파일 삭제 (개인정보 보호)
+    setTimeout(() => {
+      fs.unlink(audioFilePath, (err) => {
+        if (err) console.error('파일 삭제 오류:', err);
+        else console.log('✅ 임시 파일 삭제:', audioFilePath);
+      });
+    }, 60000); // 1분 후 삭제
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
@@ -631,9 +637,11 @@ const anonymizationService = require('./services/anonymizationService');
 const documentParser = require('./services/documentParser');
 
 // 문서 익명화용 Multer 설정
+// Vercel Serverless 환경에서는 /tmp만 쓰기 가능
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    const uploadDir = process.env.VERCEL ? '/tmp' : 'uploads/';
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + crypto.randomInt(0, 1000000000);
@@ -735,7 +743,7 @@ app.post('/api/anonymize-text-compare', authenticateToken, express.json(), async
     res.status(500).json({
       success: false,
       error: '텍스트 비교 중 오류가 발생했습니다.',
-      details: error.message
+      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
     });
   }
 });
@@ -943,7 +951,7 @@ app.post('/api/anonymize-document', authenticateToken, documentUpload.single('do
     res.status(500).json({
       success: false,
       error: '문서 익명화 중 오류가 발생했습니다.',
-      details: error.message
+      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
     });
   } finally {
     // 업로드된 파일 삭제

@@ -2,7 +2,7 @@ const OpenAI = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // OpenAI 클라이언트 초기화 (타임아웃 설정 증가)
 const openai = new OpenAI({
@@ -96,9 +96,10 @@ async function compressAudio(inputPath, targetEngine = 'openai') {
     const bitrate = '32k';
     const sampleRate = '16000';
     
-    // ffmpeg를 사용하여 압축
-    execSync(
-      `ffmpeg -i "${inputPath}" -ar ${sampleRate} -ac 1 -b:a ${bitrate} -acodec libmp3lame "${outputPath}" -y`,
+    // ffmpeg를 사용하여 압축 (execFileSync로 명령어 인젝션 방지)
+    execFileSync(
+      'ffmpeg',
+      ['-i', inputPath, '-ar', sampleRate, '-ac', '1', '-b:a', bitrate, '-acodec', 'libmp3lame', outputPath, '-y'],
       { stdio: 'ignore' }
     );
     

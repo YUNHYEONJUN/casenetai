@@ -58,24 +58,23 @@ class CreditService {
     const db = getDB();
     
     try {
-      await db.beginTransaction();
-      
-      try {
+      return await db.transaction(async (client) => {
         // 현재 잔액 조회
-        const credit = await db.get(
+        const creditResult = await client.query(
           'SELECT balance FROM credits WHERE user_id = $1',
           [userId]
         );
         
-        if (!credit) {
+        if (creditResult.rows.length === 0) {
           throw new Error('크레딧 정보를 찾을 수 없습니다');
         }
         
+        const credit = creditResult.rows[0];
         const totalCredit = amount + bonusAmount;
         const newBalance = credit.balance + totalCredit;
         
         // 크레딧 업데이트
-        await db.run(
+        await client.query(
           `UPDATE credits 
            SET balance = $1,
                total_purchased = total_purchased + $2,
@@ -86,7 +85,7 @@ class CreditService {
         );
         
         // 충전 거래 기록
-        await db.run(
+        await client.query(
           `INSERT INTO transactions (user_id, type, amount, balance_after, description, order_id, payment_id)
            VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
           [userId, amount, newBalance, `크레딧 충전 ${amount.toLocaleString()}원`, orderId, paymentKey]
@@ -94,14 +93,12 @@ class CreditService {
         
         // 보너스 거래 기록 (보너스가 있는 경우)
         if (bonusAmount > 0) {
-          await db.run(
+          await client.query(
             `INSERT INTO transactions (user_id, type, amount, balance_after, description, order_id)
              VALUES ($1, 'bonus', $2, $3, $4, $5)`,
             [userId, bonusAmount, newBalance, `보너스 크레딧 ${bonusAmount.toLocaleString()}원`, orderId]
           );
         }
-        
-        await db.commit();
         
         console.log(`✅ 크레딧 충전 성공: userId=${userId}, amount=${amount}, bonus=${bonusAmount}`);
         
@@ -112,12 +109,7 @@ class CreditService {
           bonus: bonusAmount,
           total: totalCredit
         };
-        
-      } catch (err) {
-        await db.rollback();
-        throw err;
-      }
-      
+      });
     } catch (error) {
       console.error('❌ 크레딧 충전 실패:', error.message);
       throw error;
@@ -131,30 +123,29 @@ class CreditService {
     const db = getDB();
     
     try {
-      await db.beginTransaction();
-      
-      try {
+      return await db.transaction(async (client) => {
         // 사용자 정보 조회 (기관 여부 확인)
-        const user = await db.get(
+        const userResult = await client.query(
           'SELECT organization_id FROM users WHERE id = $1',
           [userId]
         );
         
-        if (!user) {
+        if (userResult.rows.length === 0) {
           throw new Error('사용자를 찾을 수 없습니다');
         }
         
+        const user = userResult.rows[0];
+        
         // 기관 사용자인 경우: 기관 구독 확인
         if (user.organization_id) {
-          const org = await db.get(
+          const orgResult = await client.query(
             'SELECT subscription_status FROM organizations WHERE id = $1',
             [user.organization_id]
           );
           
-          if (org && org.subscription_status === 'active') {
+          if (orgResult.rows.length > 0 && orgResult.rows[0].subscription_status === 'active') {
             // 기관 플랜: 무료 사용 (차감 없음)
-            await this._logUsage(userId, 0, audioLength, consultationType, sttProvider, aiProvider, false);
-            await db.commit();
+            await this._logUsageWithClient(client, userId, 0, audioLength, consultationType, sttProvider, aiProvider, false);
             
             return {
               success: true,
@@ -166,19 +157,21 @@ class CreditService {
         }
         
         // 개인 사용자: 크레딧 확인 및 차감
-        const credit = await db.get(
+        const creditResult = await client.query(
           'SELECT balance, free_trial_count FROM credits WHERE user_id = $1',
           [userId]
         );
         
-        if (!credit) {
+        if (creditResult.rows.length === 0) {
           throw new Error('크레딧 정보를 찾을 수 없습니다');
         }
+        
+        const credit = creditResult.rows[0];
         
         // 무료 체험 사용 가능한지 확인
         if (credit.free_trial_count > 0) {
           // 무료 체험 사용
-          await db.run(
+          await client.query(
             `UPDATE credits 
              SET free_trial_count = free_trial_count - 1,
                  free_trial_used = free_trial_used + 1,
@@ -187,14 +180,13 @@ class CreditService {
             [userId]
           );
           
-          await db.run(
+          await client.query(
             `INSERT INTO transactions (user_id, type, amount, balance_after, description, audio_duration_minutes)
              VALUES ($1, 'free_trial', 0, $2, $3, $4)`,
             [userId, credit.balance, `무료 체험 사용 (${audioLength.toFixed(1)}분)`, audioLength]
           );
           
-          await this._logUsage(userId, 0, audioLength, consultationType, sttProvider, aiProvider, true);
-          await db.commit();
+          await this._logUsageWithClient(client, userId, 0, audioLength, consultationType, sttProvider, aiProvider, true);
           
           return {
             success: true,
@@ -211,36 +203,30 @@ class CreditService {
         }
         
         // 크레딧 원자적 차감 (Race Condition 방지)
-        // UPDATE ... WHERE 조건에 잔액 체크를 포함하여 원자성 보장
-        const result = await db.run(
+        const updateResult = await client.query(
           `UPDATE credits 
            SET balance = balance - $1,
                total_used = total_used + $2,
                updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = $3 AND balance >= $4`,
+           WHERE user_id = $3 AND balance >= $4
+           RETURNING balance`,
           [cost, cost, userId, cost]
         );
         
         // 업데이트된 행이 없으면 동시 요청으로 인한 잔액 부족
-        if (result.changes === 0) {
+        if (updateResult.rows.length === 0) {
           throw new Error('크레딧이 부족하거나 동시 요청이 발생했습니다');
         }
         
-        // 업데이트 후 잔액 조회
-        const updatedCredit = await db.get(
-          'SELECT balance FROM credits WHERE user_id = $1',
-          [userId]
-        );
-        const newBalance = updatedCredit.balance;
+        const newBalance = updateResult.rows[0].balance;
         
-        await db.run(
+        await client.query(
           `INSERT INTO transactions (user_id, type, amount, balance_after, description, audio_duration_minutes)
            VALUES ($1, 'usage', $2, $3, $4, $5)`,
           [userId, -cost, newBalance, `음성 파일 처리 (${audioLength.toFixed(1)}분)`, audioLength]
         );
         
-        await this._logUsage(userId, cost, audioLength, consultationType, sttProvider, aiProvider, false);
-        await db.commit();
+        await this._logUsageWithClient(client, userId, cost, audioLength, consultationType, sttProvider, aiProvider, false);
         
         console.log(`✅ 크레딧 차감 성공: userId=${userId}, cost=${cost}, newBalance=${newBalance}`);
         
@@ -250,12 +236,7 @@ class CreditService {
           balance: newBalance,
           message: `${cost}원이 차감되었습니다`
         };
-        
-      } catch (err) {
-        await db.rollback();
-        throw err;
-      }
-      
+      });
     } catch (error) {
       console.error('❌ 크레딧 차감 실패:', error.message);
       throw error;
@@ -263,7 +244,22 @@ class CreditService {
   }
   
   /**
-   * 사용 내역 로깅
+   * 사용 내역 로깅 (트랜잭션 내)
+   */
+  async _logUsageWithClient(client, userId, cost, audioLength, consultationType, sttProvider, aiProvider, isFree) {
+    const sttCost = Math.round(cost * 0.97); // STT 비용 약 97%
+    const aiCost = cost - sttCost;
+    
+    await client.query(
+      `INSERT INTO usage_logs 
+       (user_id, consultation_type, audio_duration_seconds, stt_provider, stt_cost, ai_provider, ai_cost, total_cost, is_free_trial)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [userId, consultationType, audioLength * 60, sttProvider, sttCost, aiProvider, aiCost, cost, isFree]
+    );
+  }
+  
+  /**
+   * 사용 내역 로깅 (레거시 호환)
    */
   async _logUsage(userId, cost, audioLength, consultationType, sttProvider, aiProvider, isFree) {
     const db = getDB();
