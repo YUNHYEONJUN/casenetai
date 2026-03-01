@@ -17,6 +17,7 @@
             </div>
             <div class="header-actions">
                 <a href="/" class="btn btn-secondary">홈으로</a>
+                <button class="btn btn-primary" id="adminDashboardBtn" onclick="goToAdminDashboard()" style="display: none;">🔧 관리자 대시보드</button>
                 <button class="btn btn-secondary" onclick="logout()">로그아웃</button>
             </div>
         </div>
@@ -188,6 +189,11 @@
             return response.json();
         }
 
+        // 관리자 대시보드로 이동
+        function goToAdminDashboard() {
+            window.location.href = '/system-admin-dashboard.html';
+        }
+
         // 로그아웃
         function logout() {
             if (confirm('로그아웃 하시겠습니까?')) {
@@ -204,6 +210,11 @@
                 if (data.success) {
                     document.getElementById('userName').textContent = data.user.name;
                     document.getElementById('userEmail').textContent = data.user.email;
+                    
+                    // 시스템 관리자인 경우 관리자 대시보드 버튼 표시
+                    if (data.user.role === 'system_admin') {
+                        document.getElementById('adminDashboardBtn').style.display = 'inline-block';
+                    }
                 }
             } catch (error) {
                 console.error('사용자 정보 로드 실패:', error);

@@ -63,7 +63,7 @@
       margin-top: 3px;
     }
 
-    .logout-btn {
+    .header-btn {
       background: rgba(255,255,255,0.2);
       color: white;
       border: none;
@@ -74,8 +74,20 @@
       transition: background 0.2s;
     }
 
-    .logout-btn:hover {
+    .header-btn:hover {
       background: rgba(255,255,255,0.3);
+    }
+
+    .main-service-btn {
+      background: rgba(255,255,255,0.9);
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    .main-service-btn:hover {
+      background: white;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 
     .container {
@@ -423,7 +435,8 @@
         <div class="name" id="userName">관리자</div>
         <div class="role">SYSTEM ADMIN</div>
       </div>
-      <button class="logout-btn" onclick="logout()">로그아웃</button>
+      <button class="header-btn main-service-btn" onclick="goToMainService()">📋 메인 서비스</button>
+      <button class="header-btn" onclick="logout()">로그아웃</button>
     </div>
   </div>
 
@@ -1170,6 +1183,11 @@
         console.error('권한 변경 실패:', error);
         alert('권한 변경에 실패했습니다');
       }
+    }
+
+    // Go to Main Service (상담일지 작성 페이지)
+    function goToMainService() {
+      window.location.href = '/dashboard.html';
     }
 
     // Logout
