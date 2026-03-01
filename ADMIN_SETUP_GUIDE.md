@@ -29,13 +29,12 @@ http://localhost:3000/admin-setup.html
 
 ## 🛡️ 마스터 비밀번호
 
-**마스터 비밀번호**: 환경 변수 `MASTER_PASSWORD`로 설정
+**마스터 비밀번호**: `CaseNetAI2026!@#`
 
 ⚠️ **보안 주의사항**:
-- 이 비밀번호는 절대 코드나 문서에 기록하지 마세요
-- `.env` 파일과 Vercel 환경 변수에만 설정하세요
-- `.env` 파일은 `.gitignore`에 포함되어 있어 Git에 커밋되지 않습니다
-- 최소 16자 이상의 강력한 비밀번호를 사용하세요
+- 이 비밀번호는 절대 공개하지 마세요
+- 프로덕션 환경에서는 `.env.production` 파일의 `MASTER_PASSWORD`를 변경하세요
+- Vercel 환경 변수에서도 동일하게 설정해야 합니다
 
 ---
 
@@ -44,10 +43,8 @@ http://localhost:3000/admin-setup.html
 ### Step 1: 마스터 비밀번호 입력
 
 1. 관리자 설정 페이지 접속
-2. "마스터 비밀번호" 입력란에 `.env` 파일에 설정한 `MASTER_PASSWORD` 값 입력
+2. "마스터 비밀번호" 입력란에 `CaseNetAI2026!@#` 입력
 3. "확인" 버튼 클릭
-
-💡 **참고**: 마스터 비밀번호는 `.env` 파일과 Vercel 환경 변수에 동일하게 설정되어야 합니다.
 
 ### Step 2: 계정 정보 입력
 
@@ -112,7 +109,7 @@ http://localhost:3000/admin-setup.html
 
 ```
 이메일: admin@casenetai.kr
-비밀번호: Admin2026!@#
+비밀번호: (환경 변수 ADMIN_PASSWORD 참조)
 이름: 시스템 관리자
 전화번호: 010-1234-5678
 권한: system_admin
@@ -123,7 +120,7 @@ http://localhost:3000/admin-setup.html
 
 ```
 이메일: dev@casenetai.kr
-비밀번호: Dev2026!@#
+비밀번호: (환경 변수 DEV_PASSWORD 참조)
 이름: 개발자
 권한: system_admin
 크레딧: 10,000,000원
@@ -133,7 +130,7 @@ http://localhost:3000/admin-setup.html
 
 ```
 이메일: test@casenetai.kr
-비밀번호: Test2026!
+비밀번호: (환경 변수 TEST_PASSWORD 참조)
 이름: 테스트 사용자
 권한: user
 크레딧: 1,000,000원
@@ -146,52 +143,46 @@ http://localhost:3000/admin-setup.html
 Vercel 대시보드에서 다음 환경 변수를 추가하세요:
 
 ```bash
-MASTER_PASSWORD=<강력한_비밀번호_16자이상>
-```
-
-**비밀번호 생성 예시**:
-```bash
-# Node.js를 사용한 강력한 비밀번호 생성
-node -e "console.log(require('crypto').randomBytes(24).toString('base64'))"
+MASTER_PASSWORD=CaseNetAI2026!@#  # 프로덕션에서는 반드시 변경
 ```
 
 설정 방법:
 1. Vercel 대시보드 → 프로젝트 선택
 2. Settings → Environment Variables
 3. `MASTER_PASSWORD` 추가
-4. 생성한 강력한 비밀번호 입력
-5. Production, Preview, Development 모두 체크
-6. Save
+4. Production, Preview, Development 모두 체크
+5. Save
 
 ---
 
 ## 🔄 마스터 비밀번호 변경
 
-프로덕션 환경에서는 보안을 위해 마스터 비밀번호를 주기적으로 변경하세요.
+프로덕션 환경에서는 보안을 위해 마스터 비밀번호를 변경하세요.
 
-### 1. 강력한 비밀번호 생성
-
-```bash
-# 32바이트 랜덤 비밀번호 생성
-node -e "console.log(require('crypto').randomBytes(24).toString('base64'))"
-```
-
-### 2. 로컬 환경 (.env 파일)
+### 1. 로컬 환경
 
 `.env` 파일 수정:
 ```bash
-MASTER_PASSWORD=<생성된_강력한_비밀번호>
+MASTER_PASSWORD=새로운_강력한_비밀번호!@#$
+```
+
+### 2. 프로덕션 환경
+
+`.env.production` 파일 수정:
+```bash
+MASTER_PASSWORD=새로운_강력한_비밀번호!@#$
 ```
 
 ### 3. Vercel 환경 변수
 
-1. Vercel 대시보드에서 `MASTER_PASSWORD` 값 업데이트
-2. Production, Preview, Development 환경 모두 동일한 값으로 설정
+Vercel 대시보드에서 `MASTER_PASSWORD` 값 업데이트
 
-### 4. 프론트엔드 확인
+### 4. 프론트엔드 업데이트
 
-⚠️ **중요**: `public/admin-setup.html`에 하드코딩된 비밀번호가 있으면 제거하세요.
-백엔드에서만 환경 변수를 검증하도록 수정하는 것이 가장 안전합니다.
+`public/admin-setup.html` 파일의 219번 줄 수정:
+```javascript
+const MASTER_PASSWORD = '새로운_강력한_비밀번호!@#$';
+```
 
 ---
 

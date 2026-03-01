@@ -1,6 +1,11 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+  process.exit(1);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
