@@ -29,12 +29,19 @@ http://localhost:3000/admin-setup.html
 
 ## 🛡️ 마스터 비밀번호
 
-**마스터 비밀번호**: `CaseNetAI2026!@#`
+**마스터 비밀번호**: 환경 변수 `MASTER_PASSWORD`로 설정
 
 ⚠️ **보안 주의사항**:
-- 이 비밀번호는 절대 공개하지 마세요
-- 프로덕션 환경에서는 `.env.production` 파일의 `MASTER_PASSWORD`를 변경하세요
-- Vercel 환경 변수에서도 동일하게 설정해야 합니다
+- 이 비밀번호는 절대 코드나 문서에 기록하지 마세요
+- `.env` 파일과 Vercel 환경 변수에만 설정하세요
+- `.env` 파일은 `.gitignore`에 포함되어 있어 Git에 커밋되지 않습니다
+- 최소 16자 이상의 강력한 비밀번호를 사용하세요
+
+**비밀번호 생성 예시**:
+```bash
+# 32바이트 랜덤 비밀번호 생성
+node -e "console.log(require('crypto').randomBytes(24).toString('base64'))"
+```
 
 ---
 
@@ -43,8 +50,10 @@ http://localhost:3000/admin-setup.html
 ### Step 1: 마스터 비밀번호 입력
 
 1. 관리자 설정 페이지 접속
-2. "마스터 비밀번호" 입력란에 `CaseNetAI2026!@#` 입력
+2. "마스터 비밀번호" 입력란에 `.env` 파일의 `MASTER_PASSWORD` 값 입력
 3. "확인" 버튼 클릭
+
+💡 **참고**: 마스터 비밀번호는 `.env` 파일과 Vercel 환경 변수에 동일하게 설정되어 있어야 합니다.
 
 ### Step 2: 계정 정보 입력
 
@@ -143,15 +152,22 @@ http://localhost:3000/admin-setup.html
 Vercel 대시보드에서 다음 환경 변수를 추가하세요:
 
 ```bash
-MASTER_PASSWORD=CaseNetAI2026!@#  # 프로덕션에서는 반드시 변경
+MASTER_PASSWORD=<강력한_비밀번호_16자이상>
+```
+
+**강력한 비밀번호 생성**:
+```bash
+# Node.js를 사용한 랜덤 비밀번호 생성
+node -e "console.log(require('crypto').randomBytes(24).toString('base64'))"
 ```
 
 설정 방법:
 1. Vercel 대시보드 → 프로젝트 선택
 2. Settings → Environment Variables
 3. `MASTER_PASSWORD` 추가
-4. Production, Preview, Development 모두 체크
-5. Save
+4. 생성한 강력한 비밀번호 입력
+5. Production, Preview, Development 모두 체크
+6. Save
 
 ---
 

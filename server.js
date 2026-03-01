@@ -593,7 +593,7 @@ function generateMockReport(consultationType) {
       상담일자: currentDate,
       상담유형: consultationType,
       상담원: '(자동입력 필요)',
-      접수번호: `2025-${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`
+      접수번호: `${new Date().getFullYear()}-${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`
     },
     피해노인정보: {
       성명: '(자동입력 필요)',
