@@ -15,9 +15,9 @@ CaseNetAI 프로젝트에서 **하드코딩된 민감 자격증명 3개**를 발
 
 | 파일 | 문제 | 노출된 정보 | 심각도 |
 |------|------|------------|--------|
-| `test-db.js` | 하드코딩된 DB 비밀번호 | `***REMOVED***` | 🔴 CRITICAL |
-| `test-db-new.js` | 하드코딩된 DB 비밀번호 | `***REMOVED***` | 🔴 CRITICAL |
-| `ADMIN_SETUP_GUIDE.md` | 하드코딩된 마스터 비밀번호 | `***REMOVED***` | 🔴 CRITICAL |
+| `test-db.js` | 하드코딩된 DB 비밀번호 | `QygHI7sKcKIKTvJb` | 🔴 CRITICAL |
+| `test-db-new.js` | 하드코딩된 DB 비밀번호 | `pPJXJ7%25A6tGdGvH` | 🔴 CRITICAL |
+| `ADMIN_SETUP_GUIDE.md` | 하드코딩된 마스터 비밀번호 | `CaseNetAI2026!@#` | 🔴 CRITICAL |
 
 ---
 
@@ -28,7 +28,7 @@ CaseNetAI 프로젝트에서 **하드코딩된 민감 자격증명 3개**를 발
 **이전** (보안 취약):
 ```javascript
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:***REMOVED***@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres',
+  connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:QygHI7sKcKIKTvJb@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres',
   ssl: { rejectUnauthorized: false }
 });
 ```
@@ -53,7 +53,7 @@ const pool = new Pool({
 **이전** (보안 취약):
 ```javascript
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:***REMOVED***@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres',
+  connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:pPJXJ7%25A6tGdGvH@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres',
   ssl: { rejectUnauthorized: false }
 });
 ```
@@ -78,7 +78,7 @@ const pool = new Pool({
 **이전** (보안 취약):
 ```markdown
 ## 🛡️ 마스터 비밀번호
-**마스터 비밀번호**: `***REMOVED***`
+**마스터 비밀번호**: `CaseNetAI2026!@#`
 ```
 
 **이후** (보안 강화):
@@ -181,9 +181,9 @@ git push origin main --force
 wget https://repo1.maven.org/maven2/com/madgag/bfg/1.14.0/bfg-1.14.0.jar
 
 # 비밀번호 텍스트 제거
-echo "***REMOVED***" > passwords.txt
-echo "***REMOVED***" >> passwords.txt
-echo "***REMOVED***" >> passwords.txt
+echo "QygHI7sKcKIKTvJb" > passwords.txt
+echo "pPJXJ7%25A6tGdGvH" >> passwords.txt
+echo "CaseNetAI2026!@#" >> passwords.txt
 java -jar bfg-1.14.0.jar --replace-text passwords.txt
 
 # Git 정리 및 푸시

@@ -6,15 +6,15 @@
 
 ### 1. `test-db.js` (Line 4)
 ```javascript
-connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:***REMOVED***@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres'
+connectionString: 'postgresql://postgres.lsrfzqgvtaxjqnhtzebz:QygHI7sKcKIKTvJb@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres'
 ```
-- **DB 비밀번호**: `***REMOVED***`
+- **DB 비밀번호**: `QygHI7sKcKIKTvJb`
 - **DB 호스트**: `aws-1-ap-northeast-2.pooler.supabase.com`
 - **DB 사용자**: `postgres.lsrfzqgvtaxjqnhtzebz`
 
 ### 2. `ADMIN_SETUP_GUIDE.md` (Line 32)
 ```
-마스터 비밀번호: ***REMOVED***
+마스터 비밀번호: CaseNetAI2026!@#
 ```
 
 ---
@@ -84,8 +84,8 @@ git push origin main --force
 wget https://repo1.maven.org/maven2/com/madgag/bfg/1.14.0/bfg-1.14.0.jar
 
 # 비밀번호 텍스트 제거
-echo "***REMOVED***" > passwords.txt
-echo "***REMOVED***" >> passwords.txt
+echo "QygHI7sKcKIKTvJb" > passwords.txt
+echo "CaseNetAI2026!@#" >> passwords.txt
 java -jar bfg-1.14.0.jar --replace-text passwords.txt
 
 # Git 정리 및 푸시

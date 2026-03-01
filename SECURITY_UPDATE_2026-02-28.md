@@ -99,7 +99,7 @@ git push origin --force --all
    - 환경: Production, Preview, Development 모두 체크
 
 2. **MASTER_PASSWORD**
-   - 기존: ~~`***REMOVED***`~~
+   - 기존: ~~`CaseNetAI2026!@#`~~
    - 신규: `MasterSecure2026!@#$%` (또는 더 강력한 비밀번호)
    - 환경: Production만 체크
 

@@ -63,3 +63,6 @@ create-admin.js
 create-admin-postgres.js
 create-test-admin.js
 create-statements-table.js
+
+# BFG Repo-Cleaner
+bfg-*.jar

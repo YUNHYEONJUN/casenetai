@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
     const { email, password, name, phone, organizationId, masterPassword, role, credits } = req.body;
     
     // 🔐 관리자 전용: 마스터 비밀번호 검증
-    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || '***REMOVED***';
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
     if (masterPassword !== MASTER_PASSWORD) {
       return res.status(403).json({
         success: false,

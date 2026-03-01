@@ -1,14 +1,24 @@
 /**
  * 회원가입 API 테스트
+ * 
+ * 사용법:
+ *   ADMIN_PASSWORD="YourPassword123!" node test-register-api.js
  */
 
 require('dotenv').config();
 const axios = require('axios');
 
+// 환경 변수에서 비밀번호 읽기
+if (!process.env.ADMIN_PASSWORD) {
+  console.error('❌ 오류: ADMIN_PASSWORD 환경 변수가 설정되지 않았습니다.');
+  console.error('📝 사용법: ADMIN_PASSWORD="YourPassword" node test-register-api.js');
+  process.exit(1);
+}
+
 const testAccounts = [
   {
-    email: 'admin@casenetai.kr',
-    password: 'Admin2026!',
+    email: process.env.ADMIN_EMAIL || 'admin@casenetai.kr',
+    password: process.env.ADMIN_PASSWORD,
     name: '시스템 관리자',
     phone: '010-1234-5678'
   }
