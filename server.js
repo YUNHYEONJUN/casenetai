@@ -9,7 +9,7 @@ const fs = require('fs');
 const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
-const { optionalAuth } = require('./middleware/auth');
+const { optionalAuth, authenticateToken } = require('./middleware/auth');
 
 // 환경 변수 검증
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -130,6 +130,14 @@ app.use(express.static('public'));
 
 // 전역 Rate Limiter 적용
 app.use('/api/', apiLimiter);
+
+// 로그인 Rate Limiter 적용 (무차별 대입 공격 방어)
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/register', loginLimiter);
+
+// 익명화 API Rate Limiter 적용 (과도한 AI API 사용 방지)
+app.use('/api/anonymize-document', anonymizationLimiter);
+app.use('/api/anonymize-text-compare', anonymizationLimiter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 인증 & 결제 & 관리자 & 피드백 & 분석 & 3단계 권한 라우터
@@ -260,8 +268,8 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
-// 오디오 파일 분석 및 비용 견적 API
-app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
+// 오디오 파일 분석 및 비용 견적 API (인증 필수)
+app.post('/api/analyze-audio', authenticateToken, upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: '파일이 업로드되지 않았습니다.' });
@@ -412,8 +420,8 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
   }
 });
 
-// 음성 파일 업로드 및 처리 API (통합 버전)
-app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (req, res) => {
+// 음성 파일 업로드 및 처리 API (통합 버전) (인증 필수)
+app.post('/api/upload-audio', authenticateToken, upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: '파일이 업로드되지 않았습니다.' });
@@ -677,8 +685,8 @@ const hybridService = new HybridAnonymizationService({
   minConfidence: 0.7
 });
 
-// 텍스트 직접 비교 API (로그인 불필요, 테스트용)
-app.post('/api/anonymize-text-compare', express.json(), async (req, res) => {
+// 텍스트 직접 비교 API (인증 필수)
+app.post('/api/anonymize-text-compare', authenticateToken, express.json(), async (req, res) => {
   try {
     const { text, method = 'compare' } = req.body;
 
@@ -966,8 +974,8 @@ function createParagraphsFromText(text, spacing = {}) {
   }));
 }
 
-// 워드 파일 다운로드 API
-app.post('/api/download-word', express.json(), async (req, res) => {
+// 워드 파일 다운로드 API (인증 필수)
+app.post('/api/download-word', authenticateToken, express.json(), async (req, res) => {
   try {
     const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = require('docx');
     const report = req.body.report;

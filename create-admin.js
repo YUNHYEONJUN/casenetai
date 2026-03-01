@@ -1,8 +1,11 @@
 /**
- * 관리자 계정 생성 스크립트 (SQLite용)
+ * 관리자 계정 생성 스크립트 (SQLite - 로컬 개발용)
  * 
  * 사용법:
- *   ADMIN_PASSWORD=안전한비밀번호 node create-admin.js
+ *   ADMIN_EMAIL=admin@casenetai.kr ADMIN_PASSWORD=YourSecurePass! node create-admin.js
+ * 
+ * ⚠️ 프로덕션 환경에서는 create-admin-postgres.js를 사용하세요.
+ * ⚠️ 비밀번호는 반드시 환경 변수로 전달해야 합니다.
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -10,20 +13,25 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'database', 'casenetai.db');
+const BCRYPT_SALT_ROUNDS = 12;
 
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('👤 관리자 계정 생성');
+console.log('👤 관리자 계정 생성 (SQLite)');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-// 관리자 정보 - 환경 변수에서 읽기 (하드코딩 금지)
-const adminEmail = process.env.ADMIN_EMAIL || 'admin@casenetai.com';
+// 환경 변수 검증 — 기본값 fallback 완전 제거
+const adminEmail = process.env.ADMIN_EMAIL;
 const adminPassword = process.env.ADMIN_PASSWORD;
 const adminName = process.env.ADMIN_NAME || 'System Admin';
 
-// 비밀번호 필수 검증
-if (!adminPassword) {
-  console.error('❌ ADMIN_PASSWORD 환경변수가 설정되지 않았습니다.');
-  console.error('   사용법: ADMIN_PASSWORD=안전한비밀번호 node create-admin.js');
+if (!adminEmail || !adminPassword) {
+  console.error('❌ 필수 환경 변수가 설정되지 않았습니다!');
+  console.error('');
+  console.error('사용법:');
+  console.error('  ADMIN_EMAIL=admin@casenetai.kr \\');
+  console.error('  ADMIN_PASSWORD=YourSecurePassword! \\');
+  console.error('  node create-admin.js');
+  console.error('');
   process.exit(1);
 }
 
@@ -41,14 +49,14 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   console.log('✅ 데이터베이스 연결 성공\n');
 });
 
-// 비밀번호 해싱 및 관리자 생성
-bcrypt.hash(adminPassword, 10, (err, hash) => {
+// 비밀번호 해싱 및 관리자 생성 (salt rounds: 12)
+bcrypt.hash(adminPassword, BCRYPT_SALT_ROUNDS, (err, hash) => {
   if (err) {
     console.error('❌ 비밀번호 해싱 실패:', err);
     process.exit(1);
   }
   
-  console.log('✅ 비밀번호 해싱 완료\n');
+  console.log(`✅ 비밀번호 해싱 완료 (bcrypt salt rounds: ${BCRYPT_SALT_ROUNDS})\n`);
   
   // 기존 관리자 계정 삭제
   db.run('DELETE FROM users WHERE email = ?', [adminEmail], (err) => {
@@ -103,7 +111,7 @@ bcrypt.hash(adminPassword, 10, (err, hash) => {
                   console.log('📝 로그인 정보:');
                   console.log(`   URL: http://localhost:3000/login.html`);
                   console.log(`   이메일: ${adminEmail}`);
-                  console.log(`   비밀번호: (환경변수로 설정한 비밀번호 사용)`);
+                  console.log(`   비밀번호: (환경 변수 ADMIN_PASSWORD 참조)`);
                   console.log('\n⚠️  보안을 위해 첫 로그인 후 비밀번호를 변경하세요!\n');
                 }
                 
