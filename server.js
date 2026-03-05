@@ -9,7 +9,8 @@ const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
 const { optionalAuth } = require('./middleware/auth');
-const { handleUpload, del } = require('@vercel/blob');
+const { del } = require('@vercel/blob');
+const { handleUpload } = require('@vercel/blob/client');
 
 // 환경 변수 검증
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
