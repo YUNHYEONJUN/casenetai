@@ -9,6 +9,7 @@ const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
 const { optionalAuth } = require('./middleware/auth');
+const { handleUpload, del } = require('@vercel/blob');
 
 // 환경 변수 검증
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -36,7 +37,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co", "https://*.public.blob.vercel-storage.com"],
     },
   },
   hsts: {
@@ -168,9 +169,10 @@ app.use('/api/statement', statementRouter);
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
 // Multer 설정 (음성 파일 업로드)
+const os = require('os');
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    cb(null, os.tmpdir());
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -255,6 +257,32 @@ app.get('/api/status', async (req, res) => {
     apiKeyConfigured: isValid,
     mode: isValid ? 'production' : 'mock'
   });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.post('/api/blob-upload', async (req, res) => {
+  try {
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => ({
+        allowedContentTypes: [
+          'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a',
+          'audio/x-m4a', 'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'
+        ],
+        maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
+      }),
+      onUploadCompleted: async ({ blob }) => {
+        console.log('Blob upload completed:', blob.url);
+      },
+    });
+    res.json(jsonResponse);
+  } catch (error) {
+    console.error('Blob upload error:', error);
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // 오디오 파일 분석 및 비용 견적 API
@@ -412,14 +440,43 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
 });
 
 // 음성 파일 업로드 및 처리 API (통합 버전)
-app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (req, res) => {
+// multipart 파일 업로드 또는 JSON blobUrl 모두 지원
+app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
+  // Content-Type에 따라 multer를 적용할지 결정
+  if (req.headers['content-type']?.includes('application/json')) {
+    next(); // JSON 요청은 multer 스킵
+  } else {
+    upload.single('audioFile')(req, res, next); // multipart는 multer 적용
+  }
+}, async (req, res) => {
+  let audioFilePath = null;
+  let blobUrl = null;
+
   try {
-    if (!req.file) {
+    const consultationType = req.body.consultationType;
+    const consultationStage = req.body.consultationStage;
+    const sttEngine = req.body.sttEngine;
+    blobUrl = req.body.blobUrl;
+
+    // blobUrl이 있으면 Vercel Blob에서 다운로드
+    if (blobUrl) {
+      const tmpDir = os.tmpdir();
+      const tmpFilename = `audio-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      audioFilePath = path.join(tmpDir, tmpFilename);
+
+      // Blob URL에서 파일 다운로드
+      const response = await fetch(blobUrl);
+      if (!response.ok) throw new Error('Blob 파일 다운로드 실패');
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(audioFilePath, buffer);
+
+      console.log(`Blob download: ${blobUrl} -> ${audioFilePath} (${(buffer.length / 1024 / 1024).toFixed(2)}MB)`);
+    } else if (req.file) {
+      audioFilePath = req.file.path;
+    } else {
       return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
     }
 
-    const { consultationType, consultationStage, sttEngine } = req.body;
-    const audioFilePath = req.file.path;
     const selectedEngine = sttEngine || 'openai'; // 기본값: openai
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -558,18 +615,21 @@ app.post('/api/upload-audio', optionalAuth, upload.single('audioFile'), async (r
       });
     }
 
-    // 처리 완료 후 파일 삭제 (선택사항)
-    // setTimeout(() => {
-    //   fs.unlink(audioFilePath, (err) => {
-    //     if (err) console.error('파일 삭제 오류:', err);
-    //   });
-    // }, 60000); // 1분 후 삭제
+    // 처리 완료 후 임시 파일 및 Blob 삭제
+    if (blobUrl) {
+      try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+      try { await del(blobUrl); } catch (e) { console.warn('Blob delete failed:', e.message); }
+    }
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
-    res.status(500).json({ 
+    // 임시 파일 정리
+    if (blobUrl && audioFilePath) {
+      try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+      try { await del(blobUrl); } catch (e) { /* ignore */ }
+    }
+    res.status(500).json({
       error: '파일 업로드 중 오류가 발생했습니다.'
-      // details 제거: 보안상 내부 오류 정보 노출 방지
     });
   }
 });
@@ -625,7 +685,7 @@ const documentParser = require('./services/documentParser');
 // 문서 익명화용 Multer 설정
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    cb(null, os.tmpdir());
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

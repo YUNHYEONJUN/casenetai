@@ -153,86 +153,126 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// 비용 분석 함수
-async function analyzeCost(file) {
+// 비용 분석 함수 (클라이언트에서 파일 크기 기반 추정)
+function analyzeCost(file) {
     const costInfoContainer = document.getElementById('costInfoContainer');
     const analyzingBadge = document.getElementById('analyzingBadge');
     const fileSize = document.getElementById('fileSize');
     const audioDuration = document.getElementById('audioDuration');
     const sttCost = document.getElementById('sttCost');
     const totalCost = document.getElementById('totalCost');
-    
+
     // 비용 컨테이너 표시
     costInfoContainer.style.display = 'block';
     costInfoContainer.classList.add('show');
-    analyzingBadge.style.display = 'inline-flex';
-    
+
     // 파일 크기 즉시 표시
     fileSize.textContent = formatFileSize(file.size);
-    
-    try {
-        // FormData 생성
-        const formData = new FormData();
-        formData.append('audioFile', file);
-        
-        console.log('💰 비용 분석 시작...');
-        
-        // 서버에 비용 분석 요청
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/analyze-audio', {
-            method: 'POST',
-            headers: token ? {
-                'Authorization': `Bearer ${token}`
-            } : {},
-            body: formData
-        });
-        
-        // JSON 파싱 전에 응답 상태 확인
-        if (!response.ok) {
-            let errorMessage = `비용 분석 실패 (${response.status})`;
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.error || errorData.message || errorMessage;
-            } catch {
-                errorMessage = await response.text() || errorMessage;
-            }
-            throw new Error(errorMessage);
+
+    // 파일 크기 기반 추정 (서버에 업로드하지 않음 - Vercel 4.5MB 제한)
+    const fileSizeMB = file.size / (1024 * 1024);
+    // MP3: ~1MB/분, WAV: ~10MB/분, M4A: ~0.5MB/분
+    const ext = file.name.split('.').pop().toLowerCase();
+    const mbPerMinute = { wav: 10, mp3: 1, m4a: 0.5, ogg: 0.7, webm: 0.8, mp4: 1 };
+    const rate = mbPerMinute[ext] || 1;
+    const estimatedMinutes = Math.max(1, Math.ceil(fileSizeMB / rate));
+    const estimatedCost = Math.ceil(estimatedMinutes * 0.006 * 1320); // Whisper 기준
+
+    costEstimate = {
+        duration: {
+            minutes: estimatedMinutes,
+            formatted: `약 ${estimatedMinutes}분 (추정)`
+        },
+        costEstimate: {
+            stt: { whisper: { costKRW: estimatedCost } },
+            total: { best: estimatedCost, worst: estimatedCost + 12 }
         }
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            costEstimate = result;
-            
-            // 결과 표시
-            audioDuration.textContent = result.duration.formatted;
-            sttCost.textContent = `약 ${result.costEstimate.stt.whisper.costKRW}원`;
-            totalCost.textContent = `${result.costEstimate.total.best}~${result.costEstimate.total.worst}원`;
-            
-            console.log('💰 비용 분석 완료:', {
-                duration: result.duration.formatted,
-                cost: `${result.costEstimate.total.best}~${result.costEstimate.total.worst}원`
-            });
-        } else {
-            throw new Error(result.error || '비용 분석 실패');
-        }
-        
-    } catch (error) {
-        console.error('❌ 비용 분석 오류:', error);
-        
-        // 오류 시 대략적인 추정값 표시
-        const fileSizeMB = file.size / (1024 * 1024);
-        const estimatedMinutes = Math.ceil(fileSizeMB / 5); // 5MB당 약 1분
-        const estimatedCost = Math.ceil(estimatedMinutes * 0.006 * 1320); // Whisper 기준
-        
-        audioDuration.textContent = `약 ${estimatedMinutes}분 (추정)`;
-        sttCost.textContent = `약 ${estimatedCost}원 (추정)`;
-        totalCost.textContent = `${estimatedCost}~${estimatedCost + 12}원 (추정)`;
-        
-        console.warn('⚠️ 정확한 분석 실패, 추정값 사용');
-    } finally {
-        analyzingBadge.style.display = 'none';
+    };
+
+    audioDuration.textContent = costEstimate.duration.formatted;
+    sttCost.textContent = `약 ${estimatedCost}원 (추정)`;
+    totalCost.textContent = `${estimatedCost}~${estimatedCost + 12}원 (추정)`;
+
+    console.log('Cost estimate:', costEstimate);
+}
+
+// Vercel Blob 클라이언트 업로드
+async function uploadToBlob(file, onProgress) {
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathname = `audio/${Date.now()}-${safeFilename}`;
+    const callbackUrl = `${window.location.origin}/api/blob-upload`;
+
+    // 1. 서버에서 클라이언트 토큰 발급
+    if (onProgress) onProgress(5, '업로드 준비 중...');
+    const tokenRes = await fetch('/api/blob-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'blob.generate-client-token',
+            payload: { pathname, callbackUrl }
+        })
+    });
+
+    if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(err.error || '업로드 토큰 생성 실패');
     }
+    const tokenData = await tokenRes.json();
+    const clientToken = tokenData.clientToken;
+
+    // 2. 토큰에서 Blob Store URL 추출
+    const tokenParts = clientToken.split('_');
+    let blobApiUrl = 'https://blob.vercel-storage.com';
+    if (tokenParts.length >= 4 && tokenParts[0] === 'vercel' && tokenParts[1] === 'blob') {
+        const storeId = tokenParts[3];
+        blobApiUrl = `https://${storeId}.public.blob.vercel-storage.com`;
+    }
+
+    // 3. XMLHttpRequest로 업로드 (진행률 추적)
+    if (onProgress) onProgress(10, '파일 전송 중...');
+    const blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `${blobApiUrl}/${pathname}`);
+        xhr.setRequestHeader('authorization', `Bearer ${clientToken}`);
+        xhr.setRequestHeader('x-api-version', '7');
+        xhr.setRequestHeader('x-content-type', file.type || 'application/octet-stream');
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable && onProgress) {
+                const pct = Math.round(10 + (e.loaded / e.total) * 70); // 10~80%
+                onProgress(pct, `파일 전송 중... (${pct}%)`);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                } catch {
+                    reject(new Error('업로드 응답 파싱 실패'));
+                }
+            } else {
+                reject(new Error(`업로드 실패 (${xhr.status})`));
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('네트워크 오류'));
+        xhr.send(file);
+    });
+
+    // 4. 업로드 완료 알림
+    if (onProgress) onProgress(85, '업로드 완료 처리 중...');
+    await fetch('/api/blob-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'blob.upload-completed',
+            payload: { blob, tokenPayload: clientToken }
+        })
+    });
+
+    if (onProgress) onProgress(90, '서버 처리 시작...');
+    return blob;
 }
 
 // 업로드 버튼 클릭
@@ -278,81 +318,72 @@ uploadBtn.addEventListener('click', async function() {
     progressContainer.style.display = 'block';
     resultContainer.style.display = 'none';
 
+    let progressInterval = null;
+
     try {
-        // FormData 생성
-        const formData = new FormData();
-        formData.append('audioFile', selectedFile);
-        formData.append('consultationType', consultationTypeSelect.value);
-        formData.append('consultationStage', consultationStageSelect.value); // 상담 단계 추가
-        
-        // STT 엔진 - 네이버 클로바로 고정
-        formData.append('sttEngine', 'clova');
-        
-        console.log('🎙️ STT 엔진: 네이버 클로바 (노인 음성 특화)');
-        console.log('📋 상담 단계:', consultationStageSelect.value);
+        console.log('STT engine: clova (fixed)');
+        console.log('Stage:', consultationStageSelect.value);
 
-        // 파일 크기에 따른 예상 처리 시간 계산
-        const fileSizeMB = selectedFile.size / 1024 / 1024;
-        const estimatedMinutes = Math.ceil(fileSizeMB / 5); // 5MB당 약 1분
-        
         // 진행 상황 업데이트
-        progressBar.style.width = '10%';
-        progressText.textContent = `파일 업로드 중... (예상 처리 시간: ${estimatedMinutes}분)`;
-        
-        // 진행 상황 시뮬레이션
-        let currentProgress = 10;
-        const progressInterval = setInterval(() => {
-            if (currentProgress < 90) {
-                currentProgress += 5;
-                progressBar.style.width = currentProgress + '%';
-                
-                if (currentProgress < 30) {
-                    progressText.textContent = `파일 전송 중... (${currentProgress}%)`;
-                } else if (currentProgress < 60) {
-                    progressText.textContent = `음성 인식 중... (${currentProgress}%) - 잠시만 기다려주세요`;
-                } else {
-                    progressText.textContent = `AI 분석 중... (${currentProgress}%) - 거의 완료되었습니다`;
-                }
-            }
-        }, 2000); // 2초마다 5% 증가
+        progressBar.style.width = '5%';
+        progressText.textContent = '파일 업로드 준비 중...';
 
-        // 파일 업로드 (타임아웃 없음 - 서버가 처리할 때까지 대기)
-        const token = localStorage.getItem('token');
-        console.log('🔑 토큰 존재 여부:', !!token);
-        
-        const uploadResponse = await fetch('/api/upload-audio', {
-            method: 'POST',
-            headers: token ? {
-                'Authorization': `Bearer ${token}`
-            } : {},
-            body: formData
+        // Step 1: Vercel Blob에 파일 업로드 (4.5MB 제한 우회)
+        const blob = await uploadToBlob(selectedFile, (pct, msg) => {
+            progressBar.style.width = pct + '%';
+            progressText.textContent = msg;
         });
 
-        console.log('📡 응답 상태:', uploadResponse.status, uploadResponse.statusText);
-        console.log('📋 응답 헤더 Content-Type:', uploadResponse.headers.get('content-type'));
+        console.log('Blob uploaded:', blob.url);
+
+        // Step 2: 서버에 Blob URL과 함께 처리 요청
+        progressBar.style.width = '90%';
+        progressText.textContent = 'AI 분석 중... 잠시만 기다려주세요';
+
+        // AI 처리 중 진행 시뮬레이션 (90~98%)
+        let currentProgress = 90;
+        progressInterval = setInterval(() => {
+            if (currentProgress < 98) {
+                currentProgress += 1;
+                progressBar.style.width = currentProgress + '%';
+                progressText.textContent = `AI 분석 중... (${currentProgress}%) - 잠시만 기다려주세요`;
+            }
+        }, 3000);
+
+        const token = localStorage.getItem('token');
+        const uploadResponse = await fetch('/api/upload-audio', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                blobUrl: blob.url,
+                consultationType: consultationTypeSelect.value,
+                consultationStage: consultationStageSelect.value,
+                sttEngine: 'clova'
+            })
+        });
 
         // JSON 파싱 전에 응답 상태 확인
         if (!uploadResponse.ok) {
-            console.error('❌ 응답 실패:', uploadResponse.status);
             const responseText = await uploadResponse.text();
-            console.error('📄 응답 내용:', responseText.substring(0, 500));
-            
             let errorMessage = `서버 오류 (${uploadResponse.status})`;
             try {
                 const errorData = JSON.parse(responseText);
                 errorMessage = errorData.error || errorData.message || errorMessage;
-            } catch (parseError) {
-                console.error('❌ JSON 파싱 실패:', parseError.message);
+            } catch {
                 errorMessage = responseText.substring(0, 200) || errorMessage;
             }
             throw new Error(errorMessage);
         }
 
         const result = await uploadResponse.json();
-        console.log('✅ 결과 수신:', result);
-        
+        console.log('Result:', result);
+
         // 진행 상황 interval 정리
         clearInterval(progressInterval);
+        progressInterval = null;
         
         console.log('서버 응답:', result);
         
@@ -409,30 +440,16 @@ uploadBtn.addEventListener('click', async function() {
         }, 1000);
 
     } catch (error) {
-        // 진행 상황 interval 정리
-        if (typeof progressInterval !== 'undefined') {
-            clearInterval(progressInterval);
-        }
-        
-        console.error('오류 발생:', error);
-        
-        let errorMessage = '처리 중 오류가 발생했습니다: ' + error.message;
-        
-        // 네트워크 오류인 경우 (타임아웃 가능성)
+        if (progressInterval) clearInterval(progressInterval);
+
+        console.error('Error:', error);
+
+        let errorMessage = error.message;
         if (error.message === 'Failed to fetch' || error.message.includes('network')) {
-            errorMessage = `⏱️ 서버 응답 시간이 초과되었습니다.
-            
-처리가 여전히 진행 중일 수 있습니다.
-
-💡 해결 방법:
-1. 1-2분 후 페이지를 새로고침해보세요
-2. 더 짧은 음성 파일을 사용해보세요 (20분 이하 권장)
-3. 서버가 처리 중일 수 있으니 잠시 기다려주세요
-
-파일: ${selectedFile.name} (${formatFileSize(selectedFile.size)})`;
+            errorMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.';
         }
-        
-        alert(errorMessage);
+
+        alert('처리 중 오류가 발생했습니다: ' + errorMessage);
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
         uploadBtn.disabled = false;

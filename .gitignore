@@ -14,3 +14,5 @@ database/*.db-journal
 *.backup
 .vscode/
 .idea/
+
+.vercel
