@@ -201,7 +201,7 @@ async function uploadToBlob(file, onProgress) {
     if (onProgress) onProgress(5, '업로드 준비 중...');
 
     // 공식 @vercel/blob/client SDK를 CDN에서 동적 로드
-    const { upload } = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/dist/client.js');
+    const { upload } = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/client/+esm');
 
     if (onProgress) onProgress(10, '파일 전송 중...');
 
