@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-12-10T13:47:45.022Z",
+  "score": 75,
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 5,
+    "low": 0
+  },
+  "issues": [],
+  "warnings": [
+    {
+      "severity": "MEDIUM",
+      "category": "XSS",
+      "file": "public/login.html",
+      "issue": "innerHTML 사용 5회",
+      "recommendation": "textContent 또는 sanitize 라이브러리 사용 권장"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "XSS",
+      "file": "public/admin-dashboard.html",
+      "issue": "innerHTML 사용 3회",
+      "recommendation": "textContent 또는 sanitize 라이브러리 사용 권장"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "XSS",
+      "file": "public/anonymization-compare.html",
+      "issue": "innerHTML 사용 6회",
+      "recommendation": "textContent 또는 sanitize 라이브러리 사용 권장"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "XSS",
+      "file": "public/analytics-dashboard.html",
+      "issue": "innerHTML 사용 5회",
+      "recommendation": "textContent 또는 sanitize 라이브러리 사용 권장"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "비밀번호 보안",
+      "issue": "비밀번호 강도 검증 로직 없음",
+      "recommendation": "최소 길이, 복잡도 검증 추가 권장"
+    },
+    {
+      "severity": "HIGH",
+      "category": "세션 보안",
+      "issue": "JWT 만료 시간 미설정",
+      "recommendation": "expiresIn 설정 필수"
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "로깅",
+      "recommendation": "winston 또는 pino 같은 구조화된 로깅 도구 사용 권장"
+    }
+  ]
+}

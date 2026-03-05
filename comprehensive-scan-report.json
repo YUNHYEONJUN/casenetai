@@ -1,0 +1,952 @@
+{
+  "timestamp": "2025-12-10T13:53:37.574Z",
+  "summary": {
+    "critical": 5,
+    "high": 47,
+    "medium": 25,
+    "low": 0,
+    "warnings": 82,
+    "total": 159
+  },
+  "criticalIssues": [
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "eval() 사용 발견",
+      "line": 117,
+      "recommendation": "eval() 절대 사용 금지"
+    },
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "CORS에서 모든 origin 허용",
+      "recommendation": "특정 도메인만 허용하도록 변경"
+    },
+    {
+      "file": "create-admin.js",
+      "issue": "하드코딩된 비밀번호",
+      "line": 17,
+      "code": "Password = 'admin123'",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "eval() 사용 발견",
+      "line": 155,
+      "recommendation": "eval() 절대 사용 금지"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "CORS에서 모든 origin 허용",
+      "recommendation": "특정 도메인만 허용하도록 변경"
+    }
+  ],
+  "highIssues": [
+    {
+      "file": "check-services.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 40,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "안전하지 않은 난수 생성 (Math.random)",
+      "line": 166,
+      "recommendation": "crypto.randomBytes() 사용"
+    },
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "취약한 암호화: MD5 사용",
+      "line": 230,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "취약한 암호화: SHA1 사용",
+      "line": 231,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "comprehensive-scan.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 27,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "config/passport.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 28,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "create-admin.js",
+      "issue": "민감 정보 로깅",
+      "line": 60,
+      "code": "console.log(`   비밀번호: ${adminPassword}`)",
+      "recommendation": "민감 정보 로깅 제거"
+    },
+    {
+      "file": "create-admin.js",
+      "issue": "민감 정보 로깅",
+      "line": 60,
+      "code": "console.log(`   비밀번호: ${adminPassword}`)",
+      "recommendation": "민감 정보 로깅 제거"
+    },
+    {
+      "file": "database/run-migration-003.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 54,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "database/seed-organizations-old.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 148,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "database/seed-organizations.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 138,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "민감 정보 로깅",
+      "line": 455,
+      "code": "console.log('✅ Refresh token 구현됨')",
+      "recommendation": "민감 정보 로깅 제거"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "민감 정보 로깅",
+      "line": 455,
+      "code": "console.log('💡 Refresh token 미구현')",
+      "recommendation": "민감 정보 로깅 제거"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "민감 정보 로깅",
+      "line": 37,
+      "code": "console.log(`✅ JWT_SECRET 강도: ${jwtSecret.length}자 (안전)",
+      "recommendation": "민감 정보 로깅 제거"
+    },
+    {
+      "file": "deep-security-analysis.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 56,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "public/js/anonymization.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 84,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "public/js/main.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 63,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "SQL Injection 위험 - 직접 변수 삽입",
+      "line": 0,
+      "code": "db.get(\n      `SELECT COUNT(*) as count FROM anonymization_logs al ${whereClause",
+      "recommendation": "파라미터 바인딩(?) 사용"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "SQL Injection 위험 - 직접 변수 삽입",
+      "line": 0,
+      "code": ".query(\n      `SELECT \n         al.*,\n         u.name as user_name,\n         u.e",
+      "recommendation": "파라미터 바인딩(?) 사용"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 189,
+      "code": "router.post('/organizations', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 247,
+      "code": "router.put('/organizations/:id', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 303,
+      "code": "router.put('/organizations/:id/quota', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 154,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "routes/auth.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 31,
+      "code": "router.post('/register', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/auth.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 97,
+      "code": "router.post('/login',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/auth.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 130,
+      "code": "router.post('/logout',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/auth.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 148,
+      "code": "router.post('/refresh', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/feedback.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 19,
+      "code": "router.post('/submit',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/feedback.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 104,
+      "code": "router.post('/suggestion',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/feedback.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 195,
+      "code": "router.post('/admin/respond/:id',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/feedback.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 252,
+      "code": "router.post('/admin/aggregate-daily',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/payment.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 72,
+      "code": "router.post('/prepare',",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/payment.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 98,
+      "code": "router.post('/confirm', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "routes/payment.js",
+      "issue": "인증 미들웨어 누락 가능성",
+      "line": 124,
+      "code": "router.post('/fail', ",
+      "recommendation": "authenticateToken 또는 isAdmin 미들웨어 추가"
+    },
+    {
+      "file": "server.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 78,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/aiService.js",
+      "issue": "안전하지 않은 난수 생성 (Math.random)",
+      "line": 905,
+      "recommendation": "crypto.randomBytes() 사용"
+    },
+    {
+      "file": "services/aiService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 129,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 411,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/anonymizationService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 198,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/clovaAnonymizationService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 213,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/clovaSttService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 143,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/creditService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 90,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/documentParser.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 95,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 142,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 78,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/paymentService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 323,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    },
+    {
+      "file": "services/usageTrackingService.js",
+      "issue": "취약한 암호화: DES 사용",
+      "line": 277,
+      "recommendation": "SHA-256 이상 또는 bcrypt 사용"
+    }
+  ],
+  "mediumIssues": [
+    {
+      "file": "check-services.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 50,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "database/migrate.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 28,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "database/run-migration-003.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 72,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "public/js/anonymization.js",
+      "issue": "innerHTML 사용 (1회)",
+      "recommendation": "textContent 또는 SecurityUtils.setHtmlSafely 사용"
+    },
+    {
+      "file": "public/js/anonymization.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 133,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "public/js/main.js",
+      "issue": "innerHTML 사용 (6회)",
+      "recommendation": "textContent 또는 SecurityUtils.setHtmlSafely 사용"
+    },
+    {
+      "file": "public/js/main.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 352,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "public/js/security-utils.js",
+      "issue": "innerHTML 사용 (1회)",
+      "recommendation": "textContent 또는 SecurityUtils.setHtmlSafely 사용"
+    },
+    {
+      "file": "routes/admin.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 83,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "routes/analytics.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 33,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "routes/feedback.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 33,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "routes/payment.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 26,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/aiAnonymizationService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 65,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/aiService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 112,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/clovaAnonymizationService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 58,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/clovaSttService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 131,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/creditService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 49,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/documentParser.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 46,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 168,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "services/paymentService.js",
+      "issue": "에러 스택 트레이스 노출 가능성",
+      "line": 76,
+      "recommendation": "프로덕션에서는 숨기기 (NODE_ENV 체크)"
+    },
+    {
+      "file": "public/index.html",
+      "issue": "인라인 스크립트 1개",
+      "recommendation": "외부 파일로 분리 (CSP 정책)"
+    },
+    {
+      "file": "public/login.html",
+      "issue": "인라인 스크립트 1개",
+      "recommendation": "외부 파일로 분리 (CSP 정책)"
+    },
+    {
+      "file": "public/admin-dashboard.html",
+      "issue": "인라인 스크립트 1개",
+      "recommendation": "외부 파일로 분리 (CSP 정책)"
+    },
+    {
+      "file": "public/anonymization-compare.html",
+      "issue": "인라인 스크립트 1개",
+      "recommendation": "외부 파일로 분리 (CSP 정책)"
+    },
+    {
+      "file": "public/analytics-dashboard.html",
+      "issue": "인라인 스크립트 1개",
+      "recommendation": "외부 파일로 분리 (CSP 정책)"
+    }
+  ],
+  "lowIssues": [],
+  "warnings": [
+    {
+      "file": "database/migrate.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 9,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "database/migrate.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 33,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/js/anonymization.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 109,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/js/feedback-widget.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 365,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/js/feedback-widget.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 422,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/js/main.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 19,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/js/main.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 210,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 107,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 128,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "server.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 1022,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/aiAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 23,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/aiAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 171,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/aiService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 157,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 12,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 53,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 99,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 177,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 224,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 274,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 320,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 379,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 429,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/analyticsService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 477,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/authService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 20,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/authService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 81,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/clovaAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 27,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/creditService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 257,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/documentParser.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 15,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 12,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 77,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 170,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 251,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 280,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 307,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/feedbackService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 359,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 37,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 66,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 90,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 100,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 113,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 179,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "services/hybridAnonymizationService.js",
+      "issue": "async 함수에 try-catch 없음",
+      "line": 436,
+      "recommendation": "try-catch 추가 권장"
+    },
+    {
+      "file": "public/index.html",
+      "issue": "CSP 헤더 없음",
+      "recommendation": "Content-Security-Policy 메타 태그 추가"
+    },
+    {
+      "file": "public/login.html",
+      "issue": "CSP 헤더 없음",
+      "recommendation": "Content-Security-Policy 메타 태그 추가"
+    },
+    {
+      "file": "public/admin-dashboard.html",
+      "issue": "CSP 헤더 없음",
+      "recommendation": "Content-Security-Policy 메타 태그 추가"
+    },
+    {
+      "file": "public/anonymization-compare.html",
+      "issue": "CSP 헤더 없음",
+      "recommendation": "Content-Security-Policy 메타 태그 추가"
+    },
+    {
+      "file": "public/analytics-dashboard.html",
+      "issue": "CSP 헤더 없음",
+      "recommendation": "Content-Security-Policy 메타 태그 추가"
+    },
+    {
+      "file": "package.json",
+      "issue": "@google/generative-ai: 버전 고정 안됨 (^0.24.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "axios: 버전 고정 안됨 (^1.13.2)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "bcrypt: 버전 고정 안됨 (^6.0.0)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "cheerio: 버전 고정 안됨 (^1.1.2)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "cors: 버전 고정 안됨 (^2.8.5)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "docx: 버전 고정 안됨 (^9.5.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "dotenv: 버전 고정 안됨 (^16.3.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "express: 버전 고정 안됨 (^4.18.2)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "express-rate-limit: 버전 고정 안됨 (^8.2.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "form-data: 버전 고정 안됨 (^4.0.0)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "jsonwebtoken: 버전 고정 안됨 (^9.0.2)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "mammoth: 버전 고정 안됨 (^1.11.0)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "multer: 버전 고정 안됨 (^1.4.5-lts.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "openai: 버전 고정 안됨 (^4.20.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "passport: 버전 고정 안됨 (^0.7.0)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "passport-kakao: 버전 고정 안됨 (^1.0.1)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "passport-naver-v2: 버전 고정 안됨 (^2.0.8)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "pdf-parse: 버전 고정 안됨 (^2.4.5)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "puppeteer: 버전 고정 안됨 (^24.31.0)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "sqlite3: 버전 고정 안됨 (^5.1.7)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "package.json",
+      "issue": "xml2js: 버전 고정 안됨 (^0.6.2)",
+      "recommendation": "정확한 버전 명시 (^, ~ 제거)"
+    },
+    {
+      "file": "check-db.js",
+      "issue": "데이터베이스 백업 로직 없음",
+      "recommendation": "정기 백업 로직 추가"
+    },
+    {
+      "file": "database/db.js",
+      "issue": "데이터베이스 백업 로직 없음",
+      "recommendation": "정기 백업 로직 추가"
+    },
+    {
+      "file": "database/init.js",
+      "issue": "데이터베이스 백업 로직 없음",
+      "recommendation": "정기 백업 로직 추가"
+    },
+    {
+      "file": "database/migrate.js",
+      "issue": "데이터베이스 백업 로직 없음",
+      "recommendation": "정기 백업 로직 추가"
+    },
+    {
+      "file": "database/run-migration-003.js",
+      "issue": "트랜잭션 미사용 가능성",
+      "recommendation": "중요 작업에 트랜잭션 사용"
+    },
+    {
+      "file": "database/run-migration-004.js",
+      "issue": "데이터베이스 백업 로직 없음",
+      "recommendation": "정기 백업 로직 추가"
+    },
+    {
+      "file": "database/seed-organizations-old.js",
+      "issue": "트랜잭션 미사용 가능성",
+      "recommendation": "중요 작업에 트랜잭션 사용"
+    },
+    {
+      "file": "database/seed-organizations.js",
+      "issue": "트랜잭션 미사용 가능성",
+      "recommendation": "중요 작업에 트랜잭션 사용"
+    }
+  ]
+}

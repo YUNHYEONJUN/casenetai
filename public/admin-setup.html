@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 설정 - CaseNetAI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            padding: 20px;
+        }
+
+        .setup-container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .setup-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .setup-header h1 {
+            color: #1e40af;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .setup-header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #334155;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .btn-create {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .btn-create:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-create:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .master-password-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .account-info {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .account-info strong {
+            color: #1e40af;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #64748b;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>🔐 관리자 계정 설정</h1>
+            <p>CaseNetAI 시스템 관리자 전용 페이지</p>
+        </div>
+
+        <!-- 마스터 비밀번호 입력 -->
+        <div id="masterPasswordSection" class="master-password-section">
+            <div class="form-group">
+                <label>마스터 비밀번호</label>
+                <input type="password" id="masterPassword" placeholder="마스터 비밀번호를 입력하세요">
+            </div>
+            <button onclick="verifyMasterPassword()" class="btn-create">확인</button>
+        </div>
+
+        <!-- 계정 생성 폼 -->
+        <div id="setupForm" class="hide">
+            <div id="alertContainer"></div>
+
+            <div class="form-group">
+                <label>이메일</label>
+                <input type="email" id="email" placeholder="admin@casenetai.kr" required>
+            </div>
+
+            <div class="form-group">
+                <label>비밀번호</label>
+                <input type="password" id="password" placeholder="최소 8자 이상" required>
+            </div>
+
+            <div class="form-group">
+                <label>이름</label>
+                <input type="text" id="name" placeholder="홍길동" required>
+            </div>
+
+            <div class="form-group">
+                <label>전화번호</label>
+                <input type="tel" id="phone" placeholder="010-1234-5678">
+            </div>
+
+            <div class="form-group">
+                <label>권한</label>
+                <select id="role">
+                    <option value="system_admin">시스템 관리자 (system_admin)</option>
+                    <option value="org_admin">조직 관리자 (org_admin)</option>
+                    <option value="user">일반 사용자 (user)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>초기 크레딧 (원)</label>
+                <input type="number" id="credits" value="10000000" min="0" step="1000">
+            </div>
+
+            <button onclick="createAccount()" class="btn-create" id="createBtn">
+                계정 생성
+            </button>
+
+            <div id="accountInfo" class="account-info hide"></div>
+        </div>
+    </div>
+
+    <script src="/js/security-utils.js"></script>
+    <script>
+        const esc = SecurityUtils.escapeHtml;
+        // 마스터 비밀번호 (환경 변수 또는 하드코딩)
+        const MASTER_PASSWORD = 'CaseNetAI2026!@#';
+
+        function verifyMasterPassword() {
+            const input = document.getElementById('masterPassword').value;
+            
+            if (input === MASTER_PASSWORD) {
+                document.getElementById('masterPasswordSection').classList.add('hide');
+                document.getElementById('setupForm').classList.remove('hide');
+                showAlert('마스터 비밀번호 인증 성공!', 'success');
+            } else {
+                showAlert('마스터 비밀번호가 올바르지 않습니다.', 'error');
+            }
+        }
+
+        async function createAccount() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const role = document.getElementById('role').value;
+            const credits = parseInt(document.getElementById('credits').value);
+
+            // 유효성 검사
+            if (!email || !password || !name) {
+                showAlert('이메일, 비밀번호, 이름은 필수 항목입니다.', 'error');
+                return;
+            }
+
+            if (password.length < 8) {
+                showAlert('비밀번호는 최소 8자 이상이어야 합니다.', 'error');
+                return;
+            }
+
+            const createBtn = document.getElementById('createBtn');
+            createBtn.disabled = true;
+            createBtn.textContent = '생성 중...';
+
+            try {
+                // 관리자 계정 생성 (역할 및 크레딧 자동 설정)
+                const registerResponse = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        name,
+                        phone: phone || null,
+                        masterPassword: MASTER_PASSWORD,  // 마스터 비밀번호
+                        role: role,                        // 역할 지정
+                        credits: credits                   // 크레딧 지정
+                    })
+                });
+
+                const registerData = await registerResponse.json();
+
+                if (!registerResponse.ok) {
+                    throw new Error(registerData.error || '계정 생성 실패');
+                }
+
+                showAlert(`✅ 계정이 성공적으로 생성되었습니다!`, 'success');
+
+                // 계정 정보 표시
+                const accountInfo = document.getElementById('accountInfo');
+                accountInfo.innerHTML = `
+                    <strong>생성 완료!</strong><br>
+                    <br>
+                    <strong>이메일:</strong> ${esc(email)}<br>
+                    <strong>비밀번호:</strong> ${esc(password)}<br>
+                    <strong>이름:</strong> ${esc(name)}<br>
+                    ${phone ? `<strong>전화번호:</strong> ${esc(phone)}<br>` : ''}
+                    <strong>권한:</strong> ${esc(role)}<br>
+                    <strong>크레딧:</strong> ${credits.toLocaleString()}원<br>
+                    <br>
+                    <strong>이 정보를 안전하게 보관하세요!</strong><br>
+                    <br>
+                    <a href="/login.html" style="color: #1e40af; text-decoration: underline;">로그인 페이지로 이동</a>
+                `;
+                accountInfo.classList.remove('hide');
+
+                // 폼 초기화
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('name').value = '';
+                document.getElementById('phone').value = '';
+
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = '계정 생성';
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${esc(message)}
+                </div>
+            `;
+
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        // Enter 키 지원
+        document.getElementById('masterPassword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                verifyMasterPassword();
+            }
+        });
+    </script>
+</body>
+</html>

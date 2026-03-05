@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사실확인서 생성 - CaseNetAI</title>
+    <script>
+        // 즉시 실행 인증 체크 (페이지 로드 전)
+        (function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('로그인이 필요한 서비스입니다.');
+                window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .fact-container {
+            max-width: 1400px;
+            margin: 100px auto 50px;
+            padding: 20px;
+        }
+
+        .fact-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .fact-header h1 {
+            font-size: 2.5rem;
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+
+        .fact-header p {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+            gap: 20px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .step.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .step.completed {
+            background: #10b981;
+            color: white;
+        }
+
+        .content-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #1e40af;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        /* 파일 업로드 */
+        .file-upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .file-upload-area:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #94a3b8;
+            margin-bottom: 15px;
+        }
+
+        .file-info {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        /* 개인정보 입력 폼 */
+        .info-form {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+
+        .form-group label .required {
+            color: #ef4444;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* 버튼 */
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 진행상황 표시 */
+        .progress-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .progress-overlay.show {
+            display: flex;
+        }
+
+        .progress-content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 미리보기 */
+        .preview-section {
+            display: none;
+        }
+
+        .preview-section.show {
+            display: block;
+        }
+
+        .preview-document {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 40px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .doc-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #1e293b;
+        }
+
+        .doc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .doc-table th,
+        .doc-table td {
+            border: 1px solid #d1d5db;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .doc-table th {
+            background: #f3f4f6;
+            font-weight: 600;
+            width: 150px;
+        }
+
+        .doc-section {
+            margin-bottom: 30px;
+        }
+
+        .doc-section-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+
+        .qa-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .qa-question {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+
+        .qa-answer {
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .doc-footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #e5e7eb;
+        }
+
+        .signature-line {
+            margin-top: 30px;
+            text-align: right;
+        }
+
+        /* 편집 가능 */
+        [contenteditable="true"] {
+            padding: 8px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        [contenteditable="true"]:hover {
+            background: #fef3c7;
+        }
+
+        [contenteditable="true"]:focus {
+            outline: none;
+            background: #fef08a;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .info-form {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .step-indicator {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <span class="logo-icon">⚖️</span>
+                CaseNetAI
+            </a>
+            <button class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="/">홈</a></li>
+                <li><a href="/elderly-protection.html">상담일지</a></li>
+                <li><a href="/statement-recording.html">진술서</a></li>
+                <li><a href="/fact-confirmation.html" class="active">사실확인서</a></li>
+                <li><a href="/anonymization.html">문서 익명화</a></li>
+                <li><a href="/dashboard.html">대시보드</a></li>
+                <li><a href="#" onclick="logout()" class="btn-logout">로그아웃</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="fact-container">
+        <div class="fact-header">
+            <h1>사실확인서 자동 생성</h1>
+            <p>녹음파일을 업로드하면 AI가 사실확인서(진술서) 형식으로 자동 변환합니다</p>
+        </div>
+
+        <!-- 단계 표시 -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">
+                <span>1</span>
+                <span>파일 업로드</span>
+            </div>
+            <div class="step" id="step2">
+                <span>2</span>
+                <span>개인정보 입력</span>
+            </div>
+            <div class="step" id="step3">
+                <span>3</span>
+                <span>문서 생성</span>
+            </div>
+            <div class="step" id="step4">
+                <span>4</span>
+                <span>다운로드</span>
+            </div>
+        </div>
+
+        <!-- Step 1: 파일 업로드 -->
+        <div class="content-section" id="uploadSection">
+            <h2 class="section-title">📁 Step 1: 녹음파일 업로드</h2>
+            
+            <div class="file-upload-area" id="dropZone">
+                <div class="upload-icon">🎙️</div>
+                <h3>녹음파일을 드래그하거나 클릭하여 업로드하세요</h3>
+                <p>지원 형식: M4A, MP3, WAV, MP4 (최대 50MB)</p>
+                <input type="file" id="audioFile" accept=".m4a,.mp3,.wav,.mp4" style="display: none;">
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <strong>선택된 파일:</strong> <span id="fileName"></span> (<span id="fileSize"></span>)
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="transcribeBtn" disabled>
+                    <span>🎯</span>
+                    <span>텍스트 변환 시작</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: 개인정보 입력 -->
+        <div class="content-section" id="infoSection" style="display: none;">
+            <h2 class="section-title">📝 Step 2: 개인정보 입력</h2>
+            
+            <form class="info-form" id="personalInfoForm">
+                <div class="form-group">
+                    <label>성명 <span class="required">*</span></label>
+                    <input type="text" id="subjectName" placeholder="예: 홍길동" required>
+                </div>
+
+                <div class="form-group">
+                    <label>생년월일 <span class="required">*</span></label>
+                    <input type="text" id="birthDate" placeholder="예: 1970.01.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label>소속기관</label>
+                    <input type="text" id="organization" placeholder="예: OO노인요양원">
+                </div>
+
+                <div class="form-group">
+                    <label>직위</label>
+                    <input type="text" id="position" placeholder="예: 요양보호사">
+                </div>
+
+                <div class="form-group">
+                    <label>연락처</label>
+                    <input type="tel" id="contact" placeholder="예: 010-1234-5678">
+                </div>
+
+                <div class="form-group">
+                    <label>조사일시 <span class="required">*</span></label>
+                    <input type="datetime-local" id="investigationDate" required>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>사건명/제목 <span class="required">*</span></label>
+                    <input type="text" id="caseTitle" placeholder="예: 노인학대 사건 사실확인서" required>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>기타 사항</label>
+                    <textarea id="notes" placeholder="특이사항이나 추가 정보를 입력하세요"></textarea>
+                </div>
+            </form>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showSection('uploadSection')">
+                    <span>←</span>
+                    <span>이전 단계</span>
+                </button>
+                <button class="btn btn-primary" id="generateBtn">
+                    <span>⚡</span>
+                    <span>사실확인서 생성</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: 미리보기 및 편집 -->
+        <div class="content-section preview-section" id="previewSection">
+            <h2 class="section-title">📄 Step 3: 미리보기 및 편집</h2>
+            
+            <p style="color: #64748b; margin-bottom: 20px;">
+                ✏️ 아래 내용을 클릭하여 직접 수정할 수 있습니다.
+            </p>
+
+            <div class="preview-document" id="previewDocument">
+                <!-- 문서 내용이 여기에 동적으로 생성됩니다 -->
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showSection('infoSection')">
+                    <span>←</span>
+                    <span>이전 단계</span>
+                </button>
+                <button class="btn btn-success" id="downloadBtn">
+                    <span>📥</span>
+                    <span>Word 파일 다운로드</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 진행 오버레이 -->
+    <div class="progress-overlay" id="progressOverlay">
+        <div class="progress-content">
+            <div class="spinner"></div>
+            <h3 id="progressText">처리 중...</h3>
+            <p id="progressDetail"></p>
+        </div>
+    </div>
+
+    <script src="js/fact-confirmation.js"></script>
+</body>
+</html>

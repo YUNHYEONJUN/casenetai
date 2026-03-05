@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>데이터 분석 대시보드 - CaseNetAI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background: #f5f7fa;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 1.1rem;
+    }
+
+    .filters {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      margin-bottom: 30px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .filter-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #333;
+      font-size: 0.9rem;
+    }
+
+    .filter-group input,
+    .filter-group select {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    .filter-group button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: 23px;
+    }
+
+    .filter-group button:hover {
+      transform: translateY(-2px);
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .summary-card .icon {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .summary-card .label {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .summary-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .summary-card .change {
+      font-size: 0.85rem;
+      color: #4caf50;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-card {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .chart-card h3 {
+      font-size: 1.3rem;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .chart-placeholder {
+      height: 300px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 1.1rem;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .data-table th {
+      background: #f8f9fa;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #666;
+    }
+
+    .data-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .badge-high {
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+
+    .badge-medium {
+      background: #fff3e0;
+      color: #ff9800;
+    }
+
+    .badge-low {
+      background: #ffebee;
+      color: #f44336;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 데이터 분석 대시보드</h1>
+      <p>익명화 성능 및 사용 패턴 분석</p>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>시작 날짜</label>
+        <input type="date" id="startDate" value="">
+      </div>
+      <div class="filter-group">
+        <label>종료 날짜</label>
+        <input type="date" id="endDate" value="">
+      </div>
+      <div class="filter-group">
+        <label>기관 (선택)</label>
+        <select id="organizationFilter">
+          <option value="">전체 기관</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <button onclick="loadDashboard()">🔍 조회</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p style="color: #667eea; font-weight: 600;">데이터 분석 중...</p>
+    </div>
+
+    <div id="dashboardContent" style="display: none;">
+      <!-- 요약 카드 -->
+      <div class="summary-cards" id="summaryCards"></div>
+
+      <!-- 차트 그리드 -->
+      <div class="dashboard-grid">
+        <!-- 방식별 비교 -->
+        <div class="chart-card">
+          <h3>🤖 익명화 방식별 비교</h3>
+          <table class="data-table" id="methodsTable">
+            <thead>
+              <tr>
+                <th>방식</th>
+                <th>사용 횟수</th>
+                <th>평균 평점</th>
+                <th>정확도</th>
+                <th>만족도</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- 오류 분석 -->
+        <div class="chart-card">
+          <h3>⚠️ 오류 분석</h3>
+          <table class="data-table" id="errorsTable">
+            <thead>
+              <tr>
+                <th>방식</th>
+                <th>오탐률</th>
+                <th>미탐률</th>
+                <th>총 피드백</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- 기관별 사용 현황 -->
+        <div class="chart-card">
+          <h3>🏢 기관별 사용 현황 (Top 10)</h3>
+          <table class="data-table" id="organizationsTable">
+            <thead>
+              <tr>
+                <th>기관명</th>
+                <th>요청 수</th>
+                <th>평균 평점</th>
+                <th>사용 시간</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- 주요 문제점 -->
+        <div class="chart-card">
+          <h3>🔍 주요 문제점 (Top 5)</h3>
+          <table class="data-table" id="issuesTable">
+            <thead>
+              <tr>
+                <th>문제 유형</th>
+                <th>예시</th>
+                <th>발생 횟수</th>
+                <th>방식</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/security-utils.js"></script>
+  <script>
+    const esc = SecurityUtils.escapeHtml;
+    // 날짜 초기값 설정 (최근 30일)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+
+    // 페이지 로드시 실행
+    window.addEventListener('load', async () => {
+      await loadOrganizations();
+      await loadDashboard();
+    });
+
+    // 기관 목록 로드
+    async function loadOrganizations() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/organizations', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          const select = document.getElementById('organizationFilter');
+          data.organizations.forEach(org => {
+            const option = document.createElement('option');
+            option.value = org.id;
+            option.textContent = org.name;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('기관 목록 로드 실패:', error);
+      }
+    }
+
+    // 대시보드 로드
+    async function loadDashboard() {
+      const loading = document.getElementById('loading');
+      const content = document.getElementById('dashboardContent');
+      
+      loading.classList.add('active');
+      content.style.display = 'none';
+
+      try {
+        const token = localStorage.getItem('token');
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const organizationId = document.getElementById('organizationFilter').value;
+
+        // 병렬 로드
+        const [dashboard, methods, errors, organizations, issues] = await Promise.all([
+          fetch(`/api/analytics/dashboard?startDate=${startDate}&endDate=${endDate}${organizationId ? `&organizationId=${organizationId}` : ''}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json()),
+          fetch(`/api/analytics/methods?startDate=${startDate}&endDate=${endDate}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json()),
+          fetch(`/api/analytics/errors?startDate=${startDate}&endDate=${endDate}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json()),
+          fetch(`/api/analytics/organizations?startDate=${startDate}&endDate=${endDate}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json()),
+          fetch('/api/analytics/top-issues?limit=5', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json())
+        ]);
+
+        // 요약 카드 렌더링
+        renderSummaryCards(dashboard.summary);
+
+        // 테이블 렌더링
+        renderMethodsTable(methods.methods || []);
+        renderErrorsTable(errors.errors?.by_method || []);
+        renderOrganizationsTable(organizations.organizations || []);
+        renderIssuesTable(issues);
+
+        loading.classList.remove('active');
+        content.style.display = 'block';
+
+      } catch (error) {
+        console.error('대시보드 로드 실패:', error);
+        alert('대시보드 로드 중 오류가 발생했습니다.');
+        loading.classList.remove('active');
+      }
+    }
+
+    // 요약 카드 렌더링
+    function renderSummaryCards(summary) {
+      const container = document.getElementById('summaryCards');
+      container.innerHTML = `
+        <div class="summary-card">
+          <div class="icon">📊</div>
+          <div class="label">총 요청 수</div>
+          <div class="value">${(summary.usage?.total_requests || 0).toLocaleString()}</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon">👥</div>
+          <div class="label">활성 사용자</div>
+          <div class="value">${summary.usage?.unique_users || 0}</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon">⭐</div>
+          <div class="label">평균 평점</div>
+          <div class="value">${(summary.feedback?.avg_rating || 0).toFixed(1)}</div>
+          <div class="change">/ 5.0</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon">🎯</div>
+          <div class="label">평균 정확도</div>
+          <div class="value">${(summary.feedback?.avg_accuracy || 0).toFixed(1)}</div>
+          <div class="change">/ 5.0</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon">⚠️</div>
+          <div class="label">오탐 보고</div>
+          <div class="value">${summary.feedback?.false_positive_count || 0}</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon">❌</div>
+          <div class="label">미탐 보고</div>
+          <div class="value">${summary.feedback?.false_negative_count || 0}</div>
+        </div>
+      `;
+    }
+
+    // 방식별 테이블 렌더링
+    function renderMethodsTable(methods) {
+      const tbody = document.querySelector('#methodsTable tbody');
+      tbody.innerHTML = methods.map(m => `
+        <tr>
+          <td><strong>${esc(m.anonymization_method?.toUpperCase() || '-')}</strong></td>
+          <td>${m.usage_count || 0}</td>
+          <td>${(m.avg_rating || 0).toFixed(1)}</td>
+          <td>${(m.avg_accuracy || 0).toFixed(1)}</td>
+          <td>${(m.satisfaction_rate || 0).toFixed(0)}%</td>
+        </tr>
+      `).join('');
+    }
+
+    // 오류 테이블 렌더링
+    function renderErrorsTable(errors) {
+      const tbody = document.querySelector('#errorsTable tbody');
+      tbody.innerHTML = errors.map(e => `
+        <tr>
+          <td><strong>${esc(e.anonymization_method?.toUpperCase() || '-')}</strong></td>
+          <td>${(e.false_positive_rate || 0).toFixed(1)}%</td>
+          <td>${(e.false_negative_rate || 0).toFixed(1)}%</td>
+          <td>${e.total_feedbacks || 0}</td>
+        </tr>
+      `).join('');
+    }
+
+    // 기관별 테이블 렌더링 (Top 10)
+    function renderOrganizationsTable(orgs) {
+      const tbody = document.querySelector('#organizationsTable tbody');
+      tbody.innerHTML = orgs.slice(0, 10).map(o => `
+        <tr>
+          <td>${esc(o.name)}</td>
+          <td>${o.total_requests || 0}</td>
+          <td>${(o.avg_rating || 0).toFixed(1)}</td>
+          <td>${((o.total_usage_seconds || 0) / 3600).toFixed(2)}h</td>
+        </tr>
+      `).join('');
+    }
+
+    // 주요 문제점 테이블 렌더링
+    function renderIssuesTable(issues) {
+      const tbody = document.querySelector('#issuesTable tbody');
+      const fpRows = (issues.false_positives || []).slice(0, 3).map(fp => {
+        const examples = fp.examples || [];
+        return `
+          <tr>
+            <td><span class="badge badge-medium">오탐</span></td>
+            <td>${esc(examples.slice(0, 2).join(', '))}</td>
+            <td>${fp.count}</td>
+            <td>${esc(fp.anonymization_method?.toUpperCase() || '-')}</td>
+          </tr>
+        `;
+      });
+
+      const fnRows = (issues.false_negatives || []).slice(0, 2).map(fn => {
+        const examples = fn.examples || [];
+        return `
+          <tr>
+            <td><span class="badge badge-low">미탐</span></td>
+            <td>${esc(examples.slice(0, 2).join(', '))}</td>
+            <td>${fn.count}</td>
+            <td>${esc(fn.anonymization_method?.toUpperCase() || '-')}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = [...fpRows, ...fnRows].join('');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>결제 성공 - CaseNetAI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .result-container {
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-message {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .result-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .result-value.highlight {
+            color: #667eea;
+            font-size: 1.3rem;
+        }
+
+        .result-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div id="loadingSection">
+            <div class="result-icon">...</div>
+            <div class="result-title">결제 확인 중...</div>
+            <div class="result-message">잠시만 기다려주세요</div>
+            <div class="loading"></div>
+        </div>
+
+        <div id="successSection" style="display: none;">
+            <div class="result-icon">✓</div>
+            <div class="result-title">결제가 완료되었습니다!</div>
+            <div class="result-message">크레딧이 성공적으로 충전되었습니다</div>
+
+            <div class="result-card">
+                <div class="result-row">
+                    <span class="result-label">주문번호</span>
+                    <span class="result-value" id="orderId">-</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">결제금액</span>
+                    <span class="result-value" id="amount">-</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">보너스 크레딧</span>
+                    <span class="result-value" id="bonus" style="color: #667eea;">-</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">충전된 총 크레딧</span>
+                    <span class="result-value highlight" id="totalCredit">-</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">현재 잔액</span>
+                    <span class="result-value highlight" id="currentBalance">-</span>
+                </div>
+            </div>
+
+            <div class="result-buttons">
+                <a href="/dashboard.html" class="btn btn-primary">대시보드로 이동</a>
+                <a href="/" class="btn btn-secondary">홈으로 이동</a>
+            </div>
+        </div>
+
+        <div id="errorSection" style="display: none;">
+            <div class="result-icon">❌</div>
+            <div class="result-title">결제 확인 실패</div>
+            <div class="result-message" id="errorMessage">결제 확인 중 오류가 발생했습니다</div>
+
+            <div class="result-buttons">
+                <a href="/payment.html" class="btn btn-primary">다시 시도</a>
+                <a href="/" class="btn btn-secondary">홈으로 이동</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function confirmPayment() {
+            // URL에서 파라미터 추출
+            const urlParams = new URLSearchParams(window.location.search);
+            const paymentKey = urlParams.get('paymentKey');
+            const orderId = urlParams.get('orderId');
+            const amount = urlParams.get('amount');
+
+            if (!paymentKey || !orderId || !amount) {
+                showError('결제 정보가 올바르지 않습니다.');
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('로그인이 필요합니다.');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // 결제 확인 API 호출
+                const response = await fetch('/api/payment/confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        paymentKey,
+                        orderId,
+                        amount: parseInt(amount)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(data);
+                } else {
+                    showError(data.message || '결제 확인에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('결제 확인 오류:', error);
+                showError('결제 확인 중 오류가 발생했습니다.');
+            }
+        }
+
+        function showSuccess(data) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('successSection').style.display = 'block';
+
+            document.getElementById('orderId').textContent = data.orderId || '-';
+            document.getElementById('amount').textContent = 
+                (data.payment?.amount || 0).toLocaleString() + '원';
+            document.getElementById('bonus').textContent = 
+                '+ ' + (data.payment?.bonusAmount || 0).toLocaleString() + '원';
+            document.getElementById('totalCredit').textContent = 
+                (data.payment?.totalCredit || 0).toLocaleString() + ' 크레딧';
+            document.getElementById('currentBalance').textContent = 
+                (data.balance || 0).toLocaleString() + ' 크레딧';
+        }
+
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 페이지 로드시 결제 확인
+        window.addEventListener('DOMContentLoaded', confirmPayment);
+    </script>
+</body>
+</html>

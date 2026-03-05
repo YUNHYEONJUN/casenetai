@@ -1,0 +1,567 @@
+========================================
+CaseNetAI 소스코드 (처음 30페이지)
+저작권자: 윤현준
+작성일: 2026년 01월 21일
+========================================
+
+========================================
+파일 1: server.js (메인 서버)
+========================================
+require('dotenv').config();
+const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const cors = require('cors');
+const aiService = require('./services/aiService');
+const creditService = require('./services/creditService');
+const { optionalAuth } = require('./middleware/auth');
+
+// 환경 변수 검증
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ 필수 환경 변수가 설정되지 않았습니다:', missingEnvVars.join(', '));
+  console.error('   .env 파일을 확인해주세요.');
+  process.exit(1);
+}
+
+// JWT_SECRET 강도 검증
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.warn('⚠️  경고: JWT_SECRET이 너무 짧습니다 (최소 32자 권장)');
+}
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 보안 헤더 설정 (Helmet)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Rate Limiting (DDoS 방어)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 일반 API Rate Limiter (15분당 100회)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 100, // 최대 100회 요청
+  message: {
+    success: false,
+    error: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // 헬스 체크 엔드포인트는 rate limit 제외
+    return req.path === '/api/status' || req.path === '/api/anonymization/health';
+  }
+});
+
+// 로그인 Rate Limiter (15분당 5회 - 무차별 대입 공격 방어)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
+  },
+  skipSuccessfulRequests: true, // 성공한 요청은 카운트하지 않음
+});
+
+// 익명화 API Rate Limiter (1분당 10회 - 과도한 사용 방지)
+const anonymizationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    error: '익명화 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'
+  },
+});
+
+// Middleware
+// CORS 설정 - 보안 강화
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 허용할 도메인 목록
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://casenetai.kr',
+      'https://www.casenetai.kr',
+      'https://casenetai.com',
+      'https://www.casenetai.com',
+      process.env.ALLOWED_ORIGIN // 환경 변수로 추가 도메인 설정 가능
+    ].filter(Boolean);
+    
+    // origin이 undefined인 경우 (같은 도메인, Vercel serverless) 또는 허용 목록에 있는 경우 허용
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn('⚠️  CORS 차단:', origin);
+      // 프로덕션 환경에서만 엄격하게 체크
+      if (process.env.NODE_ENV === 'production') {
+        callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      } else {
+        callback(null, true);
+      }
+    }
+  },
+  credentials: true, // 쿠키 등 인증 정보 허용
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Preflight 캐시 24시간
+};
+
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' })); // JSON 페이로드 크기 제한
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static('public'));
+
+// 전역 Rate Limiter 적용
+app.use('/api/', apiLimiter);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 인증 & 결제 & 관리자 & 피드백 & 분석 & 3단계 권한 라우터
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const authRouter = require('./routes/auth');
+const paymentRouter = require('./routes/payment');
+const adminRouter = require('./routes/admin');
+const feedbackRouter = require('./routes/feedback');
+const analyticsRouter = require('./routes/analytics');
+
+// 3단계 권한 시스템 라우터
+const systemAdminRouter = require('./routes/system-admin');
+const orgAdminRouter = require('./routes/org-admin');
+const joinRequestsRouter = require('./routes/join-requests');
+const systemAdminDashboardRouter = require('./routes/system-admin-dashboard');
+
+// 진술서 라우터
+const statementRouter = require('./routes/statement');
+
+// 노인복지시설 라우터
+const welfareFacilitiesRouter = require('./routes/welfare-facilities');
+
+app.use('/api/auth', authRouter);
+app.use('/api/payment', paymentRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/feedback', feedbackRouter);
+app.use('/api/analytics', analyticsRouter);
+
+// 3단계 권한 시스템 API
+app.use('/api/system-admin', systemAdminRouter);
+app.use('/api/org-admin', orgAdminRouter);
+app.use('/api/join-requests', joinRequestsRouter);
+app.use('/api/system-admin-dashboard', systemAdminDashboardRouter);
+
+// 진술서 API
+app.use('/api/statement', statementRouter);
+
+// 노인복지시설 API
+app.use('/api/welfare-facilities', welfareFacilitiesRouter);
+
+// Multer 설정 (음성 파일 업로드)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    // 경로 탐색 공격 방지: basename으로 파일명만 추출
+    const safeExtname = path.extname(path.basename(file.originalname));
+    cb(null, file.fieldname + '-' + uniqueSuffix + safeExtname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { 
+    fileSize: 100 * 1024 * 1024, // 100MB 제한
+    files: 1 // 파일 개수 제한
+  },
+  fileFilter: function (req, file, cb) {
+    // 파일명 보안 검증
+    const basename = path.basename(file.originalname);
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\\\')) {
+      return cb(new Error('잘못된 파일명입니다.'));
+    }
+    
+    const allowedTypes = /mp3|wav|m4a|ogg|webm|mp4/;
+    const allowedMimes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a', 
+                          'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'];
+    
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+
+========================================
+파일 2: routes/auth.js (인증)
+========================================
+/**
+ * 인증 관련 라우터
+ */
+
+const express = require('express');
+const rateLimit = require('express-rate-limit');
+const router = express.Router();
+const authService = require('../services/authService');
+const { authenticateToken } = require('../middleware/auth');
+const passport = require('../config/passport');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production';
+const JWT_EXPIRES_IN = '7d';
+
+// 로그인 시도 제한 (브루트포스 공격 방어)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 5, // 최대 5회 시도
+  skipSuccessfulRequests: true, // 성공한 요청은 카운트 안함
+  message: {
+    success: false,
+    error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.'
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 회원가입 (관리자 전용 - 마스터 비밀번호 필요)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, name, phone, organizationId, masterPassword, role, credits } = req.body;
+    
+    // 🔐 관리자 전용: 마스터 비밀번호 검증
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
+    if (masterPassword !== MASTER_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        error: '관리자 권한이 필요합니다. 마스터 비밀번호를 확인하세요.'
+      });
+    }
+    
+    // 입력 검증
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        error: '필수 정보를 입력해주세요'
+      });
+    }
+    
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: '올바른 이메일 형식이 아닙니다'
+      });
+    }
+    
+    // 비밀번호 강도 검증
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: '비밀번호는 최소 8자 이상이어야 합니다'
+      });
+    }
+    
+    // 비밀번호 복잡도 검증 (영문, 숫자, 특수문자 중 2가지 이상)
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const complexityCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+    
+    if (complexityCount < 2) {
+      return res.status(400).json({
+        success: false,
+        error: '비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다'
+      });
+    }
+    
+    // 🔐 관리자 권한으로 계정 생성
+    const result = await authService.registerWithRole({
+      email,
+      password,
+      name,
+      phone,
+      organizationId,
+      role: role || 'system_admin',  // 기본값: system_admin
+      credits: credits || 10000000,  // 기본값: 10,000,000원
+      serviceType: req.body.serviceType || 'elderly_protection'
+    });
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('❌ 회원가입 API 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 로그인 (DEPRECATED - 소셜 로그인으로 대체)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/login', loginLimiter, async (req, res) => {
+  // ⚠️ DEPRECATED: 이 엔드포인트는 곧 제거될 예정입니다
+  // 소셜 로그인(카카오/네이버)을 사용해주세요
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: '이메일과 비밀번호를 입력해주세요'
+      });
+    }
+    
+    const result = await authService.login({
+      email,
+      password,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('❌ 로그인 API 오류:', error);
+    res.status(401).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 로그아웃
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    const token = req.headers['authorization'].split(' ')[1];
+    const result = await authService.logout(token);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ 로그아웃 API 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 토큰 갱신
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: '리프레시 토큰이 필요합니다'
+      });
+    }
+    
+    const result = await authService.refreshToken(refreshToken);
+    res.json(result);
+    
+  } catch (error) {
+    console.error('❌ 토큰 갱신 API 오류:', error);
+    res.status(401).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 내 정보 조회
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const result = await authService.getUserInfo(req.user.userId);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ 사용자 정보 조회 API 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+========================================
+파일 3: services/authService.js
+========================================
+/**
+ * 인증 서비스
+ * - 회원가입, 로그인, JWT 토큰 관리
+ */
+
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { getDB } = require('../database/db-postgres');
+
+// JWT_SECRET 필수 검증
+if (!process.env.JWT_SECRET) {
+  throw new Error('❌ JWT_SECRET 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = '1h'; // 1시간 (보안 강화)
+const REFRESH_TOKEN_EXPIRES_IN = '7d'; // 7일
+const SALT_ROUNDS = 12; // 보안 강화 (10 → 12)
+
+class AuthService {
+  
+  /**
+   * 회원가입
+   */
+  async register({ email, password, name, phone, organizationId = null, serviceType = 'elderly_protection' }) {
+    const db = getDB();
+    
+    try {
+      // 이메일 중복 체크
+      const existingUser = await db.get(
+        'SELECT id FROM users WHERE oauth_email = $1',
+        [email]
+      );
+      
+      if (existingUser) {
+        throw new Error('이미 사용 중인 이메일입니다');
+      }
+      
+      // 비밀번호 해시
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      
+      // 트랜잭션으로 사용자 생성 및 크레딧 초기화
+      const result = await db.transaction(async (client) => {
+        // 사용자 생성
+        const userResult = await client.query(
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now()]
+        );
+        
+        const userId = userResult.rows[0].id;
+        
+        // 크레딧 초기화 (무료 체험 3회)
+        await client.query(
+          `INSERT INTO credits (user_id, balance, free_trial_count)
+           VALUES ($1, 0, 3)`,
+          [userId]
+        );
+        
+        return userId;
+      });
+      
+      console.log('✅ 회원가입 성공:', email);
+      
+      return {
+        success: true,
+        userId: result,
+        message: '회원가입이 완료되었습니다'
+      };
+      
+    } catch (error) {
+      console.error('❌ 회원가입 실패:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * 관리자 전용: 역할 및 크레딧 설정 가능한 회원가입
+   */
+  async registerWithRole({ email, password, name, phone, organizationId = null, role = 'system_admin', credits = 10000000, serviceType = 'elderly_protection' }) {
+    const db = getDB();
+    
+    try {
+      // 이메일 중복 체크
+      const existingUser = await db.get(
+        'SELECT id FROM users WHERE oauth_email = $1',
+        [email]
+      );
+      
+      if (existingUser) {
+        throw new Error('이미 사용 중인 이메일입니다');
+      }
+      
+      // 비밀번호 해시
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      
+      // 트랜잭션으로 사용자 생성 및 크레딧 초기화
+      const userId = await db.transaction(async (client) => {
+        // 사용자 생성 (관리자 권한 포함)
+        const userResult = await client.query(
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role]
+        );
+        
+        const newUserId = userResult.rows[0].id;
+        
+        // 크레딧 초기화 (관리자 지정 금액)
+        await client.query(
+          `INSERT INTO credits (user_id, balance, free_trial_count)
+           VALUES ($1, $2, 0)`,
+          [newUserId, credits]
+        );
+        
+        return newUserId;
+      });
+      
+      console.log(`✅ 관리자 계정 생성 성공: ${email} (${role}, ${credits}원)`);
+      
+      return {
+        success: true,
+        userId: userId,
+        role: role,
+        credits: credits,
+        message: '관리자 계정이 성공적으로 생성되었습니다'
+      };
+      
+    } catch (error) {
+      console.error('❌ 관리자 계정 생성 실패:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * 로그인
+   */
+  async login({ email, password, ipAddress, userAgent }) {
+    const db = getDB();
+    
+    try {
+      // 사용자 조회
+      const user = await db.get(
+        `SELECT id, oauth_email as email, name, role, organization_id, service_type
+         FROM users WHERE oauth_email = $1`,
+        [email]
+      );
+      
+      if (!user) {
+        throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
+      }
