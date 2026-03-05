@@ -196,79 +196,21 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// Vercel Blob 클라이언트 업로드
+// Vercel Blob 클라이언트 업로드 (공식 SDK 사용)
 async function uploadToBlob(file, onProgress) {
+    if (onProgress) onProgress(5, '업로드 준비 중...');
+
+    // 공식 @vercel/blob/client SDK를 CDN에서 동적 로드
+    const { upload } = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/dist/client.js');
+
+    if (onProgress) onProgress(10, '파일 전송 중...');
+
     const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const pathname = `audio/${Date.now()}-${safeFilename}`;
-    const callbackUrl = `${window.location.origin}/api/blob-upload`;
 
-    // 1. 서버에서 클라이언트 토큰 발급
-    if (onProgress) onProgress(5, '업로드 준비 중...');
-    const tokenRes = await fetch('/api/blob-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            type: 'blob.generate-client-token',
-            payload: { pathname, callbackUrl }
-        })
-    });
-
-    if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error || '업로드 토큰 생성 실패');
-    }
-    const tokenData = await tokenRes.json();
-    const clientToken = tokenData.clientToken;
-
-    // 2. 토큰에서 Blob Store URL 추출
-    const tokenParts = clientToken.split('_');
-    let blobApiUrl = 'https://blob.vercel-storage.com';
-    if (tokenParts.length >= 4 && tokenParts[0] === 'vercel' && tokenParts[1] === 'blob') {
-        const storeId = tokenParts[3];
-        blobApiUrl = `https://${storeId}.public.blob.vercel-storage.com`;
-    }
-
-    // 3. XMLHttpRequest로 업로드 (진행률 추적)
-    if (onProgress) onProgress(10, '파일 전송 중...');
-    const blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', `${blobApiUrl}/${pathname}`);
-        xhr.setRequestHeader('authorization', `Bearer ${clientToken}`);
-        xhr.setRequestHeader('x-api-version', '7');
-        xhr.setRequestHeader('x-content-type', file.type || 'application/octet-stream');
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable && onProgress) {
-                const pct = Math.round(10 + (e.loaded / e.total) * 70); // 10~80%
-                onProgress(pct, `파일 전송 중... (${pct}%)`);
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    resolve(JSON.parse(xhr.responseText));
-                } catch {
-                    reject(new Error('업로드 응답 파싱 실패'));
-                }
-            } else {
-                reject(new Error(`업로드 실패 (${xhr.status})`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error('네트워크 오류'));
-        xhr.send(file);
-    });
-
-    // 4. 업로드 완료 알림
-    if (onProgress) onProgress(85, '업로드 완료 처리 중...');
-    await fetch('/api/blob-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            type: 'blob.upload-completed',
-            payload: { blob, tokenPayload: clientToken }
-        })
+    const blob = await upload(pathname, file, {
+        access: 'public',
+        handleUploadUrl: '/api/blob-upload',
     });
 
     if (onProgress) onProgress(90, '서버 처리 시작...');
