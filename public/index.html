@@ -436,36 +436,36 @@
         </div>
         <div class="services-grid">
             <!-- 노인보호 상담일지 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/elderly-protection.html')" class="service-card">
+            <div class="service-card" data-target="/elderly-protection.html" role="link" tabindex="0">
                 <div class="service-icon">🎙️</div>
                 <h3>노인보호 상담일지</h3>
                 <p>음성 녹음을 자동으로 텍스트 변환하고 구조화된 상담일지를 생성합니다</p>
                 <span class="service-tag">음성 → 텍스트</span>
-            </a>
+            </div>
 
             <!-- 문서 익명화 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/anonymization.html')" class="service-card">
+            <div class="service-card" data-target="/anonymization.html" role="link" tabindex="0">
                 <div class="service-icon">🔒</div>
                 <h3>문서 익명화</h3>
                 <p>개인정보를 자동으로 감지하고 안전하게 익명처리합니다</p>
                 <span class="service-tag">개인정보 보호</span>
-            </a>
+            </div>
 
             <!-- 진술서 작성 -->
-            <a href="javascript:void(0)" onclick="requireLogin('/statement-recording.html')" class="service-card">
+            <div class="service-card" data-target="/statement-recording.html" role="link" tabindex="0">
                 <div class="service-icon">📝</div>
                 <h3>진술서 자동 작성</h3>
                 <p>실시간 녹취로 문답 형식의 진술서를 자동 생성합니다</p>
                 <span class="service-tag">실시간 녹취</span>
-            </a>
+            </div>
 
             <!-- 사실확인서 생성 (NEW) -->
-            <a href="javascript:void(0)" onclick="requireLogin('/fact-confirmation.html')" class="service-card">
+            <div class="service-card" data-target="/fact-confirmation.html" role="link" tabindex="0">
                 <div class="service-icon">📋</div>
                 <h3>사실확인서 생성</h3>
                 <p>녹음파일을 업로드하면 AI가 사실확인서로 자동 변환합니다</p>
                 <span class="service-tag">Word 다운로드</span>
-            </a>
+            </div>
 
         </div>
     </section>
@@ -535,16 +535,16 @@
                 <div class="footer-section">
                     <h4>서비스</h4>
                     <ul>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/elderly-protection.html')">노인보호 상담일지</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/anonymization.html')">문서 익명화</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/analytics-dashboard.html')">분석 대시보드</a></li>
+                        <li><a href="#" data-target="/elderly-protection.html">노인보호 상담일지</a></li>
+                        <li><a href="#" data-target="/anonymization.html">문서 익명화</a></li>
+                        <li><a href="#" data-target="/analytics-dashboard.html">분석 대시보드</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>지원</h4>
                     <ul>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/dashboard.html')">대시보드</a></li>
-                        <li><a href="javascript:void(0)" onclick="requireLogin('/payment.html')">가격 정책</a></li>
+                        <li><a href="#" data-target="/dashboard.html">대시보드</a></li>
+                        <li><a href="#" data-target="/payment.html">가격 정책</a></li>
                         <li><a href="mailto:support@casenetai.com">고객 지원</a></li>
                     </ul>
                 </div>
@@ -564,11 +564,16 @@
     </footer>
 
     <script>
-        // Smooth scroll for anchor links
+        // Smooth scroll for anchor links (data-target 링크는 제외)
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            // data-target이 있는 링크는 smooth scroll 대상에서 제외
+            if (anchor.hasAttribute('data-target')) return;
+
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
+                const href = this.getAttribute('href');
+                if (href === '#') return;
+                const target = document.querySelector(href);
                 if (target) {
                     const headerOffset = 80;
                     const elementPosition = target.getBoundingClientRect().top;
@@ -598,7 +603,7 @@
          */
         function requireLogin(targetUrl) {
             const token = localStorage.getItem('token');
-            
+
             if (token) {
                 // 로그인 상태: 바로 이동
                 window.location.href = targetUrl;
@@ -607,6 +612,29 @@
                 window.location.href = '/login.html?redirect=' + encodeURIComponent(targetUrl);
             }
         }
+
+        // 서비스 카드 클릭 이벤트 (data-target 기반)
+        document.querySelectorAll('[data-target]').forEach(el => {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const targetUrl = this.getAttribute('data-target');
+                if (targetUrl) {
+                    requireLogin(targetUrl);
+                }
+            });
+
+            // Enter 키 지원 (접근성)
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const targetUrl = this.getAttribute('data-target');
+                    if (targetUrl) {
+                        requireLogin(targetUrl);
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
