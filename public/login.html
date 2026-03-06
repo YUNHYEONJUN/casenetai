@@ -329,7 +329,7 @@
             <div class="auth-divider"><span>또는</span></div>
 
             <!-- 이메일/비밀번호 로그인 (관리자용) -->
-            <form id="loginForm" onsubmit="handleEmailLogin(event)">
+            <form id="loginForm">
                 <div class="form-group">
                     <label for="email">이메일</label>
                     <input type="email" id="email" placeholder="admin@example.com" required>
@@ -358,6 +358,13 @@
         console.log('[Login] Page loaded, JS running');
         const alertMessage = document.getElementById('alertMessage');
 
+        // 폼 submit 이벤트 리스너 (인라인 onsubmit 대신)
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('[Login] Form submitted');
+            handleEmailLogin();
+        });
+
         // URL에서 redirect 파라미터 가져오기
         const urlParams = new URLSearchParams(window.location.search);
         const redirectUrl = urlParams.get('redirect') || '/dashboard.html';
@@ -370,8 +377,7 @@
         }
 
         // 이메일/비밀번호 로그인 핸들러
-        async function handleEmailLogin(event) {
-            event.preventDefault();
+        async function handleEmailLogin() {
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             const btn = document.getElementById('emailLoginBtn');
