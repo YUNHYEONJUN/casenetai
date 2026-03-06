@@ -43,9 +43,9 @@ class AuthService {
       const result = await db.transaction(async (client) => {
         // 사용자 생성
         const userResult = await client.query(
-          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id)
-           VALUES ($1, $2, $3, $4, $5, 'local', $6) RETURNING id`,
-          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now()]
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, password_hash)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'legacy_' + Date.now(), passwordHash]
         );
         
         const userId = userResult.rows[0].id;
@@ -98,9 +98,9 @@ class AuthService {
       const userId = await db.transaction(async (client) => {
         // 사용자 생성 (관리자 권한 포함)
         const userResult = await client.query(
-          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved)
-           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true) RETURNING id`,
-          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role]
+          `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved, password_hash)
+           VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true, $8) RETURNING id`,
+          [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role, passwordHash]
         );
         
         const newUserId = userResult.rows[0].id;
@@ -140,7 +140,7 @@ class AuthService {
     try {
       // 사용자 조회
       const user = await db.get(
-        `SELECT id, oauth_email as email, name, role, organization_id, service_type
+        `SELECT id, oauth_email as email, name, role, organization_id, service_type, password_hash
          FROM users WHERE oauth_email = $1`,
         [email]
       );
@@ -148,7 +148,12 @@ class AuthService {
       if (!user) {
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
       }
-      
+
+      // 비밀번호가 설정되지 않은 계정 (소셜 로그인 전용)
+      if (!user.password_hash) {
+        throw new Error('이 계정은 소셜 로그인 전용입니다. 카카오/네이버/구글로 로그인하세요.');
+      }
+
       // 비밀번호 확인
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
       

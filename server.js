@@ -169,6 +169,29 @@ app.use('/api/statement', statementRouter);
 // 사실확인서 API
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
+// 관리자 계정 설정 (1회용)
+app.get('/api/setup-admin', async (req, res) => {
+  const key = req.query.key;
+  const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
+  if (key !== MASTER_PASSWORD) {
+    return res.status(403).json({ error: '마스터 비밀번호가 올바르지 않습니다' });
+  }
+  try {
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+    const setupAdmin = require('./scripts/setup-admin');
+    const result = await setupAdmin(pool);
+    await pool.end();
+    res.json({ success: true, message: '관리자 계정 설정 완료', email: result.email, password: 'CaseNet2026!@#' });
+  } catch (error) {
+    console.error('setup-admin 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 프론트엔드 에러 로그 수신
 app.post('/api/error-log', (req, res) => {
   const { errors } = req.body;
