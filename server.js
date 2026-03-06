@@ -39,7 +39,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co", "https://*.public.blob.vercel-storage.com", "https://blob.vercel-storage.com"],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co", "https://*.public.blob.vercel-storage.com", "https://blob.vercel-storage.com", "https://vercel.com"],
     },
   },
   hsts: {

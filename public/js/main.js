@@ -349,49 +349,32 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// 서버 경유 파일 업로드
+// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회)
 async function uploadToBlob(file, onProgress) {
     if (onProgress) onProgress(5, '업로드 준비 중...');
 
-    const formData = new FormData();
-    formData.append('audioFile', file);
+    // 공식 @vercel/blob/client SDK를 CDN에서 동적 로드
+    let upload;
+    try {
+        const module = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/client/+esm');
+        upload = module.upload;
+    } catch (e) {
+        console.error('Blob SDK 로드 실패:', e);
+        throw new Error('파일 업로드 모듈 로드에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+    }
 
     if (onProgress) onProgress(10, '파일 전송 중...');
 
-    const token = localStorage.getItem('token');
-    const response = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/upload-blob');
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathname = `audio/${Date.now()}-${safeFilename}`;
 
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable && onProgress) {
-                const pct = Math.round(10 + (e.loaded / e.total) * 70);
-                onProgress(pct, `파일 전송 중... ${Math.round(e.loaded / e.total * 100)}%`);
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    resolve(JSON.parse(xhr.responseText));
-                } catch (e) {
-                    reject(new Error('서버 응답 파싱 실패'));
-                }
-            } else {
-                reject(new Error(`업로드 실패 (${xhr.status}): ${xhr.responseText}`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error('파일 업로드 네트워크 오류'));
-        xhr.ontimeout = () => reject(new Error('파일 업로드 시간 초과'));
-        xhr.timeout = 300000; // 5분
-
-        xhr.send(formData);
+    const blob = await upload(pathname, file, {
+        access: 'public',
+        handleUploadUrl: '/api/blob-upload',
     });
 
     if (onProgress) onProgress(85, '서버 처리 시작...');
-    return response;
+    return blob;
 }
 
 // 업로드 버튼 클릭
