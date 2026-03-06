@@ -349,25 +349,49 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// Vercel Blob 클라이언트 업로드 (공식 SDK 사용)
+// 서버 경유 파일 업로드
 async function uploadToBlob(file, onProgress) {
     if (onProgress) onProgress(5, '업로드 준비 중...');
 
-    // 공식 @vercel/blob/client SDK를 CDN에서 동적 로드
-    const { upload } = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/client/+esm');
+    const formData = new FormData();
+    formData.append('audioFile', file);
 
     if (onProgress) onProgress(10, '파일 전송 중...');
 
-    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const pathname = `audio/${Date.now()}-${safeFilename}`;
+    const token = localStorage.getItem('token');
+    const response = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload-blob');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-    const blob = await upload(pathname, file, {
-        access: 'public',
-        handleUploadUrl: '/api/blob-upload',
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable && onProgress) {
+                const pct = Math.round(10 + (e.loaded / e.total) * 70);
+                onProgress(pct, `파일 전송 중... ${Math.round(e.loaded / e.total * 100)}%`);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                } catch (e) {
+                    reject(new Error('서버 응답 파싱 실패'));
+                }
+            } else {
+                reject(new Error(`업로드 실패 (${xhr.status}): ${xhr.responseText}`));
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('파일 업로드 네트워크 오류'));
+        xhr.ontimeout = () => reject(new Error('파일 업로드 시간 초과'));
+        xhr.timeout = 300000; // 5분
+
+        xhr.send(formData);
     });
 
-    if (onProgress) onProgress(90, '서버 처리 시작...');
-    return blob;
+    if (onProgress) onProgress(85, '서버 처리 시작...');
+    return response;
 }
 
 // 업로드 버튼 클릭

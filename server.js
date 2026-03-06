@@ -9,7 +9,7 @@ const cors = require('cors');
 const aiService = require('./services/aiService');
 const creditService = require('./services/creditService');
 const { optionalAuth } = require('./middleware/auth');
-const { del } = require('@vercel/blob');
+const { del, put } = require('@vercel/blob');
 const { handleUpload } = require('@vercel/blob/client');
 
 // 환경 변수 검증
@@ -295,7 +295,38 @@ app.get('/api/status', async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회)
+// 서버 경유 Blob 업로드 (FormData → Vercel Blob)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.post('/api/upload-blob', optionalAuth, upload.single('audioFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+
+    const filePath = req.file.path;
+    const safeFilename = path.basename(req.file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathname = `audio/${Date.now()}-${safeFilename}`;
+
+    // 파일을 Vercel Blob에 업로드
+    const fileBuffer = fs.readFileSync(filePath);
+    const blob = await put(pathname, fileBuffer, {
+      access: 'public',
+      contentType: req.file.mimetype,
+    });
+
+    // 임시 파일 정리
+    fs.unlink(filePath, () => {});
+
+    console.log('Blob uploaded via server:', blob.url);
+    res.json({ url: blob.url, pathname: blob.pathname });
+  } catch (error) {
+    console.error('Server blob upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Vercel Blob 클라이언트 업로드 (레거시)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.post('/api/blob-upload', async (req, res) => {
   try {
