@@ -326,10 +326,24 @@
                 </a>
             </div>
 
+            <div class="auth-divider"><span>또는</span></div>
+
+            <!-- 이메일/비밀번호 로그인 (관리자용) -->
+            <form id="loginForm" onsubmit="handleEmailLogin(event)">
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input type="email" id="email" placeholder="admin@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" placeholder="비밀번호 입력" required>
+                </div>
+                <button type="submit" class="btn-login" id="emailLoginBtn">로그인</button>
+            </form>
+
             <div class="auth-note" style="margin-top: 25px; text-align: center;">
                 <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6;">
-                    <strong>승인된 기관만 이용 가능합니다</strong><br>
-                    소셜 로그인 후 관리자 승인이 필요합니다
+                    승인된 기관만 이용 가능합니다
                 </p>
             </div>
 
@@ -353,6 +367,48 @@
         // redirect URL을 localStorage에 저장 (OAuth 흐름에서 사용)
         if (urlParams.get('redirect')) {
             localStorage.setItem('loginRedirect', urlParams.get('redirect'));
+        }
+
+        // 이메일/비밀번호 로그인 핸들러
+        async function handleEmailLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('emailLoginBtn');
+
+            if (!email || !password) {
+                showAlert('이메일과 비밀번호를 입력해주세요.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span>로그인 중...';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    localStorage.setItem('token', data.token);
+                    if (data.refreshToken) {
+                        localStorage.setItem('refreshToken', data.refreshToken);
+                    }
+                    const savedRedirect = localStorage.getItem('loginRedirect') || redirectUrl;
+                    localStorage.removeItem('loginRedirect');
+                    window.location.href = savedRedirect;
+                } else {
+                    showAlert(data.error || '로그인에 실패했습니다.', 'error');
+                }
+            } catch (err) {
+                showAlert('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '로그인';
+            }
         }
 
         // 미승인 사용자 에러 메시지 표시
