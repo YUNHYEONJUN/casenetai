@@ -331,7 +331,7 @@ app.post('/api/upload-blob', optionalAuth, upload.single('audioFile'), async (re
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Vercel Blob 클라이언트 업로드 (레거시)
+// Vercel Blob 클라이언트 업로드 토큰 발급
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.post('/api/blob-upload', async (req, res) => {
   try {
@@ -353,6 +353,41 @@ app.post('/api/blob-upload', async (req, res) => {
   } catch (error) {
     console.error('Blob upload error:', error);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Vercel Blob 클라이언트 토큰 발급 (CDN SDK 불필요, handleUpload 프로토콜 직접 호출)
+app.post('/api/blob-token', optionalAuth, async (req, res) => {
+  try {
+    const { pathname, contentType } = req.body;
+    if (!pathname) {
+      return res.status(400).json({ error: 'pathname은 필수입니다.' });
+    }
+    // handleUpload를 사용해 단기 클라이언트 토큰 생성
+    const jsonResponse = await handleUpload({
+      body: {
+        type: 'blob.generate-client-token',
+        payload: {
+          pathname,
+          callbackUrl: `${req.protocol}://${req.get('host')}/api/blob-upload`,
+        }
+      },
+      request: req,
+      onBeforeGenerateToken: async () => ({
+        allowedContentTypes: [
+          'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a',
+          'audio/x-m4a', 'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'
+        ],
+        maximumSizeInBytes: 100 * 1024 * 1024,
+      }),
+      onUploadCompleted: async ({ blob }) => {
+        console.log('Blob upload completed:', blob.url);
+      },
+    });
+    res.json(jsonResponse);
+  } catch (error) {
+    console.error('Blob token error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -349,30 +349,56 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회)
+// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회, CDN SDK 불필요)
 async function uploadToBlob(file, onProgress) {
-    if (onProgress) onProgress(5, '업로드 준비 중...');
+    if (onProgress) onProgress(5, '업로드 토큰 요청 중...');
 
-    // 공식 @vercel/blob/client SDK를 CDN에서 동적 로드
-    let upload;
-    try {
-        const module = await import('https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.1/client/+esm');
-        upload = module.upload;
-    } catch (e) {
-        console.error('Blob SDK 로드 실패:', e);
-        throw new Error('파일 업로드 모듈 로드에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathname = `audio/${Date.now()}-${safeFilename}`;
+    const authToken = localStorage.getItem('token');
+
+    // Step 1: 서버에서 단기 클라이언트 토큰 발급
+    const tokenRes = await fetch('/api/blob-token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({ pathname, contentType: file.type })
+    });
+
+    if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(err.error || '업로드 토큰 발급에 실패했습니다.');
+    }
+
+    const tokenData = await tokenRes.json();
+    const clientToken = tokenData.clientToken;
+
+    if (!clientToken) {
+        throw new Error('클라이언트 토큰을 받지 못했습니다.');
     }
 
     if (onProgress) onProgress(10, '파일 전송 중...');
 
-    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const pathname = `audio/${Date.now()}-${safeFilename}`;
-
-    const blob = await upload(pathname, file, {
-        access: 'public',
-        handleUploadUrl: '/api/blob-upload',
+    // Step 2: 클라이언트에서 직접 Vercel Blob에 PUT 업로드
+    const uploadRes = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
+        method: 'PUT',
+        headers: {
+            'authorization': `Bearer ${clientToken}`,
+            'x-api-version': '7',
+            'content-type': file.type || 'application/octet-stream',
+        },
+        body: file
     });
 
+    if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => '');
+        console.error('Blob upload failed:', uploadRes.status, errText);
+        throw new Error('파일 업로드에 실패했습니다.');
+    }
+
+    const blob = await uploadRes.json();
     if (onProgress) onProgress(85, '서버 처리 시작...');
     return blob;
 }
