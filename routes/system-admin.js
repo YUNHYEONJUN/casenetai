@@ -64,8 +64,8 @@ router.get('/organizations', async (req, res) => {
       ${whereClause}
       GROUP BY o.id
       ORDER BY o.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+      LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}
+    `, [...params, parseInt(limit), parseInt(offset)]);
     
     // 전체 개수
     const totalResult = await db.get(`
@@ -426,7 +426,7 @@ router.get('/users', async (req, res) => {
       LEFT JOIN organizations o ON o.id = u.organization_id
       ${whereClause}
       ORDER BY u.created_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, safeLimit, offset]);
 
     const totalResult = await db.get(`
@@ -538,26 +538,27 @@ router.get('/audit-logs', async (req, res) => {
     
     let where = [];
     let params = [];
-    
+    let paramIndex = 1;
+
     if (action) {
-      where.push('a.action = $1');
+      where.push(`a.action = $${paramIndex++}`);
       params.push(action);
     }
-    
+
     if (resource_type) {
-      where.push('a.resource_type = $1');
+      where.push(`a.resource_type = $${paramIndex++}`);
       params.push(resource_type);
     }
-    
+
     if (user_id) {
-      where.push('a.user_id = $1');
+      where.push(`a.user_id = $${paramIndex++}`);
       params.push(user_id);
     }
-    
+
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
-    
+
     const logs = await db.query(`
-      SELECT 
+      SELECT
         a.*,
         u.name as user_name,
         u.oauth_email as user_email
@@ -565,9 +566,9 @@ router.get('/audit-logs', async (req, res) => {
       LEFT JOIN users u ON u.id = a.user_id
       ${whereClause}
       ORDER BY a.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
-    
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `, [...params, parseInt(limit), parseInt(offset)]);
+
     const totalResult = await db.get(`
       SELECT COUNT(*) as count FROM audit_logs a ${whereClause}
     `, params);

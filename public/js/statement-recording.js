@@ -38,7 +38,7 @@ const addQaBtn = document.getElementById('addQaBtn');
 const copyToClipboardBtn = document.getElementById('copyToClipboardBtn');
 const saveDraftBtn = document.getElementById('saveDraftBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
-const alert = document.getElementById('alert');
+const alertBox = document.getElementById('alert');
 
 // 로그인 필수
 checkAuth();
@@ -267,10 +267,10 @@ function logout() {
  * 알림 표시
  */
 function showAlert(message, type = 'error') {
-    alert.textContent = message;
-    alert.className = `alert ${type} active`;
+    alertBox.textContent = message;
+    alertBox.className = `alert ${type} active`;
     setTimeout(() => {
-        alert.classList.remove('active');
+        alertBox.classList.remove('active');
     }, 5000);
 }
 
@@ -424,7 +424,6 @@ async function generateStatement() {
         statementForm.style.display = 'block';
         statementForm.scrollIntoView({ behavior: 'smooth' });
         
-        loading.classList.add('active');
         showAlert('진술서가 생성되었습니다!', 'success');
     } catch (error) {
         console.error('진술서 생성 오류:', error);
@@ -436,34 +435,43 @@ async function generateStatement() {
 }
 
 /**
+ * HTML 이스케이프
+ */
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+/**
  * 문답 목록 렌더링
  */
 function renderQaList() {
     qaContainer.innerHTML = '';
-    
+
     qaList.forEach((qa, index) => {
         const qaDiv = document.createElement('div');
         qaDiv.className = 'qa-pair';
         qaDiv.dataset.index = index;
-        
+
         qaDiv.innerHTML = `
             <div class="qa-label">
                 <span>❓</span>
                 <strong>문:</strong>
             </div>
-            <div class="qa-content" contenteditable="true" data-type="question">${qa.question}</div>
-            
+            <div class="qa-content" contenteditable="true" data-type="question">${escapeHtml(qa.question)}</div>
+
             <div class="qa-label" style="margin-top: 15px;">
                 <span>💬</span>
                 <strong>답:</strong>
             </div>
-            <div class="qa-content" contenteditable="true" data-type="answer">${qa.answer}</div>
-            
+            <div class="qa-content" contenteditable="true" data-type="answer">${escapeHtml(qa.answer)}</div>
+
             <div class="qa-actions">
                 <button class="qa-btn delete" onclick="deleteQa(${index})">삭제</button>
             </div>
         `;
-        
+
         qaContainer.appendChild(qaDiv);
     });
 }
@@ -554,19 +562,20 @@ async function saveDraft() {
         const statementData = {
             investigationDate: document.getElementById('investigationDate').value,
             investigationLocation: document.getElementById('investigationLocation').value,
-            investigationOrg: document.getElementById('investigationOrg').value,
-            investigator: document.getElementById('investigator').value,
+            investigationAgency: document.getElementById('investigationOrg').value,
             subjectName: document.getElementById('subjectName').value,
-            subjectBirth: document.getElementById('subjectBirth').value,
-            subjectOrg: document.getElementById('subjectOrg').value,
+            subjectBirthDate: document.getElementById('subjectBirth').value,
+            subjectOrganization: document.getElementById('subjectOrg').value,
             subjectPosition: document.getElementById('subjectPosition').value,
             subjectContact: document.getElementById('subjectContact').value,
-            qaList: qaList
+            transcript: transcribedText,
+            statementContent: qaList,
+            status: 'draft'
         };
-        
+
         const token = localStorage.getItem('token');
-        
-        const response = await fetch('/api/save-statement', {
+
+        const response = await fetch('/api/statement/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -673,7 +682,7 @@ function downloadTextFile(content) {
     const subjectName = document.getElementById('subjectName').value || '진술서';
     const date = new Date().toISOString().split('T')[0];
     const filename = `${subjectName}_진술서_${date}.txt`;
-    
+
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -683,15 +692,24 @@ function downloadTextFile(content) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    yPos += 20;
-    doc.text('위 진술이 사실과 다름없음을 확인합니다.', 20, yPos);
-    yPos += 15;
-    doc.text('진술자: _________________ (서명)', 20, yPos);
-    yPos += 10;
-    doc.text('조사자: _________________ (서명)', 20, yPos);
-    
-    // 파일명
-    const filename = `진술서_${document.getElementById('subjectName').value || 'unknown'}_${new Date().toISOString().split('T')[0]}.pdf`;
-    
-    doc.save(filename);
 }
+
+// 상담일지에서 전달된 데이터 수신
+(function loadSharedData() {
+    const raw = sessionStorage.getItem('casenetai_shared_data');
+    if (!raw) return;
+    try {
+        const shared = JSON.parse(raw);
+        if (shared.source === 'consultation' && shared.transcript) {
+            sessionStorage.removeItem('casenetai_shared_data');
+            switchToUploadMode();
+            transcribedText = shared.transcript;
+            const transcriptionText = document.getElementById('transcriptionText');
+            if (transcriptionText) {
+                transcriptionText.textContent = transcribedText;
+                document.getElementById('transcriptionResult').style.display = 'block';
+                showAlert('상담일지에서 텍스트를 불러왔습니다. AI 분석 버튼을 눌러주세요.', 'success');
+            }
+        }
+    } catch (err) { console.warn('Shared data load failed:', err); }
+})();

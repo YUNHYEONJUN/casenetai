@@ -69,8 +69,8 @@ router.get('/employees', async (req, res) => {
       LEFT JOIN credits c ON c.user_id = u.id
       ${whereClause}
       ORDER BY u.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `, [...params, parseInt(limit), parseInt(offset)]);
     
     const totalResult = await db.get(`
       SELECT COUNT(*) as count FROM users u ${whereClause}

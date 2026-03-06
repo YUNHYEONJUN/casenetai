@@ -181,6 +181,52 @@ function safeLocalStorage() {
   };
 }
 
+// --- #9 전역 에러 모니터링 ---
+(function setupErrorMonitoring() {
+  if (typeof window === 'undefined') return;
+  const MAX_ERRORS = 10;
+  const errorQueue = [];
+
+  function logError(type, info) {
+    errorQueue.push({ type, ...info, url: window.location.href, time: new Date().toISOString() });
+    console.error(`[ErrorMonitor] ${type}:`, info.message || info);
+    // 일정 수 누적 시 서버로 전송
+    if (errorQueue.length >= MAX_ERRORS) flushErrors();
+  }
+
+  function flushErrors() {
+    if (errorQueue.length === 0) return;
+    const batch = errorQueue.splice(0);
+    const token = localStorage.getItem('token');
+    fetch('/api/error-log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ errors: batch })
+    }).catch(() => {}); // 전송 실패 무시
+  }
+
+  window.addEventListener('error', function(event) {
+    logError('js_error', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(event) {
+    logError('promise_rejection', {
+      message: event.reason?.message || String(event.reason)
+    });
+  });
+
+  // 페이지 떠날 때 남은 에러 전송
+  window.addEventListener('beforeunload', flushErrors);
+})();
+
 // 전역으로 export
 if (typeof window !== 'undefined') {
   window.SecurityUtils = {

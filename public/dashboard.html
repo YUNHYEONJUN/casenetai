@@ -70,26 +70,51 @@
                 <h2 class="section-title">빠른 실행</h2>
             </div>
             <div class="quick-actions">
-                <a href="/#upload" class="quick-action-btn">
-                    <div class="quick-action-icon"></div>
+                <a href="/elderly-protection.html#upload" class="quick-action-btn">
+                    <div class="quick-action-icon">🎙</div>
                     <div class="quick-action-title">상담일지 생성</div>
                     <div class="quick-action-desc">음성 파일 업로드</div>
                 </a>
-                <a href="/legal-cases.html" class="quick-action-btn">
-                    <div class="quick-action-icon"></div>
-                    <div class="quick-action-title">판례 검색</div>
-                    <div class="quick-action-desc">법률 판례 찾기</div>
+                <a href="/statement-recording.html" class="quick-action-btn">
+                    <div class="quick-action-icon">📝</div>
+                    <div class="quick-action-title">진술서 작성</div>
+                    <div class="quick-action-desc">실시간 녹취 진술서</div>
+                </a>
+                <a href="/fact-confirmation.html" class="quick-action-btn">
+                    <div class="quick-action-icon">📋</div>
+                    <div class="quick-action-title">사실확인서</div>
+                    <div class="quick-action-desc">음성 → 사실확인서</div>
+                </a>
+                <a href="/anonymization.html" class="quick-action-btn">
+                    <div class="quick-action-icon">🔒</div>
+                    <div class="quick-action-title">문서 익명화</div>
+                    <div class="quick-action-desc">개인정보 자동 처리</div>
                 </a>
                 <a href="/payment.html" class="quick-action-btn">
-                    <div class="quick-action-icon"></div>
+                    <div class="quick-action-icon">💳</div>
                     <div class="quick-action-title">크레딧 충전</div>
                     <div class="quick-action-desc">결제 및 보너스</div>
                 </a>
-                <a href="#" onclick="loadTransactions(); return false;" class="quick-action-btn">
-                    <div class="quick-action-icon"></div>
-                    <div class="quick-action-title">사용 내역</div>
-                    <div class="quick-action-desc">거래 내역 조회</div>
+                <a href="/analytics-dashboard.html" class="quick-action-btn">
+                    <div class="quick-action-icon">📊</div>
+                    <div class="quick-action-title">분석 대시보드</div>
+                    <div class="quick-action-desc">통계 및 리포트</div>
                 </a>
+            </div>
+        </div>
+
+        <!-- 저장된 상담일지 / 템플릿 -->
+        <div class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">저장된 상담일지</h2>
+            </div>
+            <div id="savedTemplates">
+                <div class="empty-state" id="templatesEmpty">
+                    <div class="empty-state-icon">📄</div>
+                    <h3>저장된 템플릿이 없습니다</h3>
+                    <p>상담일지 생성 후 '템플릿 저장' 버튼으로 저장할 수 있습니다</p>
+                </div>
+                <div id="templatesList" style="display:none;"></div>
             </div>
         </div>
 
@@ -316,9 +341,33 @@
             await loadBalance();
             await loadStats();
             await loadTransactions();
+            loadSavedTemplates();
 
             console.log('대시보드 로드 완료');
         });
+
+        // 저장된 템플릿 로드 (localStorage)
+        function loadSavedTemplates() {
+            try {
+                const templates = JSON.parse(localStorage.getItem('casenetai_templates') || '[]');
+                if (templates.length === 0) return;
+
+                document.getElementById('templatesEmpty').style.display = 'none';
+                const list = document.getElementById('templatesList');
+                list.style.display = 'block';
+                list.innerHTML = templates.map(t => {
+                    const date = new Date(t.savedAt).toLocaleDateString('ko-KR');
+                    const stage = {'intake':'접수','ongoing':'진행','closure':'종결','simple':'단순문의'}[t.consultationStage] || '';
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f8fafc;border-radius:8px;margin-bottom:8px;border:1px solid #e2e8f0;">
+                        <div>
+                            <strong>${esc(t.name)}</strong>
+                            <span style="color:#64748b;font-size:0.85em;margin-left:8px;">${date} ${stage ? '| ' + stage : ''}</span>
+                        </div>
+                        <a href="/elderly-protection.html#upload" onclick="sessionStorage.setItem('load_template_id','${t.id}')" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">열기</a>
+                    </div>`;
+                }).join('');
+            } catch (err) { console.warn('Template load failed:', err); }
+        }
     </script>
 </body>
 </html>

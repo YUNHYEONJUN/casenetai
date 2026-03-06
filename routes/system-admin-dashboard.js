@@ -383,25 +383,26 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
     // WHERE 조건 구성
     let whereConditions = ['u.deleted_at IS NULL'];
     let params = [];
-    
+    let paramIndex = 1;
+
     if (organization_id) {
-      whereConditions.push('u.organization_id = $1');
+      whereConditions.push(`u.organization_id = $${paramIndex++}`);
       params.push(parseInt(organization_id));
     }
-    
+
     if (role) {
-      whereConditions.push('u.role = $1');
+      whereConditions.push(`u.role = $${paramIndex++}`);
       params.push(role);
     }
-    
+
     if (search) {
-      whereConditions.push('(u.name LIKE $1 OR u.email LIKE $2 OR u.oauth_nickname LIKE $3)');
-      const searchPattern = `%${search}%`;
-      params.push(searchPattern, searchPattern, searchPattern);
+      whereConditions.push(`(u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex} OR u.oauth_nickname ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
     }
-    
-    const whereClause = whereConditions.length > 0 
-      ? 'WHERE ' + whereConditions.join(' AND ') 
+
+    const whereClause = whereConditions.length > 0
+      ? 'WHERE ' + whereConditions.join(' AND ')
       : '';
     
     // 정렬 검증
@@ -440,12 +441,12 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
       LEFT JOIN organizations o ON u.organization_id = o.id
       ${whereClause}
       ORDER BY ${sortColumn} ${sortOrder}
-      LIMIT ? OFFSET ?
-    `, [...params, parseInt(limit), offset]);
-    
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `, [...params, parseInt(limit), parseInt(offset)]);
+
     // 전체 개수
     const countQuery = `
-      SELECT COUNT(*) as count 
+      SELECT COUNT(*) as count
       FROM users u
       ${whereClause}
     `;

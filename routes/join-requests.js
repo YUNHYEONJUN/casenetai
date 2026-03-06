@@ -41,8 +41,8 @@ router.get('/organizations', async (req, res) => {
       FROM organizations
       ${whereClause}
       ORDER BY name ASC
-      LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `, [...params, parseInt(limit), parseInt(offset)]);
     
     const totalResult = await db.get(`
       SELECT COUNT(*) as count FROM organizations ${whereClause}

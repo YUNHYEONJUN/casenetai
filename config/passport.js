@@ -74,13 +74,13 @@ passport.use(new KakaoStrategy({
       console.log('📝 카카오 신규 회원가입:', profile.displayName);
 
       const userId = await db.transaction(async (client) => {
-        // 사용자 생성 (기본 role = 'user', is_approved = 0)
+        // 사용자 생성 (기본 role = 'user', is_approved = false)
         const result = await client.query(
           `INSERT INTO users (
             oauth_provider, oauth_id, oauth_nickname,
-            name, email, profile_image,
-            service_type, role, is_active, is_approved
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+            name, oauth_email, profile_image,
+            service_type, role, is_approved
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
           [
             'kakao',
             profile.id,
@@ -90,7 +90,6 @@ passport.use(new KakaoStrategy({
             profile._json?.kakao_account?.profile?.profile_image_url || null,
             'elderly_protection',
             'user',
-            true,
             false
           ]
         );
@@ -154,13 +153,13 @@ passport.use(new NaverStrategy({
       console.log('📝 네이버 신규 회원가입:', profile.displayName);
 
       const userId = await db.transaction(async (client) => {
-        // 사용자 생성 (기본 role = 'user', is_approved = 0)
+        // 사용자 생성 (기본 role = 'user', is_approved = false)
         const result = await client.query(
           `INSERT INTO users (
             oauth_provider, oauth_id, oauth_nickname,
-            name, email, profile_image,
-            service_type, role, is_active, is_approved
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+            name, oauth_email, profile_image,
+            service_type, role, is_approved
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
           [
             'naver',
             profile.id,
@@ -170,7 +169,6 @@ passport.use(new NaverStrategy({
             profile.profileImage || null,
             'elderly_protection',
             'user',
-            true,
             false
           ]
         );
@@ -234,13 +232,13 @@ passport.use(new GoogleStrategy({
       console.log('📝 구글 신규 회원가입:', profile.displayName);
 
       const userId = await db.transaction(async (client) => {
-        // 사용자 생성 (기본 role = 'user', is_approved = 0)
+        // 사용자 생성 (기본 role = 'user', is_approved = false)
         const result = await client.query(
           `INSERT INTO users (
             oauth_provider, oauth_id, oauth_nickname,
-            name, email, profile_image,
-            service_type, role, is_active, is_approved
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+            name, oauth_email, profile_image,
+            service_type, role, is_approved
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
           [
             'google',
             profile.id,
@@ -250,7 +248,6 @@ passport.use(new GoogleStrategy({
             profile.photos?.[0]?.value || null,
             'elderly_protection',
             'user',
-            true,
             false
           ]
         );

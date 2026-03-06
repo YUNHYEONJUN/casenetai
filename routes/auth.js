@@ -217,19 +217,13 @@ router.get('/kakao/callback',
   }),
   async (req, res) => {
     try {
-      // 승인 상태 확인 - 미승인 시 접근 차단 (토큰 생성 전에 체크)
-      if (!req.user.is_approved) {
-        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
-        return res.redirect('/login.html?error=not_approved&provider=kakao');
-      }
-
-      // JWT 토큰 생성 (role 포함)
+      // JWT 토큰 생성 (role 포함, 미승인 사용자도 로그인 허용 - 접근제한은 미들웨어에서 처리)
       const token = jwt.sign(
         {
           userId: req.user.id,
-          email: req.user.email || req.user.oauth_nickname,
+          email: req.user.oauth_email || req.user.oauth_nickname,
           role: req.user.role,
-          organizationId: req.user.organization_id
+          organizationId: req.user.organization_id || null
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -256,7 +250,7 @@ router.get('/kakao/callback',
         [req.user.id]
       );
 
-      console.log('✅ 카카오 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      console.log('✅ 카카오 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role, '| Approved:', req.user.is_approved);
 
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
       const serviceType = req.user.service_type || 'elderly_protection';
@@ -286,19 +280,13 @@ router.get('/naver/callback',
   }),
   async (req, res) => {
     try {
-      // 승인 상태 확인 - 미승인 시 접근 차단 (토큰 생성 전에 체크)
-      if (!req.user.is_approved) {
-        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
-        return res.redirect('/login.html?error=not_approved&provider=naver');
-      }
-
-      // JWT 토큰 생성 (role 포함)
+      // JWT 토큰 생성 (role 포함, 미승인 사용자도 로그인 허용)
       const token = jwt.sign(
         {
           userId: req.user.id,
-          email: req.user.email || req.user.oauth_nickname,
+          email: req.user.oauth_email || req.user.oauth_nickname,
           role: req.user.role,
-          organizationId: req.user.organization_id
+          organizationId: req.user.organization_id || null
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -325,7 +313,7 @@ router.get('/naver/callback',
         [req.user.id]
       );
 
-      console.log('✅ 네이버 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      console.log('✅ 네이버 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role, '| Approved:', req.user.is_approved);
 
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
       const serviceType = req.user.service_type || 'elderly_protection';
@@ -357,19 +345,13 @@ router.get('/google/callback',
   }),
   async (req, res) => {
     try {
-      // 승인 상태 확인 - 미승인 시 접근 차단 (토큰 생성 전에 체크)
-      if (!req.user.is_approved) {
-        console.log('⚠️  미승인 사용자 로그인 시도:', req.user.oauth_nickname);
-        return res.redirect('/login.html?error=not_approved&provider=google');
-      }
-
-      // JWT 토큰 생성 (role 포함)
+      // JWT 토큰 생성 (role 포함, 미승인 사용자도 로그인 허용)
       const token = jwt.sign(
         {
           userId: req.user.id,
-          email: req.user.email || req.user.oauth_nickname,
+          email: req.user.oauth_email || req.user.oauth_nickname,
           role: req.user.role,
-          organizationId: req.user.organization_id
+          organizationId: req.user.organization_id || null
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -396,7 +378,7 @@ router.get('/google/callback',
         [req.user.id]
       );
 
-      console.log('✅ 구글 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role);
+      console.log('✅ 구글 로그인 완료:', req.user.oauth_nickname, '| Role:', req.user.role, '| Approved:', req.user.is_approved);
 
       // 토큰을 URL 파라미터로 전달하고 리다이렉트
       const serviceType = req.user.service_type || 'elderly_protection';

@@ -1,3 +1,6 @@
+// XSS 방지 헬퍼 (security-utils.js의 escapeHtml 단축)
+const e = (val) => typeof val === 'string' ? escapeHtml(val) : (val ?? '');
+
 // 로그인 필수 체크
 (function checkAuth() {
     const token = localStorage.getItem('token');
@@ -21,10 +24,160 @@ const resultContainer = document.getElementById('resultContainer');
 const reportContent = document.getElementById('reportContent');
 const editBtn = document.getElementById('editBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const pdfBtn = document.getElementById('pdfBtn');
 
 let selectedFile = null;
 let currentReport = null;
 let costEstimate = null;
+
+// --- #10 브라우저 녹음 ---
+let browserMediaRecorder = null;
+let browserAudioChunks = [];
+let recTimerInterval = null;
+let recStartTime = null;
+
+const startRecordingBtn = document.getElementById('startRecordingBtn');
+const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+const recTimer = document.getElementById('recTimer');
+const recStatus = document.getElementById('recStatus');
+
+if (startRecordingBtn) {
+    startRecordingBtn.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            browserAudioChunks = [];
+            browserMediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            browserMediaRecorder.ondataavailable = (ev) => { if (ev.data.size > 0) browserAudioChunks.push(ev.data); };
+            browserMediaRecorder.onstop = () => {
+                stream.getTracks().forEach(t => t.stop());
+                const blob = new Blob(browserAudioChunks, { type: 'audio/webm' });
+                const file = new File([blob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
+                selectedFile = file;
+                fileNameDisplay.textContent = `녹음 완료: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+                fileNameDisplay.style.color = 'var(--success-color)';
+                fileNameDisplay.style.fontWeight = '600';
+                recStatus.textContent = '녹음이 완료되었습니다. 상담일지 생성 버튼을 눌러주세요.';
+                recStatus.style.color = '#16a34a';
+                checkFormValid();
+            };
+            browserMediaRecorder.start(1000);
+            startRecordingBtn.style.display = 'none';
+            stopRecordingBtn.style.display = 'inline-block';
+            recTimer.style.display = 'inline';
+            recStatus.textContent = '녹음 중...';
+            recStatus.style.color = '#ef4444';
+            recStartTime = Date.now();
+            recTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+                const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const sec = String(elapsed % 60).padStart(2, '0');
+                recTimer.textContent = `${min}:${sec}`;
+            }, 1000);
+        } catch (err) {
+            alert('마이크 접근이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+            console.error('Microphone error:', err);
+        }
+    });
+}
+
+if (stopRecordingBtn) {
+    stopRecordingBtn.addEventListener('click', () => {
+        if (browserMediaRecorder && browserMediaRecorder.state === 'recording') {
+            browserMediaRecorder.stop();
+        }
+        clearInterval(recTimerInterval);
+        startRecordingBtn.style.display = 'inline-block';
+        stopRecordingBtn.style.display = 'none';
+    });
+}
+
+// --- Auto-save / Draft ---
+const DRAFT_KEY = 'casenetai_draft';
+
+function saveDraft() {
+    if (!currentReport) return;
+    try {
+        const draft = {
+            report: currentReport,
+            consultationType: consultationTypeSelect.value || '',
+            consultationStage: consultationStageSelect.value || '',
+            savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        showDraftBanner('auto-saved');
+        console.log('Draft auto-saved', draft.savedAt);
+    } catch (err) {
+        console.warn('Draft save failed:', err);
+    }
+}
+
+function loadDraft() {
+    try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (err) {
+        console.warn('Draft load failed:', err);
+        return null;
+    }
+}
+
+function clearDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+    hideDraftBanner();
+    console.log('Draft cleared');
+}
+
+function showDraftBanner(mode) {
+    let banner = document.getElementById('draftBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'draftBanner';
+        banner.style.cssText = 'padding:10px 16px;border-radius:6px;font-size:0.9em;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
+        resultContainer.parentNode.insertBefore(banner, resultContainer);
+    }
+    if (mode === 'auto-saved') {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        banner.style.background = '#ecfdf5';
+        banner.style.border = '1px solid #6ee7b7';
+        banner.style.color = '#065f46';
+        banner.innerHTML = '<span>임시 저장됨 (' + e(timeStr) + ')</span>'
+            + '<button id="clearDraftBtn" style="background:none;border:1px solid #065f46;color:#065f46;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.85em;">임시 저장 삭제</button>';
+        document.getElementById('clearDraftBtn').addEventListener('click', function() {
+            if (confirm('임시 저장된 상담일지를 삭제하시겠습니까?')) {
+                clearDraft();
+            }
+        });
+    } else if (mode === 'restore-prompt') {
+        banner.style.background = '#fffbeb';
+        banner.style.border = '1px solid #fbbf24';
+        banner.style.color = '#78350f';
+        banner.innerHTML = '<span>이전에 작성 중이던 상담일지가 있습니다.</span>'
+            + '<span>'
+            + '<button id="restoreDraftBtn" style="background:#f59e0b;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.85em;margin-right:6px;">불러오기</button>'
+            + '<button id="discardDraftBtn" style="background:none;border:1px solid #78350f;color:#78350f;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.85em;">삭제</button>'
+            + '</span>';
+        document.getElementById('restoreDraftBtn').addEventListener('click', function() {
+            const draft = loadDraft();
+            if (draft && draft.report) {
+                currentReport = draft.report;
+                if (draft.consultationType) consultationTypeSelect.value = draft.consultationType;
+                if (draft.consultationStage) consultationStageSelect.value = draft.consultationStage;
+                displayReport(currentReport);
+            }
+        });
+        document.getElementById('discardDraftBtn').addEventListener('click', function() {
+            clearDraft();
+        });
+    }
+    banner.style.display = 'flex';
+}
+
+function hideDraftBanner() {
+    const banner = document.getElementById('draftBanner');
+    if (banner) banner.style.display = 'none';
+}
 
 // 파일 선택 이벤트
 audioFileInput.addEventListener('change', async function(e) {
@@ -260,8 +413,6 @@ uploadBtn.addEventListener('click', async function() {
     progressContainer.style.display = 'block';
     resultContainer.style.display = 'none';
 
-    let progressInterval = null;
-
     try {
         console.log('STT engine: clova (fixed)');
         console.log('Stage:', consultationStageSelect.value);
@@ -278,65 +429,82 @@ uploadBtn.addEventListener('click', async function() {
 
         console.log('Blob uploaded:', blob.url);
 
-        // Step 2: 서버에 Blob URL과 함께 처리 요청
-        progressBar.style.width = '90%';
-        progressText.textContent = 'AI 분석 중... 잠시만 기다려주세요';
-
-        // AI 처리 중 진행 시뮬레이션 (90~98%)
-        let currentProgress = 90;
-        progressInterval = setInterval(() => {
-            if (currentProgress < 98) {
-                currentProgress += 1;
-                progressBar.style.width = currentProgress + '%';
-                progressText.textContent = `AI 분석 중... (${currentProgress}%) - 잠시만 기다려주세요`;
-            }
-        }, 3000);
+        // Step 2: SSE 스트리밍으로 서버에 처리 요청
+        progressBar.style.width = '20%';
+        progressText.textContent = 'AI 처리 시작...';
 
         const token = localStorage.getItem('token');
-        const uploadResponse = await fetch('/api/upload-audio', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({
+        const result = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload-audio-stream');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+            let buffer = '';
+            let finalResult = null;
+
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState >= 3 && xhr.responseText) {
+                    // 새로 추가된 데이터만 처리
+                    const newData = xhr.responseText.substring(buffer.length);
+                    buffer = xhr.responseText;
+
+                    // SSE 이벤트 파싱
+                    const lines = newData.split('\n');
+                    let currentEvent = null;
+                    let currentData = '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            currentEvent = line.substring(7);
+                        } else if (line.startsWith('data: ')) {
+                            currentData = line.substring(6);
+                            if (currentEvent && currentData) {
+                                try {
+                                    const parsed = JSON.parse(currentData);
+                                    if (currentEvent === 'progress') {
+                                        progressBar.style.width = parsed.percent + '%';
+                                        progressText.textContent = parsed.message;
+                                    } else if (currentEvent === 'complete') {
+                                        finalResult = parsed;
+                                    } else if (currentEvent === 'error') {
+                                        reject(new Error(parsed.message));
+                                    }
+                                } catch (parseErr) {
+                                    console.warn('SSE parse error:', parseErr);
+                                }
+                                currentEvent = null;
+                                currentData = '';
+                            }
+                        }
+                    }
+                }
+
+                if (xhr.readyState === 4) {
+                    if (finalResult) {
+                        resolve(finalResult);
+                    } else if (!finalResult) {
+                        reject(new Error('서버 응답이 완료되지 않았습니다.'));
+                    }
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('네트워크 오류가 발생했습니다.'));
+            xhr.send(JSON.stringify({
                 blobUrl: blob.url,
                 consultationType: consultationTypeSelect.value,
                 consultationStage: consultationStageSelect.value,
                 sttEngine: 'clova'
-            })
+            }));
         });
 
-        // JSON 파싱 전에 응답 상태 확인
-        if (!uploadResponse.ok) {
-            const responseText = await uploadResponse.text();
-            let errorMessage = `서버 오류 (${uploadResponse.status})`;
-            try {
-                const errorData = JSON.parse(responseText);
-                errorMessage = errorData.error || errorData.message || errorMessage;
-            } catch {
-                errorMessage = responseText.substring(0, 200) || errorMessage;
-            }
-            throw new Error(errorMessage);
-        }
-
-        const result = await uploadResponse.json();
         console.log('Result:', result);
 
-        // 진행 상황 interval 정리
-        clearInterval(progressInterval);
-        progressInterval = null;
-        
-        console.log('서버 응답:', result);
-        
         // 서버 응답 확인
-        if (!uploadResponse.ok || !result.success) {
-            // 오류 발생
-            const errorMessage = result.error || result.details || '알 수 없는 오류가 발생했습니다.';
-            throw new Error(errorMessage);
+        if (!result.success) {
+            throw new Error(result.error || result.message || '알 수 없는 오류가 발생했습니다.');
         }
-        
-        // 성공적으로 보고서 생성됨
+
         if (result.report) {
             currentReport = result.report;
         } else {
@@ -349,7 +517,7 @@ uploadBtn.addEventListener('click', async function() {
 
         // 실제 비용 정보 표시
         if (result.actualCost) {
-            console.log('💰 실제 비용:', {
+            console.log('실제 비용:', {
                 처리시간: result.processingTime,
                 오디오길이: result.actualCost.duration.formatted,
                 STT비용: `${result.actualCost.sttCost}원`,
@@ -357,15 +525,14 @@ uploadBtn.addEventListener('click', async function() {
                 총비용: `${result.actualCost.totalCost}원`,
                 엔진: result.actualCost.engine
             });
-            
-            // 비용 정보 업데이트
+
             const costInfoContainer = document.getElementById('costInfoContainer');
             const totalCost = document.getElementById('totalCost');
             const sttCost = document.getElementById('sttCost');
-            
+
             if (costInfoContainer.style.display !== 'none') {
-                totalCost.innerHTML = `${result.actualCost.totalCost}원 <span style="font-size: 0.8em; opacity: 0.8;">(실제)</span>`;
-                sttCost.innerHTML = `${result.actualCost.sttCost}원 <span style="font-size: 0.8em; opacity: 0.8;">(${result.actualCost.engine})</span>`;
+                totalCost.innerHTML = `${e(String(result.actualCost.totalCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(실제)</span>`;
+                sttCost.innerHTML = `${e(String(result.actualCost.sttCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(${e(result.actualCost.engine)})</span>`;
             }
         }
 
@@ -374,7 +541,7 @@ uploadBtn.addEventListener('click', async function() {
 
         // 결과 표시
         displayReport(currentReport);
-        
+
         // UI 초기화
         setTimeout(() => {
             progressContainer.style.display = 'none';
@@ -382,7 +549,6 @@ uploadBtn.addEventListener('click', async function() {
         }, 1000);
 
     } catch (error) {
-        if (progressInterval) clearInterval(progressInterval);
 
         console.error('Error:', error);
 
@@ -414,49 +580,49 @@ function displayReport(report) {
             <h4>■ 1. 기본정보</h4>
             <div class="report-field">
                 <div class="report-field-label">상담일자</div>
-                <div class="report-field-value">${report.기본정보.상담일자}</div>
+                <div class="report-field-value">${e(report.기본정보.상담일자)}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">상담유형</div>
-                <div class="report-field-value">${consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형}</div>
+                <div class="report-field-value">${e(consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형)}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">접수번호</div>
-                <div class="report-field-value">${report.기본정보.접수번호}</div>
+                <div class="report-field-value">${e(report.기본정보.접수번호)}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">상담원</div>
-                <div class="report-field-value">${report.기본정보.상담원 || '미입력'}</div>
+                <div class="report-field-value">${e(report.기본정보.상담원 || '미입력')}</div>
             </div>
         </div>
 
         <div class="report-section" style="background: #fffbea; border-left: 4px solid #fbbf24; padding: 25px; border-radius: 8px; margin-bottom: 2rem;">
             <h4 style="margin-bottom: 15px; color: #d97706; border-bottom: none;">상담 요약</h4>
-            <div style="font-size: 1.05em; line-height: 1.8; white-space: pre-wrap; color: #78350f; text-align: justify; word-break: keep-all;">${report.상담요약 || '정보 없음'}</div>
+            <div style="font-size: 1.05em; line-height: 1.8; white-space: pre-wrap; color: #78350f; text-align: justify; word-break: keep-all;">${e(report.상담요약 || '정보 없음')}</div>
         </div>
 
         <div class="report-section" style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 25px; border-radius: 8px; margin-bottom: 2rem;">
             <h4 style="margin-bottom: 15px; color: #2563eb; border-bottom: none;">상담 내용 정리</h4>
-            <div style="font-size: 1.0em; line-height: 1.8; white-space: pre-wrap; color: #1e3a8a; text-align: justify; word-break: keep-all;">${report.상담내용정리 || '정보 없음'}</div>
+            <div style="font-size: 1.0em; line-height: 1.8; white-space: pre-wrap; color: #1e3a8a; text-align: justify; word-break: keep-all;">${e(report.상담내용정리 || '정보 없음')}</div>
         </div>
 
         <div class="report-section">
             <h4>■ 2. 신고자/내담자 정보</h4>
             <div class="report-field">
                 <div class="report-field-label">신고자명</div>
-                <div class="report-field-value">${report.신고자정보?.신고자명 || '미입력'}</div>
+                <div class="report-field-value">${e(report.신고자정보?.신고자명 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">피해노인과의 관계</div>
-                <div class="report-field-value">${report.신고자정보?.관계 || '미입력'}</div>
+                <div class="report-field-value">${e(report.신고자정보?.관계 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연락처</div>
-                <div class="report-field-value">${report.신고자정보?.연락처 || '미입력'}</div>
+                <div class="report-field-value">${e(report.신고자정보?.연락처 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">신고 경위</div>
-                <div class="report-field-value">${report.신고자정보?.신고경위 || '미입력'}</div>
+                <div class="report-field-value">${e(report.신고자정보?.신고경위 || '미입력')}</div>
             </div>
         </div>
 
@@ -465,57 +631,57 @@ function displayReport(report) {
             <h5>▶ 인적사항</h5>
             <div class="report-field">
                 <div class="report-field-label">성명</div>
-                <div class="report-field-value">${report.피해노인정보?.성명 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.성명 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">성별</div>
-                <div class="report-field-value">${report.피해노인정보?.성별 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.성별 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">생년월일</div>
-                <div class="report-field-value">${report.피해노인정보?.생년월일 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.생년월일 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연령</div>
-                <div class="report-field-value">${report.피해노인정보?.연령 || '미입력'}세</div>
+                <div class="report-field-value">${e(report.피해노인정보?.연령 || '미입력')}세</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연락처</div>
-                <div class="report-field-value">${report.피해노인정보?.연락처 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.연락처 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">주소</div>
-                <div class="report-field-value">${report.피해노인정보?.주소 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.주소 || '미입력')}</div>
             </div>
-            
+
             <h5>▶ 건강상태</h5>
             <div class="report-field">
                 <div class="report-field-label">신체적 건강</div>
-                <div class="report-field-value">${report.피해노인정보?.건강상태?.신체 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.건강상태?.신체 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">정신적 건강</div>
-                <div class="report-field-value">${report.피해노인정보?.건강상태?.정신 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.건강상태?.정신 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">복용 약물</div>
-                <div class="report-field-value">${report.피해노인정보?.건강상태?.복용약물 || '없음'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.건강상태?.복용약물 || '없음')}</div>
             </div>
-            
+
             <h5>▶ 경제상태</h5>
             <div class="report-field">
                 <div class="report-field-label">경제 상황</div>
-                <div class="report-field-value">${report.피해노인정보?.경제상태 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.경제상태 || '미입력')}</div>
             </div>
-            
+
             <h5>▶ 가족관계</h5>
             <div class="report-field">
                 <div class="report-field-label">가족 구성 및 관계</div>
-                <div class="report-field-value">${report.피해노인정보?.가족관계 || '미입력'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.가족관계 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">주 돌봄 제공자</div>
-                <div class="report-field-value">${report.피해노인정보?.주돌봄제공자 || '없음'}</div>
+                <div class="report-field-value">${e(report.피해노인정보?.주돌봄제공자 || '없음')}</div>
             </div>
         </div>
 
@@ -523,27 +689,27 @@ function displayReport(report) {
             <h4>■ 4. 행위자(학대의심자) 정보</h4>
             <div class="report-field">
                 <div class="report-field-label">성명</div>
-                <div class="report-field-value">${report.행위자정보?.성명 || '미입력'}</div>
+                <div class="report-field-value">${e(report.행위자정보?.성명 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">피해노인과의 관계</div>
-                <div class="report-field-value">${report.행위자정보?.관계 || '미입력'}</div>
+                <div class="report-field-value">${e(report.행위자정보?.관계 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">성별</div>
-                <div class="report-field-value">${report.행위자정보?.성별 || '미입력'}</div>
+                <div class="report-field-value">${e(report.행위자정보?.성별 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연령</div>
-                <div class="report-field-value">${report.행위자정보?.연령 || '미입력'}세</div>
+                <div class="report-field-value">${e(report.행위자정보?.연령 || '미입력')}세</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연락처</div>
-                <div class="report-field-value">${report.행위자정보?.연락처 || '미입력'}</div>
+                <div class="report-field-value">${e(report.행위자정보?.연락처 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">특성</div>
-                <div class="report-field-value">${report.행위자정보?.특성 || '미입력'}</div>
+                <div class="report-field-value">${e(report.행위자정보?.특성 || '미입력')}</div>
             </div>
         </div>
 
@@ -551,27 +717,27 @@ function displayReport(report) {
             <h4>■ 5. 학대 의심 내용</h4>
             <div class="report-field">
                 <div class="report-field-label">학대 유형</div>
-                <div class="report-field-value">${report.학대내용?.학대유형 || '미입력'}</div>
+                <div class="report-field-value">${e(report.학대내용?.학대유형 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">발생 시기</div>
-                <div class="report-field-value">${report.학대내용?.발생시기 || '미입력'}</div>
+                <div class="report-field-value">${e(report.학대내용?.발생시기 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">발생 장소</div>
-                <div class="report-field-value">${report.학대내용?.발생장소 || '미입력'}</div>
+                <div class="report-field-value">${e(report.학대내용?.발생장소 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">구체적 행위 (5W1H)</div>
-                <div class="report-field-value">${report.학대내용?.구체적행위 || '미입력'}</div>
+                <div class="report-field-value">${e(report.학대내용?.구체적행위 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">심각성 정도</div>
-                <div class="report-field-value">${report.학대내용?.심각성 || '미입력'}</div>
+                <div class="report-field-value">${e(report.학대내용?.심각성 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">학대 증거</div>
-                <div class="report-field-value">${report.학대내용?.증거 || '없음'}</div>
+                <div class="report-field-value">${e(report.학대내용?.증거 || '없음')}</div>
             </div>
         </div>
 
@@ -579,19 +745,19 @@ function displayReport(report) {
             <h4>■ 6. 피해노인의 현재 상태</h4>
             <div class="report-field">
                 <div class="report-field-label">신체 상태</div>
-                <div class="report-field-value">${report.현재상태?.신체상태 || '미입력'}</div>
+                <div class="report-field-value">${e(report.현재상태?.신체상태 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">정서 상태</div>
-                <div class="report-field-value">${report.현재상태?.정서상태 || '미입력'}</div>
+                <div class="report-field-value">${e(report.현재상태?.정서상태 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">생활 환경</div>
-                <div class="report-field-value">${report.현재상태?.생활환경 || '미입력'}</div>
+                <div class="report-field-value">${e(report.현재상태?.생활환경 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">위험도</div>
-                <div class="report-field-value">${report.현재상태?.위험도 || '미입력'}</div>
+                <div class="report-field-value">${e(report.현재상태?.위험도 || '미입력')}</div>
             </div>
         </div>
 
@@ -603,15 +769,15 @@ function displayReport(report) {
             </div>
             <div class="report-field">
                 <div class="report-field-label">방문 일시</div>
-                <div class="report-field-value">${report.현장조사?.방문일시 || '해당없음'}</div>
+                <div class="report-field-value">${e(report.현장조사?.방문일시 || '해당없음')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">관찰 내용</div>
-                <div class="report-field-value">${report.현장조사?.관찰내용 || '해당없음'}</div>
+                <div class="report-field-value">${e(report.현장조사?.관찰내용 || '해당없음')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">면담 내용</div>
-                <div class="report-field-value">${report.현장조사?.면담내용 || '해당없음'}</div>
+                <div class="report-field-value">${e(report.현장조사?.면담내용 || '해당없음')}</div>
             </div>
         </div>
 
@@ -619,19 +785,19 @@ function displayReport(report) {
             <h4>■ 8. 즉시 조치사항</h4>
             <div class="report-field">
                 <div class="report-field-label">응급 조치</div>
-                <div class="report-field-value">${report.즉시조치?.응급조치 || '없음'}</div>
+                <div class="report-field-value">${e(report.즉시조치?.응급조치 || '없음')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">분리 보호</div>
-                <div class="report-field-value">${report.즉시조치?.분리보호 || '없음'}</div>
+                <div class="report-field-value">${e(report.즉시조치?.분리보호 || '없음')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">의료 연계</div>
-                <div class="report-field-value">${report.즉시조치?.의료연계 || '없음'}</div>
+                <div class="report-field-value">${e(report.즉시조치?.의료연계 || '없음')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">기타 조치</div>
-                <div class="report-field-value">${report.즉시조치?.기타조치 || '없음'}</div>
+                <div class="report-field-value">${e(report.즉시조치?.기타조치 || '없음')}</div>
             </div>
         </div>
 
@@ -639,19 +805,19 @@ function displayReport(report) {
             <h4>■ 9. 향후 계획</h4>
             <div class="report-field">
                 <div class="report-field-label">단기 계획</div>
-                <div class="report-field-value">${report.향후계획?.단기계획 || '미입력'}</div>
+                <div class="report-field-value">${e(report.향후계획?.단기계획 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">장기 계획</div>
-                <div class="report-field-value">${report.향후계획?.장기계획 || '미입력'}</div>
+                <div class="report-field-value">${e(report.향후계획?.장기계획 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">모니터링 계획</div>
-                <div class="report-field-value">${report.향후계획?.모니터링 || '미입력'}</div>
+                <div class="report-field-value">${e(report.향후계획?.모니터링 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">연계 기관</div>
-                <div class="report-field-value">${report.향후계획?.연계기관 || '없음'}</div>
+                <div class="report-field-value">${e(report.향후계획?.연계기관 || '없음')}</div>
             </div>
         </div>
 
@@ -659,12 +825,32 @@ function displayReport(report) {
             <h4>■ 10. 상담원 의견 및 특이사항</h4>
             <div class="report-field">
                 <div class="report-field-label">상담원 종합 의견</div>
-                <div class="report-field-value">${report.상담원의견 || '미입력'}</div>
+                <div class="report-field-value">${e(report.상담원의견 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">특이사항</div>
-                <div class="report-field-value">${report.특이사항 || '없음'}</div>
+                <div class="report-field-value">${e(report.특이사항 || '없음')}</div>
             </div>
+        </div>
+    `;
+
+    // 피드백 UI 추가
+    html += `
+        <div class="report-section" style="background:#f0fdf4;border-left:4px solid #22c55e;padding:20px;border-radius:8px;margin-top:2rem;">
+            <h4 style="margin-bottom:12px;color:#166534;">AI 결과 평가</h4>
+            <p style="font-size:0.9em;color:#15803d;margin-bottom:12px;">생성된 상담일지의 품질을 평가해주세요.</p>
+            <div id="feedbackBtns" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="submitFeedback(5)" class="btn btn-secondary" style="padding:6px 16px;">매우 좋음</button>
+                <button onclick="submitFeedback(4)" class="btn btn-secondary" style="padding:6px 16px;">좋음</button>
+                <button onclick="submitFeedback(3)" class="btn btn-secondary" style="padding:6px 16px;">보통</button>
+                <button onclick="submitFeedback(2)" class="btn btn-secondary" style="padding:6px 16px;">부족</button>
+                <button onclick="submitFeedback(1)" class="btn btn-secondary" style="padding:6px 16px;">매우 부족</button>
+            </div>
+            <div id="feedbackComment" style="display:none;margin-top:12px;">
+                <textarea id="feedbackText" rows="2" placeholder="구체적인 피드백 (선택)" style="width:100%;padding:8px;border:1px solid #86efac;border-radius:6px;font-size:0.9em;resize:vertical;"></textarea>
+                <button onclick="sendFeedbackComment()" class="btn btn-primary" style="margin-top:8px;padding:6px 16px;font-size:0.9em;">피드백 전송</button>
+            </div>
+            <div id="feedbackDone" style="display:none;color:#166534;font-weight:600;">감사합니다! 피드백이 반영됩니다.</div>
         </div>
     `;
 
@@ -674,6 +860,9 @@ function displayReport(report) {
 
     // 결과로 스크롤
     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Auto-save draft
+    saveDraft();
 }
 
 // 수정 모드 상태
@@ -745,7 +934,10 @@ function exitEditMode() {
     
     // 편집된 내용을 currentReport에 저장
     updateReportFromDOM();
-    
+
+    // Auto-save after edit
+    saveDraft();
+
     // 편집 모드 해제
     const valueFields = reportContent.querySelectorAll('.report-field-value');
     valueFields.forEach(field => {
@@ -885,6 +1077,15 @@ downloadBtn.addEventListener('click', function() {
         console.error('다운로드 오류:', error);
         alert('TXT 파일 다운로드 중 오류가 발생했습니다: ' + error.message);
     }
+});
+
+// PDF 다운로드 버튼 - window.print() 사용
+pdfBtn.addEventListener('click', function() {
+    if (!currentReport) {
+        alert('먼저 상담일지를 생성해주세요.');
+        return;
+    }
+    window.print();
 });
 
 // 상담일지를 TXT 형식으로 변환하는 함수
@@ -1028,6 +1229,122 @@ function convertReportToTxt(report) {
     return txt;
 }
 
+// --- #8 AI 피드백 ---
+let currentFeedbackRating = null;
+
+function submitFeedback(rating) {
+    currentFeedbackRating = rating;
+    document.getElementById('feedbackBtns').querySelectorAll('button').forEach((btn, i) => {
+        btn.style.opacity = (5 - i) === rating ? '1' : '0.4';
+        btn.style.fontWeight = (5 - i) === rating ? '700' : '400';
+    });
+    if (rating <= 3) {
+        document.getElementById('feedbackComment').style.display = 'block';
+    } else {
+        sendFeedbackComment();
+    }
+}
+
+function sendFeedbackComment() {
+    const comment = document.getElementById('feedbackText')?.value || '';
+    const token = localStorage.getItem('token');
+    // 서버로 비동기 전송 (실패해도 무시)
+    fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+            rating: currentFeedbackRating,
+            comment: comment,
+            reportType: 'consultation',
+            timestamp: new Date().toISOString()
+        })
+    }).catch(() => {});
+    // UI 업데이트
+    document.getElementById('feedbackBtns').style.display = 'none';
+    document.getElementById('feedbackComment').style.display = 'none';
+    document.getElementById('feedbackDone').style.display = 'block';
+    console.log('Feedback submitted:', currentFeedbackRating, comment);
+}
+
+// --- #2 템플릿 저장/불러오기 ---
+const TEMPLATES_KEY = 'casenetai_templates';
+
+function getTemplates() {
+    try {
+        return JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]');
+    } catch { return []; }
+}
+
+function saveAsTemplate() {
+    if (!currentReport) { alert('저장할 상담일지가 없습니다.'); return; }
+    const name = prompt('템플릿 이름을 입력하세요:', `상담일지_${currentReport.기본정보?.상담일자 || ''}`);
+    if (!name) return;
+    const templates = getTemplates();
+    templates.push({
+        id: Date.now(),
+        name: name,
+        report: currentReport,
+        consultationType: consultationTypeSelect.value,
+        consultationStage: consultationStageSelect.value,
+        savedAt: new Date().toISOString()
+    });
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+    alert('템플릿이 저장되었습니다.');
+    updateTemplateSelect();
+}
+
+function loadTemplate(id) {
+    const templates = getTemplates();
+    const tmpl = templates.find(t => t.id === id);
+    if (!tmpl) return;
+    currentReport = tmpl.report;
+    if (tmpl.consultationType) consultationTypeSelect.value = tmpl.consultationType;
+    if (tmpl.consultationStage) consultationStageSelect.value = tmpl.consultationStage;
+    displayReport(currentReport);
+}
+
+function deleteTemplate(id) {
+    if (!confirm('이 템플릿을 삭제하시겠습니까?')) return;
+    const templates = getTemplates().filter(t => t.id !== id);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+    updateTemplateSelect();
+}
+
+function updateTemplateSelect() {
+    const sel = document.getElementById('templateSelect');
+    if (!sel) return;
+    const templates = getTemplates();
+    sel.innerHTML = '<option value="">저장된 템플릿 불러오기</option>';
+    templates.forEach(t => {
+        const date = new Date(t.savedAt).toLocaleDateString('ko-KR');
+        sel.innerHTML += `<option value="${t.id}">${escapeHtml(t.name)} (${date})</option>`;
+    });
+}
+
+// --- #5 기능 간 데이터 연계 ---
+function sendToStatement() {
+    if (!currentReport) { alert('상담일지가 없습니다.'); return; }
+    sessionStorage.setItem('casenetai_shared_data', JSON.stringify({
+        source: 'consultation',
+        transcript: currentReport.원본텍스트 || currentReport.상담내용정리 || '',
+        report: currentReport
+    }));
+    window.location.href = '/statement-recording.html?from=consultation';
+}
+
+function sendToFactConfirmation() {
+    if (!currentReport) { alert('상담일지가 없습니다.'); return; }
+    sessionStorage.setItem('casenetai_shared_data', JSON.stringify({
+        source: 'consultation',
+        transcript: currentReport.원본텍스트 || currentReport.상담내용정리 || '',
+        report: currentReport
+    }));
+    window.location.href = '/fact-confirmation.html?from=consultation';
+}
+
 // 스무스 스크롤
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
@@ -1044,6 +1361,37 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 // 페이지 로드 시 초기 상태 체크
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎯 페이지 로드 완료');
+    console.log('페이지 로드 완료');
     checkFormValid();
+
+    // Check for saved draft
+    const draft = loadDraft();
+    if (draft && draft.report) {
+        showDraftBanner('restore-prompt');
+    }
+
+    // 템플릿 목록 초기화
+    updateTemplateSelect();
+
+    // 대시보드에서 템플릿 열기 요청 확인
+    const loadId = sessionStorage.getItem('load_template_id');
+    if (loadId) {
+        sessionStorage.removeItem('load_template_id');
+        loadTemplate(Number(loadId));
+    }
+
+    // 다른 기능에서 전달된 데이터 확인 (cross-feature)
+    const sharedRaw = sessionStorage.getItem('casenetai_shared_data');
+    if (sharedRaw) {
+        try {
+            const shared = JSON.parse(sharedRaw);
+            if (shared.source === 'statement' || shared.source === 'fact-confirmation') {
+                if (shared.transcript && confirm('다른 기능에서 전달된 텍스트 데이터가 있습니다. 불러오시겠습니까?')) {
+                    // transcript를 활용할 수 있도록 세션에 유지
+                    console.log('Shared data loaded from:', shared.source);
+                }
+            }
+        } catch (err) { /* ignore */ }
+        sessionStorage.removeItem('casenetai_shared_data');
+    }
 });

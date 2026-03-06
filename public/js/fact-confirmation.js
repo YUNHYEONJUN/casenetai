@@ -2,6 +2,9 @@
  * 사실확인서 자동 생성 - 프론트엔드 로직
  */
 
+// XSS 방지 헬퍼
+const e = (val) => typeof val === 'string' ? escapeHtml(val) : (val ?? '');
+
 let selectedFile = null;
 let transcribedText = '';
 let parsedDocument = null;
@@ -54,6 +57,28 @@ document.addEventListener('DOMContentLoaded', function() {
         .toISOString()
         .slice(0, 16);
     document.getElementById('investigationDate').value = localDateTime;
+
+    // 상담일지에서 전달된 데이터 수신
+    const sharedRaw = sessionStorage.getItem('casenetai_shared_data');
+    if (sharedRaw) {
+        try {
+            const shared = JSON.parse(sharedRaw);
+            if (shared.source === 'consultation' && shared.transcript) {
+                sessionStorage.removeItem('casenetai_shared_data');
+                transcribedText = shared.transcript;
+                const transcriptArea = document.getElementById('transcriptArea');
+                if (transcriptArea) {
+                    transcriptArea.value = transcribedText;
+                    transcriptArea.style.display = 'block';
+                }
+                const transcribeBtn = document.getElementById('transcribeBtn');
+                if (transcribeBtn) transcribeBtn.style.display = 'none';
+                const generateBtn = document.getElementById('generateBtn');
+                if (generateBtn) generateBtn.disabled = false;
+                alert('상담일지에서 텍스트를 불러왔습니다. 사실확인서 생성 버튼을 눌러주세요.');
+            }
+        } catch (err) { console.warn('Shared data load failed:', err); }
+    }
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -231,33 +256,33 @@ function renderPreview(document) {
     let html = '';
 
     // 제목
-    html += `<div class="doc-title" contenteditable="true">${document.title}</div>`;
+    html += `<div class="doc-title" contenteditable="true">${e(document.title)}</div>`;
 
     // 개인정보 테이블
     html += `
         <table class="doc-table">
             <tr>
                 <th>성명</th>
-                <td contenteditable="true">${document.personalInfo.subjectName}</td>
+                <td contenteditable="true">${e(document.personalInfo.subjectName)}</td>
                 <th>생년월일</th>
-                <td contenteditable="true">${document.personalInfo.birthDate}</td>
+                <td contenteditable="true">${e(document.personalInfo.birthDate)}</td>
             </tr>
             <tr>
                 <th>소속기관</th>
-                <td contenteditable="true">${document.personalInfo.organization || '-'}</td>
+                <td contenteditable="true">${e(document.personalInfo.organization || '-')}</td>
                 <th>직위</th>
-                <td contenteditable="true">${document.personalInfo.position || '-'}</td>
+                <td contenteditable="true">${e(document.personalInfo.position || '-')}</td>
             </tr>
             <tr>
                 <th>연락처</th>
-                <td contenteditable="true">${document.personalInfo.contact || '-'}</td>
+                <td contenteditable="true">${e(document.personalInfo.contact || '-')}</td>
                 <th>조사일시</th>
-                <td contenteditable="true">${formatDateTime(document.personalInfo.investigationDate)}</td>
+                <td contenteditable="true">${e(formatDateTime(document.personalInfo.investigationDate))}</td>
             </tr>
             ${document.personalInfo.notes ? `
             <tr>
                 <th>기타사항</th>
-                <td colspan="3" contenteditable="true">${document.personalInfo.notes}</td>
+                <td colspan="3" contenteditable="true">${e(document.personalInfo.notes)}</td>
             </tr>
             ` : ''}
         </table>
@@ -268,7 +293,7 @@ function renderPreview(document) {
         html += `
             <div class="doc-section">
                 <div class="doc-section-title" contenteditable="true">
-                    ■ ${section.title}
+                    ■ ${e(section.title)}
                 </div>
         `;
 
@@ -276,10 +301,10 @@ function renderPreview(document) {
             html += `
                 <div class="qa-item">
                     <div class="qa-question" contenteditable="true">
-                        문${itemIndex + 1}. ${item.question}
+                        문${itemIndex + 1}. ${e(item.question)}
                     </div>
                     <div class="qa-answer" contenteditable="true">
-                        답${itemIndex + 1}. ${item.answer}
+                        답${itemIndex + 1}. ${e(item.answer)}
                     </div>
                 </div>
             `;
@@ -296,7 +321,7 @@ function renderPreview(document) {
             </p>
             <div class="signature-line">
                 <p>${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p style="margin-top: 30px;">진술자: ${document.personalInfo.subjectName} (서명 또는 인)</p>
+                <p style="margin-top: 30px;">진술자: ${e(document.personalInfo.subjectName)} (서명 또는 인)</p>
                 <p>조사자: __________________ (서명 또는 인)</p>
             </div>
         </div>

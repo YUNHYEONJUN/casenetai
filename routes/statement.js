@@ -306,7 +306,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       [statementId, userId]
     );
 
-    if (checkResult.rows.length === 0) {
+    if (checkResult.length === 0) {
       return res.status(403).json({
         success: false,
         error: '수정 권한이 없거나 존재하지 않는 진술서입니다.'
@@ -366,49 +366,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GET /api/statement/:id
-// 진술서 조회
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.get('/:id', authenticateToken, async (req, res) => {
-  const db = await getDB();
-  
-  try {
-    const statementId = req.params.id;
-    const userId = req.user.userId;
-
-    const result = await db.query(
-      `SELECT s.*, u.username as creator_name
-       FROM statements s
-       LEFT JOIN users u ON s.user_id = u.id
-       WHERE s.id = $1 AND s.user_id = $2`,
-      [statementId, userId]
-    );
-
-    if (result.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: '진술서를 찾을 수 없습니다.'
-      });
-    }
-
-    res.json({
-      success: true,
-      statement: result[0]
-    });
-
-  } catch (error) {
-    console.error('❌ 진술서 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 조회 중 오류가 발생했습니다.',
-      details: error.message
-    });
-  }
-});
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // GET /api/statement/list
-// 진술서 목록 조회
+// 진술서 목록 조회 (/:id 보다 먼저 정의해야 함)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get('/list', authenticateToken, async (req, res) => {
   const db = await getDB();
@@ -485,6 +444,47 @@ router.get('/list', authenticateToken, async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GET /api/statement/:id
+// 진술서 조회
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/:id', authenticateToken, async (req, res) => {
+  const db = await getDB();
+
+  try {
+    const statementId = req.params.id;
+    const userId = req.user.userId;
+
+    const result = await db.query(
+      `SELECT s.*, u.username as creator_name
+       FROM statements s
+       LEFT JOIN users u ON s.user_id = u.id
+       WHERE s.id = $1 AND s.user_id = $2`,
+      [statementId, userId]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '진술서를 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      statement: result[0]
+    });
+
+  } catch (error) {
+    console.error('❌ 진술서 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '진술서 조회 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DELETE /api/statement/:id
 // 진술서 삭제
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -501,7 +501,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       [statementId, userId]
     );
 
-    if (checkResult.rows.length === 0) {
+    if (checkResult.length === 0) {
       return res.status(403).json({
         success: false,
         error: '삭제 권한이 없거나 존재하지 않는 진술서입니다.'

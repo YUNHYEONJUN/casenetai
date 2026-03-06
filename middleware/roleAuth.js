@@ -4,6 +4,7 @@
  * - org_admin: 기관 관리자 (소속 직원 관리)
  * - user: 일반 사용자 (서비스 이용)
  */
+const { getDB } = require('../database/db-postgres');
 
 /**
  * System Admin 권한 확인
@@ -115,7 +116,7 @@ function requireUser(req, res, next) {
  * 기관 소속 사용자 확인
  * 기관에 가입되고 승인된 사용자만 접근 가능
  */
-function requireOrganizationMember(req, res, next) {
+async function requireOrganizationMember(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -136,11 +137,21 @@ function requireOrganizationMember(req, res, next) {
     });
   }
 
-  // 승인 여부 확인
-  if (!req.user.is_approved) {
-    return res.status(403).json({
+  // 승인 여부 확인 (JWT에 is_approved가 없으므로 DB에서 조회)
+  try {
+    const db = getDB();
+    const user = await db.get('SELECT is_approved FROM users WHERE id = ?', [req.user.userId]);
+    if (!user || !user.is_approved) {
+      return res.status(403).json({
+        success: false,
+        error: '기관 가입 승인이 필요합니다'
+      });
+    }
+  } catch (error) {
+    console.error('❌ 승인 여부 확인 실패:', error);
+    return res.status(500).json({
       success: false,
-      error: '기관 가입 승인이 필요합니다'
+      error: '권한 확인 중 오류가 발생했습니다'
     });
   }
 

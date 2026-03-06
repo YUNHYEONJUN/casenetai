@@ -169,6 +169,17 @@ app.use('/api/statement', statementRouter);
 // 사실확인서 API
 app.use('/api/fact-confirmation', factConfirmationRouter);
 
+// 프론트엔드 에러 로그 수신
+app.post('/api/error-log', (req, res) => {
+  const { errors } = req.body;
+  if (Array.isArray(errors)) {
+    errors.forEach(err => {
+      console.warn('[Client Error]', err.type, '|', err.message, '|', err.url, '|', err.time);
+    });
+  }
+  res.json({ success: true });
+});
+
 // Multer 설정 (음성 파일 업로드)
 const os = require('os');
 const storage = multer.diskStorage({
@@ -632,6 +643,148 @@ app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
     res.status(500).json({
       error: '파일 업로드 중 오류가 발생했습니다.'
     });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SSE 스트리밍 음성 처리 API (실시간 진행상황 전송)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
+  if (req.headers['content-type']?.includes('application/json')) {
+    next();
+  } else {
+    upload.single('audioFile')(req, res, next);
+  }
+}, async (req, res) => {
+  // SSE 헤더 설정
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+
+  const sendEvent = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  let audioFilePath = null;
+  let blobUrl = null;
+
+  try {
+    const consultationType = req.body.consultationType;
+    const consultationStage = req.body.consultationStage;
+    const sttEngine = req.body.sttEngine;
+    blobUrl = req.body.blobUrl;
+
+    // Blob 다운로드
+    if (blobUrl) {
+      sendEvent('progress', { stage: 'download', percent: 10, message: '음성 파일 다운로드 중...' });
+      const tmpDir = os.tmpdir();
+      const tmpFilename = `audio-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      audioFilePath = path.join(tmpDir, tmpFilename);
+
+      const response = await fetch(blobUrl);
+      if (!response.ok) throw new Error('Blob 파일 다운로드 실패');
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(audioFilePath, buffer);
+      sendEvent('progress', { stage: 'download_done', percent: 20, message: `파일 다운로드 완료 (${(buffer.length / 1024 / 1024).toFixed(2)}MB)` });
+    } else if (req.file) {
+      audioFilePath = req.file.path;
+      sendEvent('progress', { stage: 'upload_done', percent: 20, message: '파일 업로드 완료' });
+    } else {
+      sendEvent('error', { message: '파일이 업로드되지 않았습니다.' });
+      res.end();
+      return;
+    }
+
+    // API 키 확인
+    const isApiKeyValid = await checkApiKey();
+
+    if (!isApiKeyValid) {
+      // Mock 모드
+      sendEvent('progress', { stage: 'mock', percent: 50, message: 'Mock 모드: 기본 양식 생성 중...' });
+      const report = generateMockReport(consultationType);
+      sendEvent('complete', {
+        success: true,
+        mode: 'mock',
+        report: report,
+        warning: 'OpenAI API 키가 설정되지 않아 기본 양식을 제공합니다.'
+      });
+      res.end();
+      return;
+    }
+
+    // 비용 계산
+    const startTime = Date.now();
+    let actualCost = null;
+    try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execPromise = promisify(exec);
+      const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
+      if (safePath !== audioFilePath) throw new Error('Invalid file path');
+      const { stdout } = await execPromise(
+        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
+      );
+      const durationSeconds = parseFloat(stdout.trim());
+      const durationMinutes = Math.ceil(durationSeconds / 60);
+      const exchangeRate = 1320;
+      const whisperPricePerMinute = 0.006;
+      const whisperCostKRW = Math.ceil(durationMinutes * whisperPricePerMinute * exchangeRate);
+      actualCost = {
+        duration: { seconds: Math.floor(durationSeconds), minutes: durationMinutes, formatted: `${Math.floor(durationSeconds / 60)}분 ${Math.floor(durationSeconds % 60)}초` },
+        sttCost: whisperCostKRW, aiCost: 0, totalCost: whisperCostKRW, engine: 'OpenAI Whisper'
+      };
+    } catch (err) {
+      console.warn('오디오 길이 측정 실패:', err.message);
+    }
+
+    // 스트리밍 처리 (onProgress 콜백)
+    const report = await aiService.processAudioWithProgress(
+      audioFilePath, consultationType, consultationStage,
+      (stage, percent, message) => {
+        sendEvent('progress', { stage, percent, message });
+      }
+    );
+
+    const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    // 크레딧 차감
+    let creditResult = null;
+    if (req.user && actualCost) {
+      try {
+        creditResult = await creditService.deduct(
+          req.user.userId, actualCost.totalCost,
+          actualCost.duration.seconds / 60, consultationType,
+          sttEngine === 'clova' ? 'clova' : 'whisper', 'gemini'
+        );
+      } catch (creditError) {
+        console.error('크레딧 차감 실패:', creditError.message);
+      }
+    }
+
+    // 완료 이벤트
+    sendEvent('complete', {
+      success: true,
+      mode: 'ai',
+      report: report,
+      processingTime: `${processingTime}초`,
+      actualCost: actualCost,
+      creditInfo: creditResult,
+      message: '상담일지가 성공적으로 생성되었습니다.'
+    });
+
+  } catch (error) {
+    console.error('SSE 처리 오류:', error);
+    sendEvent('error', { message: error.message || '처리 중 오류가 발생했습니다.' });
+  } finally {
+    // 임시 파일 및 Blob 정리
+    if (blobUrl && audioFilePath) {
+      try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+      try { await del(blobUrl); } catch (e) { /* ignore */ }
+    }
+    res.end();
   }
 });
 

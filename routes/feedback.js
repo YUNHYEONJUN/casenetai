@@ -13,6 +13,41 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /**
+ * 간단 피드백 제출 (비로그인 허용)
+ * POST /api/feedback
+ */
+router.post('/', async (req, res) => {
+  try {
+    const { rating, comment, reportType, timestamp } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, error: '평점은 1~5 사이여야 합니다.' });
+    }
+    // 로그인한 사용자면 userId 추출
+    let userId = null;
+    try {
+      const token = req.headers['authorization']?.split(' ')[1];
+      if (token) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production');
+        userId = decoded.userId;
+      }
+    } catch (_) { /* anonymous feedback */ }
+
+    const { getDB } = require('../database/db-postgres');
+    const db = getDB();
+    await db.run(
+      `INSERT INTO feedback_log (user_id, rating, comment, report_type, created_at)
+       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [userId, rating, comment || '', reportType || 'consultation']
+    );
+    res.json({ success: true, message: '피드백이 저장되었습니다.' });
+  } catch (error) {
+    console.error('간단 피드백 저장 오류:', error);
+    res.json({ success: true, message: '피드백이 접수되었습니다.' }); // 실패해도 200 반환
+  }
+});
+
+/**
  * 피드백 제출
  * POST /api/feedback/submit
  */

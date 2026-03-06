@@ -5,6 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>노인보호전문기관 - CaseNetAI</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        @media print {
+            /* Hide everything except report */
+            body * {
+                visibility: hidden;
+            }
+            #resultContainer, #resultContainer * {
+                visibility: visible;
+            }
+            #resultContainer {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            /* Hide action buttons in print */
+            .result-actions {
+                display: none !important;
+            }
+            /* Print header */
+            #resultContainer::before {
+                content: "CaseNetAI 상담일지";
+                display: block;
+                font-size: 24pt;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 20pt;
+                padding-bottom: 10pt;
+                border-bottom: 2px solid #333;
+                font-family: 'Malgun Gothic', sans-serif;
+            }
+            /* Report content styling */
+            .report-content {
+                font-family: 'Malgun Gothic', sans-serif;
+                font-size: 11pt;
+                line-height: 1.6;
+                color: #000;
+            }
+            .report-field-label {
+                font-weight: bold;
+                page-break-after: avoid;
+            }
+            .report-field-value {
+                page-break-inside: avoid;
+            }
+            .report-section {
+                page-break-inside: avoid;
+                margin-bottom: 10pt;
+            }
+            /* Page setup */
+            @page {
+                margin: 20mm;
+                size: A4;
+            }
+        }
+    </style>
     <script>
         // 즉시 실행 인증 체크 (페이지 로드 전)
         (function() {
@@ -111,6 +167,16 @@
             <div class="upload-container">
                 <div class="upload-form">
                     <div class="form-group">
+                        <label for="templateSelect">저장된 템플릿</label>
+                        <div style="display:flex;gap:8px;">
+                            <select id="templateSelect" class="form-control" style="flex:1;">
+                                <option value="">저장된 템플릿 불러오기</option>
+                            </select>
+                            <button type="button" onclick="const v=document.getElementById('templateSelect').value;if(v)loadTemplate(Number(v));" class="btn btn-secondary" style="white-space:nowrap;">불러오기</button>
+                            <button type="button" onclick="const v=document.getElementById('templateSelect').value;if(v)deleteTemplate(Number(v));" class="btn btn-secondary" style="white-space:nowrap;background:#ef4444;color:#fff;border-color:#ef4444;">삭제</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="consultationType">상담 방식</label>
                         <select id="consultationType" class="form-control">
                             <option value="">선택해주세요</option>
@@ -135,7 +201,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="audioFile">녹음 파일 업로드</label>
+                        <label>브라우저 녹음</label>
+                        <div id="browserRecorder" style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;">
+                            <button type="button" id="startRecordingBtn" class="btn btn-primary" style="margin-right:8px;">녹음 시작</button>
+                            <button type="button" id="stopRecordingBtn" class="btn btn-secondary" style="display:none;">녹음 중지</button>
+                            <span id="recTimer" style="display:none;margin-left:12px;font-weight:600;color:#ef4444;font-size:1.1em;">00:00</span>
+                            <div id="recStatus" style="margin-top:8px;font-size:0.9em;color:#64748b;">마이크 녹음으로 파일 업로드 없이 바로 처리할 수 있습니다</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="audioFile">또는 파일 업로드</label>
                         <div class="file-upload-wrapper">
                             <input type="file" id="audioFile" accept="audio/*,video/mp4" class="file-input">
                             <label for="audioFile" class="file-label">
@@ -226,6 +302,10 @@
                         <div class="result-actions">
                             <button id="editBtn" class="btn btn-secondary">수정</button>
                             <button id="downloadBtn" class="btn btn-primary">TXT 다운로드</button>
+                            <button id="pdfBtn" class="btn btn-primary">PDF 다운로드</button>
+                            <button onclick="saveAsTemplate()" class="btn btn-secondary">템플릿 저장</button>
+                            <button onclick="sendToStatement()" class="btn btn-secondary">진술서 연계</button>
+                            <button onclick="sendToFactConfirmation()" class="btn btn-secondary">사실확인서 연계</button>
                         </div>
                     </div>
                     <div id="reportContent" class="report-content">

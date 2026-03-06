@@ -381,31 +381,32 @@ router.get('/logs/anonymization', async (req, res) => {
     
     let whereClauses = [];
     let params = [];
-    
+    let paramIndex = 1;
+
     if (organizationId) {
-      whereClauses.push('al.organization_id = $1');
+      whereClauses.push(`al.organization_id = $${paramIndex++}`);
       params.push(organizationId);
     }
-    
+
     if (status) {
-      whereClauses.push('al.status = $1');
+      whereClauses.push(`al.status = $${paramIndex++}`);
       params.push(status);
     }
-    
+
     if (startDate) {
-      whereClauses.push('al.created_at >= $1');
+      whereClauses.push(`al.created_at >= $${paramIndex++}`);
       params.push(startDate);
     }
-    
+
     if (endDate) {
-      whereClauses.push('al.created_at <= $1');
+      whereClauses.push(`al.created_at <= $${paramIndex++}`);
       params.push(endDate);
     }
-    
+
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    
+
     const logs = await db.query(
-      `SELECT 
+      `SELECT
          al.*,
          u.name as user_name,
          u.email as user_email,
@@ -415,7 +416,7 @@ router.get('/logs/anonymization', async (req, res) => {
        LEFT JOIN organizations o ON al.organization_id = o.id
        ${whereClause}
        ORDER BY al.created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, parseInt(limit), parseInt(offset)]
     );
     

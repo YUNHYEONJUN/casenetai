@@ -1288,9 +1288,152 @@ async function validateApiKey() {
   }
 }
 
+/**
+ * SSE 스트리밍 지원 파이프라인 (STT + AI 분석 + 진행상황 콜백)
+ * @param {string} audioFilePath - 음성 파일 경로
+ * @param {string} consultationType - 상담 유형
+ * @param {string} consultationStage - 상담 단계
+ * @param {function} onProgress - 진행상황 콜백 (stage, percent, message, data?)
+ * @returns {Promise<Object>} - 완성된 상담일지
+ */
+async function processAudioWithProgress(audioFilePath, consultationType, consultationStage = 'intake', onProgress) {
+  try {
+    // STT 단계
+    onProgress('stt', 30, '음성을 텍스트로 변환 중...');
+    const transcript = await transcribeAudio(audioFilePath);
+    onProgress('stt_done', 45, `음성 변환 완료 (${transcript.length}자)`);
+
+    // AI 분석 1단계: 구조화된 필드 생성
+    onProgress('ai_stage1', 50, '상담 정보 분석 중... (1/2단계)');
+    const structuredData = await generateStructuredFields(transcript, consultationType, consultationStage);
+    onProgress('ai_stage1_done', 65, '상담 정보 분석 완료');
+
+    // AI 분석 2단계: 상담내용정리 생성 (청크 기반)
+    onProgress('ai_stage2', 70, '상담 내용 정리 중... (2/2단계)');
+
+    // 청크 분할
+    const chunkSize = 5000;
+    const chunks = [];
+    let currentPos = 0;
+    while (currentPos < transcript.length) {
+      let endPos = Math.min(currentPos + chunkSize, transcript.length);
+      if (endPos < transcript.length) {
+        const nextPeriod = transcript.indexOf('.', endPos);
+        const nextQuestion = transcript.indexOf('?', endPos);
+        const nextExclaim = transcript.indexOf('!', endPos);
+        const candidates = [nextPeriod, nextQuestion, nextExclaim].filter(pos => pos !== -1 && pos < endPos + 500);
+        if (candidates.length > 0) {
+          endPos = Math.min(...candidates) + 1;
+        }
+      }
+      chunks.push(transcript.substring(currentPos, endPos));
+      currentPos = endPos;
+    }
+
+    // 청크별 처리 (진행상황 콜백 포함)
+    const results = [];
+    const maxConcurrent = 3;
+    for (let i = 0; i < chunks.length; i += maxConcurrent) {
+      const batch = chunks.slice(i, i + maxConcurrent);
+      const batchPromises = batch.map((chunk, idx) =>
+        processTranscriptChunk(chunk, i + idx, chunks.length)
+      );
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      const chunkProgress = 70 + Math.round(((i + batchResults.length) / chunks.length) * 25);
+      onProgress('ai_stage2_chunk', chunkProgress, `상담 내용 정리 중... (${i + batchResults.length}/${chunks.length} 청크)`);
+    }
+
+    const detailedContent = results.join('\n\n');
+
+    // 리포트 조립
+    onProgress('assembling', 96, '상담일지 조립 중...');
+    const currentDate = new Date().toISOString().split('T')[0];
+    const caseNumber = generateCaseNumber();
+
+    let report = {};
+    const baseInfo = {
+      상담일자: currentDate,
+      상담유형: consultationType,
+      상담원: structuredData.상담원 || '정보 없음'
+    };
+
+    if (consultationStage === 'intake' || !['ongoing', 'closure', 'simple'].includes(consultationStage)) {
+      baseInfo.상담단계 = '접수상담';
+      baseInfo.접수번호 = caseNumber;
+      report = {
+        기본정보: baseInfo,
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        신고자정보: structuredData.신고자정보,
+        피해노인정보: structuredData.피해노인정보,
+        행위자정보: structuredData.행위자정보,
+        학대내용: structuredData.학대내용,
+        현재상태: structuredData.현재상태,
+        현장조사: structuredData.현장조사,
+        즉시조치: structuredData.즉시조치,
+        향후계획: structuredData.향후계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'ongoing') {
+      baseInfo.상담단계 = '진행상담';
+      baseInfo.사례번호 = caseNumber;
+      report = {
+        기본정보: baseInfo,
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        새로운정보: structuredData.새로운정보,
+        진행사항: structuredData.진행사항,
+        현재상태: structuredData.현재상태,
+        추가조치: structuredData.추가조치,
+        향후계획: structuredData.향후계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'closure') {
+      baseInfo.상담단계 = '종결상담';
+      baseInfo.사례번호 = caseNumber;
+      report = {
+        기본정보: baseInfo,
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        종결정보: structuredData.종결정보,
+        최종상태평가: structuredData.최종상태평가,
+        제공서비스요약: structuredData.제공서비스요약,
+        사후관리계획: structuredData.사후관리계획,
+        상담원의견: structuredData.상담원의견,
+        특이사항: structuredData.특이사항
+      };
+    } else if (consultationStage === 'simple') {
+      baseInfo.상담단계 = '단순문의';
+      report = {
+        기본정보: baseInfo,
+        상담요약: structuredData.상담요약 || '정보 없음',
+        상담내용정리: detailedContent,
+        문의자정보: structuredData.문의자정보,
+        문의내용: structuredData.문의내용,
+        제공안내: structuredData.제공안내,
+        향후조치: structuredData.향후조치,
+        특이사항: structuredData.특이사항
+      };
+    }
+
+    report.원본텍스트 = transcript;
+    onProgress('complete', 100, '상담일지 생성 완료');
+
+    return report;
+  } catch (error) {
+    onProgress('error', 0, `오류: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   transcribeAudio,
   analyzeCounselingTranscript,
   processAudioToCounselingReport,
+  processAudioWithProgress,
   validateApiKey
 };
