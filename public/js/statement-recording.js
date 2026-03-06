@@ -434,14 +434,7 @@ async function generateStatement() {
     }
 }
 
-/**
- * HTML 이스케이프
- */
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
+// escapeHtml은 security-utils.js에서 전역 제공
 
 /**
  * 문답 목록 렌더링

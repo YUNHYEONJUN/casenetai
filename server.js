@@ -34,12 +34,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://js.tosspayments.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co", "https://*.public.blob.vercel-storage.com", "https://blob.vercel-storage.com", "https://vercel.com"],
+      connectSrc: ["'self'", "https://api.openai.com", "https://*.supabase.co", "https://*.public.blob.vercel-storage.com", "https://blob.vercel-storage.com", "https://vercel.com", "https://*.tosspayments.com"],
+      frameSrc: ["https://js.tosspayments.com"],
     },
   },
   hsts: {
@@ -173,7 +174,10 @@ app.use('/api/fact-confirmation', factConfirmationRouter);
 // 관리자 계정 설정 (1회용)
 app.get('/api/setup-admin', async (req, res) => {
   const key = req.query.key;
-  const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
+  const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
+  if (!MASTER_PASSWORD) {
+    return res.status(500).json({ error: 'MASTER_PASSWORD 환경변수가 설정되지 않았습니다.' });
+  }
   if (key !== MASTER_PASSWORD) {
     return res.status(403).json({ error: '마스터 비밀번호가 올바르지 않습니다' });
   }

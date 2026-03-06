@@ -95,7 +95,7 @@ router.post('/prepare', authenticateToken, async (req, res) => {
 // 결제 승인 (토스페이먼츠 콜백)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/confirm', async (req, res) => {
+router.post('/confirm', authenticateToken, async (req, res) => {
   try {
     const { orderId, paymentKey, amount } = req.body;
     
@@ -121,7 +121,7 @@ router.post('/confirm', async (req, res) => {
 // 결제 실패 처리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/fail', async (req, res) => {
+router.post('/fail', authenticateToken, async (req, res) => {
   try {
     const { orderId, errorCode, errorMessage } = req.body;
     

@@ -396,9 +396,9 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
     }
 
     if (search) {
-      whereConditions.push(`(u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex} OR u.oauth_nickname ILIKE $${paramIndex})`);
-      params.push(`%${search}%`);
-      paramIndex++;
+      whereConditions.push(`(u.name ILIKE $${paramIndex} OR u.oauth_email ILIKE $${paramIndex + 1} OR u.oauth_nickname ILIKE $${paramIndex + 2})`);
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      paramIndex += 3;
     }
 
     const whereClause = whereConditions.length > 0

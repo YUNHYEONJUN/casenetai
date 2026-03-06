@@ -34,7 +34,10 @@ router.post('/register', async (req, res) => {
     const { email, password, name, phone, organizationId, masterPassword, role, credits } = req.body;
     
     // 🔐 관리자 전용: 마스터 비밀번호 검증
-    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'CaseNetAI2026!@#';
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
+    if (!MASTER_PASSWORD) {
+      return res.status(500).json({ success: false, error: 'MASTER_PASSWORD 환경변수가 설정되지 않았습니다.' });
+    }
     if (masterPassword !== MASTER_PASSWORD) {
       return res.status(403).json({
         success: false,

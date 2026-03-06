@@ -233,14 +233,7 @@ function createMappingTable(mappings) {
     container.innerHTML = html;
 }
 
-/**
- * HTML 이스케이프
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml은 security-utils.js에서 전역 제공
 
 /**
  * 익명화된 텍스트 복사

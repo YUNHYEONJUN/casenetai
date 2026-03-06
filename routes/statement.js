@@ -207,7 +207,7 @@ JSON 배열로 출력하되, 각 항목은 다음 구조를 따릅니다:
 // 진술서 저장
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/save', authenticateToken, async (req, res) => {
-  const db = await getDB();
+  const db = getDB();
   
   try {
     const {
@@ -280,7 +280,7 @@ router.post('/save', authenticateToken, async (req, res) => {
 // 진술서 수정
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.put('/:id', authenticateToken, async (req, res) => {
-  const db = await getDB();
+  const db = getDB();
   
   try {
     const statementId = req.params.id;
@@ -370,7 +370,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // 진술서 목록 조회 (/:id 보다 먼저 정의해야 함)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get('/list', authenticateToken, async (req, res) => {
-  const db = await getDB();
+  const db = getDB();
   
   try {
     const userId = req.user.userId;
@@ -448,7 +448,7 @@ router.get('/list', authenticateToken, async (req, res) => {
 // 진술서 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get('/:id', authenticateToken, async (req, res) => {
-  const db = await getDB();
+  const db = getDB();
 
   try {
     const statementId = req.params.id;
@@ -489,7 +489,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // 진술서 삭제
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.delete('/:id', authenticateToken, async (req, res) => {
-  const db = await getDB();
+  const db = getDB();
   
   try {
     const statementId = req.params.id;

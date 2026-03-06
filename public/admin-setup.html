@@ -217,13 +217,10 @@
     <script src="/js/security-utils.js"></script>
     <script>
         const esc = SecurityUtils.escapeHtml;
-        // 마스터 비밀번호 (환경 변수 또는 하드코딩)
-        const MASTER_PASSWORD = 'CaseNetAI2026!@#';
-
         function verifyMasterPassword() {
             const input = document.getElementById('masterPassword').value;
-            
-            if (input === MASTER_PASSWORD) {
+
+            if (input && input.length >= 8) {
                 document.getElementById('masterPasswordSection').classList.add('hide');
                 document.getElementById('setupForm').classList.remove('hide');
                 showAlert('마스터 비밀번호 인증 성공!', 'success');
@@ -267,7 +264,7 @@
                         password,
                         name,
                         phone: phone || null,
-                        masterPassword: MASTER_PASSWORD,  // 마스터 비밀번호
+                        masterPassword: document.getElementById('masterPassword').value,
                         role: role,                        // 역할 지정
                         credits: credits                   // 크레딧 지정
                     })

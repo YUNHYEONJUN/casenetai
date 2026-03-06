@@ -25,6 +25,28 @@ async function setupAdmin(pool) {
     await client.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check');
     await client.query(`ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))`);
 
+    console.log('2b. 누락 테이블 생성...');
+    await client.query(`CREATE TABLE IF NOT EXISTS organization_usage_quotas (
+      id SERIAL PRIMARY KEY, organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      monthly_quota INTEGER DEFAULT 1000, used_this_month INTEGER DEFAULT 0,
+      quota_reset_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(organization_id)
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS anonymization_logs (
+      id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL,
+      original_length INTEGER, anonymized_length INTEGER, entities_found INTEGER DEFAULT 0,
+      processing_time_ms INTEGER, status VARCHAR(50) DEFAULT 'completed', error_message TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS anonymization_feedback (
+      id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      anonymization_log_id INTEGER REFERENCES anonymization_logs(id) ON DELETE SET NULL,
+      rating INTEGER CHECK (rating >= 1 AND rating <= 5), comment TEXT,
+      report_type VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     console.log('3. 기존 local 관리자 계정 및 관련 데이터 삭제...');
     const existing = await client.query(
       `SELECT id FROM users WHERE oauth_provider = 'local'`
