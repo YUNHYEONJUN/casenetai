@@ -4,6 +4,7 @@ const multer = require('multer');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
+const os = require('os');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { getDB } = require('../database/db-postgres');
 const OpenAI = require('openai');
@@ -13,20 +14,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Multer 설정 (음성 파일 업로드)
+// Multer 설정 (음성 파일 업로드) - Vercel 서버리스 호환 (/tmp 사용)
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/statements');
-    try {
-      await fsPromises.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error);
-    }
+  destination: (req, file, cb) => {
+    cb(null, os.tmpdir());
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `statement-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const safeExtname = path.extname(path.basename(file.originalname));
+    cb(null, `statement-${uniqueSuffix}${safeExtname}`);
   }
 });
 
@@ -34,10 +30,18 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /wav|mp3|m4a|ogg|webm/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
+    // 파일명 보안 검증
+    const basename = path.basename(file.originalname);
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
+      return cb(new Error('잘못된 파일명입니다.'));
+    }
+
+    const allowedExtensions = /wav|mp3|m4a|ogg|webm/;
+    const allowedMimes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a',
+                          'audio/mp4', 'audio/ogg', 'audio/webm', 'video/webm'];
+    const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedMimes.includes(file.mimetype);
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
@@ -72,16 +76,22 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
 
     console.log('✅ STT 변환 완료:', transcription.text.substring(0, 100) + '...');
 
+    // 임시 파일 정리
+    try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+
     res.json({
       success: true,
       transcript: transcription.text,
       duration: transcription.duration,
-      words: transcription.words || [],
-      audioUrl: `/uploads/statements/${req.file.filename}`
+      words: transcription.words || []
     });
 
   } catch (error) {
     console.error('❌ STT 변환 오류:', error);
+    // 임시 파일 정리
+    if (req.file && req.file.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+    }
     res.status(500).json({
       success: false,
       error: 'STT 변환 중 오류가 발생했습니다.',

@@ -237,14 +237,12 @@ async function uploadAndConvert() {
         // 변환된 텍스트 저장 및 표시
         transcribedText = data.transcript;
         transcriptionText.textContent = transcribedText;
-        
-        // 진술서 생성 버튼 활성화
+
+        // 진술서 생성 버튼 표시 및 활성화
+        generateStatementBtn.style.display = 'inline-block';
         generateStatementBtn.disabled = false;
-        
-        showAlert('음성이 텍스트로 변환되었습니다! 이제 "AI 진술서 생성" 버튼을 클릭하세요.', 'success');
-        
-        // 파일 업로드 섹션 숨기기
-        uploadSection.style.display = 'none';
+
+        showAlert('음성이 텍스트로 변환되었습니다! 이제 "진술서 생성" 버튼을 클릭하세요.', 'success');
         
     } catch (error) {
         console.error('업로드 및 변환 오류:', error);
@@ -373,9 +371,10 @@ async function transcribeAudio(audioBlob) {
         
         // 변환된 텍스트 표시
         transcriptionText.textContent = transcribedText;
-        generateStatementBtn.style.display = 'block';
-        
-        showAlert('음성 변환이 완료되었습니다!', 'success');
+        generateStatementBtn.style.display = 'inline-block';
+        generateStatementBtn.disabled = false;
+
+        showAlert('음성 변환이 완료되었습니다! "진술서 생성" 버튼을 클릭하세요.', 'success');
     } catch (error) {
         console.error('STT 변환 오류:', error);
         showAlert('음성 변환에 실패했습니다: ' + error.message);
@@ -697,12 +696,12 @@ function downloadTextFile(content) {
             sessionStorage.removeItem('casenetai_shared_data');
             switchToUploadMode();
             transcribedText = shared.transcript;
-            const transcriptionText = document.getElementById('transcriptionText');
             if (transcriptionText) {
                 transcriptionText.textContent = transcribedText;
-                document.getElementById('transcriptionResult').style.display = 'block';
-                showAlert('상담일지에서 텍스트를 불러왔습니다. AI 분석 버튼을 눌러주세요.', 'success');
             }
+            generateStatementBtn.style.display = 'inline-block';
+            generateStatementBtn.disabled = false;
+            showAlert('상담일지에서 텍스트를 불러왔습니다. "진술서 생성" 버튼을 눌러주세요.', 'success');
         }
     } catch (err) { console.warn('Shared data load failed:', err); }
 })();
