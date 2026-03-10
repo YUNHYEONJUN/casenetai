@@ -356,7 +356,37 @@ app.post('/api/blob-upload', async (req, res) => {
   }
 });
 
-// Vercel Blob 클라이언트 토큰 발급 (CDN SDK 불필요, handleUpload 프로토콜 직접 호출)
+// Vercel Blob 서버사이드 업로드 (클라이언트에서 파일을 보내면 서버가 Blob에 업로드)
+// 4.5MB 이하 파일: 서버 경유 업로드
+app.post('/api/blob-upload-server', optionalAuth, upload.single('audioFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+    const safeFilename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathname = `audio/${Date.now()}-${safeFilename}`;
+    const fileBuffer = fs.readFileSync(req.file.path);
+
+    const blob = await put(pathname, fileBuffer, {
+      access: 'public',
+      contentType: req.file.mimetype,
+    });
+
+    // 임시 파일 정리
+    try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+
+    console.log('Blob uploaded (server):', blob.url);
+    res.json({ url: blob.url, pathname: blob.pathname });
+  } catch (error) {
+    if (req.file && req.file.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+    }
+    console.error('Blob server upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Vercel Blob 클라이언트 토큰 발급 (4.5MB 초과 파일용)
 app.post('/api/blob-token', optionalAuth, async (req, res) => {
   try {
     const { pathname, contentType } = req.body;
@@ -376,7 +406,7 @@ app.post('/api/blob-token', optionalAuth, async (req, res) => {
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: [
           'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a',
-          'audio/x-m4a', 'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'
+          'audio/x-m4a', 'audio/mp4', 'audio/ogg', 'audio/webm', 'video/mp4', 'video/webm'
         ],
         maximumSizeInBytes: 100 * 1024 * 1024,
       }),
@@ -384,7 +414,13 @@ app.post('/api/blob-token', optionalAuth, async (req, res) => {
         console.log('Blob upload completed:', blob.url);
       },
     });
-    res.json(jsonResponse);
+
+    // 클라이언트가 직접 PUT할 수 있도록 업로드 URL과 API 버전도 반환
+    const blobApiUrl = process.env.VERCEL_BLOB_API_URL || 'https://vercel.com/api/blob';
+    res.json({
+      ...jsonResponse,
+      uploadUrl: `${blobApiUrl}/${pathname}`,
+    });
   } catch (error) {
     console.error('Blob token error:', error);
     res.status(500).json({ error: error.message });

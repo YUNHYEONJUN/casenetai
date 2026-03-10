@@ -349,15 +349,44 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// Vercel Blob 클라이언트 업로드 (4.5MB 제한 우회, CDN SDK 불필요)
+// Vercel Blob 업로드 (소형: 서버 경유, 대형: 클라이언트 직접 PUT)
 async function uploadToBlob(file, onProgress) {
+    const authToken = localStorage.getItem('token');
+    const SERVER_UPLOAD_LIMIT = 4 * 1024 * 1024; // 4MB (Vercel 서버리스 4.5MB 한도 여유분)
+
+    // === 4MB 이하: 서버 경유 업로드 (가장 안정적) ===
+    if (file.size <= SERVER_UPLOAD_LIMIT) {
+        if (onProgress) onProgress(5, '서버로 파일 전송 중...');
+
+        const formData = new FormData();
+        formData.append('audioFile', file);
+
+        const uploadRes = await fetch('/api/blob-upload-server', {
+            method: 'POST',
+            headers: {
+                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+            },
+            body: formData
+        });
+
+        if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({}));
+            console.error('Server blob upload failed:', uploadRes.status, err);
+            throw new Error(err.error || '파일 업로드에 실패했습니다.');
+        }
+
+        const result = await uploadRes.json();
+        if (onProgress) onProgress(85, '서버 처리 시작...');
+        return { url: result.url, pathname: result.pathname };
+    }
+
+    // === 4MB 초과: 클라이언트에서 직접 Blob PUT ===
     if (onProgress) onProgress(5, '업로드 토큰 요청 중...');
 
     const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const pathname = `audio/${Date.now()}-${safeFilename}`;
-    const authToken = localStorage.getItem('token');
 
-    // Step 1: 서버에서 단기 클라이언트 토큰 발급
+    // Step 1: 서버에서 클라이언트 토큰 + 업로드 URL 발급
     const tokenRes = await fetch('/api/blob-token', {
         method: 'POST',
         headers: {
@@ -374,6 +403,7 @@ async function uploadToBlob(file, onProgress) {
 
     const tokenData = await tokenRes.json();
     const clientToken = tokenData.clientToken;
+    const uploadUrl = tokenData.uploadUrl;
 
     if (!clientToken) {
         throw new Error('클라이언트 토큰을 받지 못했습니다.');
@@ -381,13 +411,13 @@ async function uploadToBlob(file, onProgress) {
 
     if (onProgress) onProgress(10, '파일 전송 중...');
 
-    // Step 2: 클라이언트에서 직접 Vercel Blob에 PUT 업로드
-    const uploadRes = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
+    // Step 2: Vercel Blob API에 직접 PUT (SDK 내부와 동일한 URL/헤더 사용)
+    const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
             'authorization': `Bearer ${clientToken}`,
-            'x-api-version': '7',
-            'content-type': file.type || 'application/octet-stream',
+            'x-api-version': '12',
+            'x-content-type': file.type || 'application/octet-stream',
         },
         body: file
     });
@@ -395,7 +425,7 @@ async function uploadToBlob(file, onProgress) {
     if (!uploadRes.ok) {
         const errText = await uploadRes.text().catch(() => '');
         console.error('Blob upload failed:', uploadRes.status, errText);
-        throw new Error('파일 업로드에 실패했습니다.');
+        throw new Error('파일 업로드에 실패했습니다. (상태: ' + uploadRes.status + ')');
     }
 
     const blob = await uploadRes.json();
