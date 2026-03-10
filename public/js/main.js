@@ -349,19 +349,28 @@ function analyzeCost(file) {
     console.log('Cost estimate:', costEstimate);
 }
 
-// Vercel Blob 업로드 (소형: 서버 경유, 대형: 클라이언트 직접 PUT)
-async function uploadToBlob(file, onProgress) {
+// 대용량 파일 청크 업로드 (Vercel 4.5MB 제한 우회)
+async function uploadLargeFile(file, onProgress) {
     const authToken = localStorage.getItem('token');
-    const SERVER_UPLOAD_LIMIT = 4 * 1024 * 1024; // 4MB (Vercel 서버리스 4.5MB 한도 여유분)
+    const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = Date.now() + '-' + Math.random().toString(36).slice(2);
 
-    // === 4MB 이하: 서버 경유 업로드 (가장 안정적) ===
-    if (file.size <= SERVER_UPLOAD_LIMIT) {
-        if (onProgress) onProgress(5, '서버로 파일 전송 중...');
+    if (onProgress) onProgress(5, '파일 분할 업로드 시작...');
+
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
 
         const formData = new FormData();
-        formData.append('audioFile', file);
+        formData.append('chunk', chunk);
+        formData.append('uploadId', uploadId);
+        formData.append('chunkIndex', String(i));
+        formData.append('totalChunks', String(totalChunks));
+        formData.append('fileName', file.name);
 
-        const uploadRes = await fetch('/api/blob-upload-server', {
+        const res = await fetch('/api/upload-chunk', {
             method: 'POST',
             headers: {
                 ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
@@ -369,68 +378,33 @@ async function uploadToBlob(file, onProgress) {
             body: formData
         });
 
-        if (!uploadRes.ok) {
-            const err = await uploadRes.json().catch(() => ({}));
-            console.error('Server blob upload failed:', uploadRes.status, err);
-            throw new Error(err.error || '파일 업로드에 실패했습니다.');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || '파일 청크 업로드 실패');
         }
 
-        const result = await uploadRes.json();
-        if (onProgress) onProgress(85, '서버 처리 시작...');
-        return { url: result.url, pathname: result.pathname };
+        const pct = 5 + Math.round(((i + 1) / totalChunks) * 75);
+        if (onProgress) onProgress(pct, `파일 업로드 중... (${i + 1}/${totalChunks})`);
     }
 
-    // === 4MB 초과: 클라이언트에서 직접 Blob PUT ===
-    if (onProgress) onProgress(5, '업로드 토큰 요청 중...');
-
-    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const pathname = `audio/${Date.now()}-${safeFilename}`;
-
-    // Step 1: 서버에서 클라이언트 토큰 + 업로드 URL 발급
-    const tokenRes = await fetch('/api/blob-token', {
+    // 청크 조립 완료 - 서버에서 파일 경로 반환
+    const completeRes = await fetch('/api/upload-chunk-complete', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
-        body: JSON.stringify({ pathname, contentType: file.type })
+        body: JSON.stringify({ uploadId, fileName: file.name })
     });
 
-    if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error || '업로드 토큰 발급에 실패했습니다.');
+    if (!completeRes.ok) {
+        const err = await completeRes.json().catch(() => ({}));
+        throw new Error(err.error || '파일 조립 실패');
     }
 
-    const tokenData = await tokenRes.json();
-    const clientToken = tokenData.clientToken;
-    const uploadUrl = tokenData.uploadUrl;
-
-    if (!clientToken) {
-        throw new Error('클라이언트 토큰을 받지 못했습니다.');
-    }
-
-    if (onProgress) onProgress(10, '파일 전송 중...');
-
-    // Step 2: Vercel Blob API에 직접 PUT (SDK 내부와 동일한 URL/헤더 사용)
-    const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-            'authorization': `Bearer ${clientToken}`,
-            'x-api-version': '12',
-            'x-content-type': file.type || 'application/octet-stream',
-        },
-        body: file
-    });
-
-    if (!uploadRes.ok) {
-        const errText = await uploadRes.text().catch(() => '');
-        console.error('Blob upload failed:', uploadRes.status, errText);
-        throw new Error('파일 업로드에 실패했습니다. (상태: ' + uploadRes.status + ')');
-    }
-
-    const blob = await uploadRes.json();
+    const result = await completeRes.json();
     if (onProgress) onProgress(85, '서버 처리 시작...');
-    return blob;
+    return result.filePath;
 }
 
 // 업로드 버튼 클릭
@@ -484,33 +458,36 @@ uploadBtn.addEventListener('click', async function() {
         progressBar.style.width = '5%';
         progressText.textContent = '파일 업로드 준비 중...';
 
-        // Step 1: Vercel Blob에 파일 업로드 (4.5MB 제한 우회)
-        const blob = await uploadToBlob(selectedFile, (pct, msg) => {
-            progressBar.style.width = pct + '%';
-            progressText.textContent = msg;
-        });
+        const DIRECT_UPLOAD_LIMIT = 3.5 * 1024 * 1024; // 3.5MB (Vercel 4.5MB 한도 여유분)
+        const token = localStorage.getItem('token');
+        let serverFilePath = null;
 
-        console.log('Blob uploaded:', blob.url);
+        // Step 1: 파일 업로드 (소형: 직접 / 대형: 청크 분할)
+        if (selectedFile.size > DIRECT_UPLOAD_LIMIT) {
+            // 대용량: 청크 분할 업로드
+            serverFilePath = await uploadLargeFile(selectedFile, (pct, msg) => {
+                progressBar.style.width = pct + '%';
+                progressText.textContent = msg;
+            });
+            console.log('Chunked upload complete, path:', serverFilePath);
+        }
 
         // Step 2: SSE 스트리밍으로 서버에 처리 요청
         progressBar.style.width = '20%';
         progressText.textContent = 'AI 처리 시작...';
 
-        const token = localStorage.getItem('token');
         const result = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/upload-audio-stream');
-            xhr.setRequestHeader('Content-Type', 'application/json');
             if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-            let buffer = '';
+            let sseBuffer = '';
             let finalResult = null;
 
             xhr.onreadystatechange = () => {
                 if (xhr.readyState >= 3 && xhr.responseText) {
-                    // 새로 추가된 데이터만 처리
-                    const newData = xhr.responseText.substring(buffer.length);
-                    buffer = xhr.responseText;
+                    const newData = xhr.responseText.substring(sseBuffer.length);
+                    sseBuffer = xhr.responseText;
 
                     // SSE 이벤트 파싱
                     const lines = newData.split('\n');
@@ -553,12 +530,25 @@ uploadBtn.addEventListener('click', async function() {
             };
 
             xhr.onerror = () => reject(new Error('네트워크 오류가 발생했습니다.'));
-            xhr.send(JSON.stringify({
-                blobUrl: blob.url,
-                consultationType: consultationTypeSelect.value,
-                consultationStage: consultationStageSelect.value,
-                sttEngine: 'clova'
-            }));
+
+            if (serverFilePath) {
+                // 대용량: 이미 서버에 파일 있음, JSON으로 경로 전달
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify({
+                    serverFilePath: serverFilePath,
+                    consultationType: consultationTypeSelect.value,
+                    consultationStage: consultationStageSelect.value,
+                    sttEngine: 'clova'
+                }));
+            } else {
+                // 소형: FormData로 파일 직접 전송 (Blob 불필요)
+                const formData = new FormData();
+                formData.append('audioFile', selectedFile);
+                formData.append('consultationType', consultationTypeSelect.value);
+                formData.append('consultationStage', consultationStageSelect.value);
+                formData.append('sttEngine', 'clova');
+                xhr.send(formData);
+            }
         });
 
         console.log('Result:', result);

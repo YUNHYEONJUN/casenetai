@@ -777,6 +777,87 @@ app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 청크 업로드 API (대용량 파일 분할 업로드)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const chunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, os.tmpdir()),
+    filename: (req, file, cb) => cb(null, `chunk-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  }),
+  limits: { fileSize: 4 * 1024 * 1024 }
+});
+
+app.post('/api/upload-chunk', optionalAuth, chunkUpload.single('chunk'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '청크 데이터가 없습니다.' });
+    }
+    const { uploadId, chunkIndex, totalChunks } = req.body;
+    if (!uploadId || chunkIndex === undefined || !totalChunks) {
+      return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
+    }
+
+    // 청크를 uploadId 디렉토리에 저장
+    const chunkDir = path.join(os.tmpdir(), `upload-${uploadId}`);
+    if (!fs.existsSync(chunkDir)) {
+      fs.mkdirSync(chunkDir, { recursive: true });
+    }
+    const chunkPath = path.join(chunkDir, `chunk-${String(chunkIndex).padStart(5, '0')}`);
+    fs.renameSync(req.file.path, chunkPath);
+
+    res.json({ success: true, chunkIndex: parseInt(chunkIndex) });
+  } catch (error) {
+    console.error('Chunk upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/upload-chunk-complete', optionalAuth, async (req, res) => {
+  try {
+    const { uploadId, fileName } = req.body;
+    if (!uploadId) {
+      return res.status(400).json({ error: 'uploadId가 필요합니다.' });
+    }
+
+    // uploadId 검증 (경로 탐색 방지)
+    const safeUploadId = uploadId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const chunkDir = path.join(os.tmpdir(), `upload-${safeUploadId}`);
+    if (!fs.existsSync(chunkDir)) {
+      return res.status(404).json({ error: '업로드 데이터를 찾을 수 없습니다.' });
+    }
+
+    // 청크 파일들을 순서대로 조립
+    const chunkFiles = fs.readdirSync(chunkDir).sort();
+    const ext = path.extname(fileName || '.webm');
+    const assembledPath = path.join(os.tmpdir(), `assembled-${safeUploadId}${ext}`);
+    const writeStream = fs.createWriteStream(assembledPath);
+
+    for (const chunkFile of chunkFiles) {
+      const chunkData = fs.readFileSync(path.join(chunkDir, chunkFile));
+      writeStream.write(chunkData);
+    }
+    writeStream.end();
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    // 청크 디렉토리 정리
+    for (const f of chunkFiles) {
+      try { fs.unlinkSync(path.join(chunkDir, f)); } catch (e) { /* ignore */ }
+    }
+    try { fs.rmdirSync(chunkDir); } catch (e) { /* ignore */ }
+
+    console.log(`Chunks assembled: ${chunkFiles.length} chunks → ${assembledPath} (${(fs.statSync(assembledPath).size / 1024 / 1024).toFixed(2)}MB)`);
+    res.json({ success: true, filePath: assembledPath });
+  } catch (error) {
+    console.error('Chunk complete error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SSE 스트리밍 음성 처리 API (실시간 진행상황 전송)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
@@ -800,28 +881,48 @@ app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
 
   let audioFilePath = null;
   let blobUrl = null;
+  let isChunkedFile = false;
 
   try {
     const consultationType = req.body.consultationType;
     const consultationStage = req.body.consultationStage;
     const sttEngine = req.body.sttEngine;
     blobUrl = req.body.blobUrl;
+    const serverFilePath = req.body.serverFilePath;
 
-    // Blob 다운로드
-    if (blobUrl) {
-      sendEvent('progress', { stage: 'download', percent: 10, message: '음성 파일 다운로드 중...' });
+    // 파일 소스 결정 (우선순위: 청크조립파일 > 직접업로드 > Blob)
+    if (serverFilePath) {
+      // 청크 업로드로 조립된 파일 (경로 검증)
+      const resolvedPath = path.resolve(serverFilePath);
       const tmpDir = os.tmpdir();
+      if (!resolvedPath.startsWith(tmpDir)) {
+        sendEvent('error', { message: '잘못된 파일 경로입니다.' });
+        res.end();
+        return;
+      }
+      if (!fs.existsSync(resolvedPath)) {
+        sendEvent('error', { message: '업로드된 파일을 찾을 수 없습니다.' });
+        res.end();
+        return;
+      }
+      audioFilePath = resolvedPath;
+      isChunkedFile = true;
+      sendEvent('progress', { stage: 'upload_done', percent: 20, message: '파일 업로드 완료' });
+    } else if (req.file) {
+      // FormData로 직접 업로드된 파일
+      audioFilePath = req.file.path;
+      sendEvent('progress', { stage: 'upload_done', percent: 20, message: '파일 업로드 완료' });
+    } else if (blobUrl) {
+      // 레거시: Blob URL에서 다운로드
+      sendEvent('progress', { stage: 'download', percent: 10, message: '음성 파일 다운로드 중...' });
       const tmpFilename = `audio-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      audioFilePath = path.join(tmpDir, tmpFilename);
+      audioFilePath = path.join(os.tmpdir(), tmpFilename);
 
       const response = await fetch(blobUrl);
       if (!response.ok) throw new Error('Blob 파일 다운로드 실패');
       const buffer = Buffer.from(await response.arrayBuffer());
       fs.writeFileSync(audioFilePath, buffer);
       sendEvent('progress', { stage: 'download_done', percent: 20, message: `파일 다운로드 완료 (${(buffer.length / 1024 / 1024).toFixed(2)}MB)` });
-    } else if (req.file) {
-      audioFilePath = req.file.path;
-      sendEvent('progress', { stage: 'upload_done', percent: 20, message: '파일 업로드 완료' });
     } else {
       sendEvent('error', { message: '파일이 업로드되지 않았습니다.' });
       res.end();
@@ -909,9 +1010,11 @@ app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
     console.error('SSE 처리 오류:', error);
     sendEvent('error', { message: error.message || '처리 중 오류가 발생했습니다.' });
   } finally {
-    // 임시 파일 및 Blob 정리
-    if (blobUrl && audioFilePath) {
+    // 임시 파일 정리 (직접 업로드, 청크 조립, Blob 다운로드 모두)
+    if (audioFilePath) {
       try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+    }
+    if (blobUrl) {
       try { await del(blobUrl); } catch (e) { /* ignore */ }
     }
     res.end();
