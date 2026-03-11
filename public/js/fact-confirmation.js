@@ -317,46 +317,46 @@ async function generateDocument() {
 // 미리보기 렌더링
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-function renderPreview(document) {
-    const previewEl = document.getElementById('previewDocument');
+function renderPreview(doc) {
+    const previewEl = window.document.getElementById('previewDocument');
 
     let html = '';
 
     // 제목
-    html += `<div class="doc-title" contenteditable="true">${e(document.title)}</div>`;
+    html += `<div class="doc-title" contenteditable="true">${e(doc.title)}</div>`;
 
     // 개인정보 테이블
     html += `
         <table class="doc-table">
             <tr>
                 <th>성명</th>
-                <td contenteditable="true">${e(document.personalInfo.subjectName)}</td>
+                <td contenteditable="true">${e(doc.personalInfo.subjectName)}</td>
                 <th>생년월일</th>
-                <td contenteditable="true">${e(document.personalInfo.birthDate)}</td>
+                <td contenteditable="true">${e(doc.personalInfo.birthDate)}</td>
             </tr>
             <tr>
                 <th>소속기관</th>
-                <td contenteditable="true">${e(document.personalInfo.organization || '-')}</td>
+                <td contenteditable="true">${e(doc.personalInfo.organization || '-')}</td>
                 <th>직위</th>
-                <td contenteditable="true">${e(document.personalInfo.position || '-')}</td>
+                <td contenteditable="true">${e(doc.personalInfo.position || '-')}</td>
             </tr>
             <tr>
                 <th>연락처</th>
-                <td contenteditable="true">${e(document.personalInfo.contact || '-')}</td>
+                <td contenteditable="true">${e(doc.personalInfo.contact || '-')}</td>
                 <th>조사일시</th>
-                <td contenteditable="true">${e(formatDateTime(document.personalInfo.investigationDate))}</td>
+                <td contenteditable="true">${e(formatDateTime(doc.personalInfo.investigationDate))}</td>
             </tr>
-            ${document.personalInfo.notes ? `
+            ${doc.personalInfo.notes ? `
             <tr>
                 <th>기타사항</th>
-                <td colspan="3" contenteditable="true">${e(document.personalInfo.notes)}</td>
+                <td colspan="3" contenteditable="true">${e(doc.personalInfo.notes)}</td>
             </tr>
             ` : ''}
         </table>
     `;
 
     // 섹션별 내용
-    document.sections.forEach((section, sectionIndex) => {
+    doc.sections.forEach((section, sectionIndex) => {
         html += `
             <div class="doc-section">
                 <div class="doc-section-title" contenteditable="true">
@@ -388,7 +388,7 @@ function renderPreview(document) {
             </p>
             <div class="signature-line">
                 <p>${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p style="margin-top: 30px;">진술자: ${e(document.personalInfo.subjectName)} (서명 또는 인)</p>
+                <p style="margin-top: 30px;">진술자: ${e(doc.personalInfo.subjectName)} (서명 또는 인)</p>
                 <p>조사자: __________________ (서명 또는 인)</p>
             </div>
         </div>

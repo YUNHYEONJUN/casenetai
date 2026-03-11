@@ -373,6 +373,7 @@ class FeedbackWidget {
    */
   attachRatingListeners(containerId) {
     const container = document.getElementById(containerId);
+    if (!container) return;
     const stars = container.querySelectorAll('.rating-star');
 
     stars.forEach(star => {

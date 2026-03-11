@@ -363,7 +363,7 @@
                             <strong>${esc(t.name)}</strong>
                             <span style="color:#64748b;font-size:0.85em;margin-left:8px;">${date} ${stage ? '| ' + stage : ''}</span>
                         </div>
-                        <a href="/elderly-protection.html#upload" onclick="sessionStorage.setItem('load_template_id','${t.id}')" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">열기</a>
+                        <a href="/elderly-protection.html#upload" onclick="sessionStorage.setItem('load_template_id','${parseInt(t.id)}')" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">열기</a>
                     </div>`;
                 }).join('');
             } catch (err) { console.warn('Template load failed:', err); }

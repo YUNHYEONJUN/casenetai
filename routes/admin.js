@@ -218,14 +218,15 @@ router.post('/organizations', async (req, res) => {
     const db = getDB();
     
     const result = await db.run(
-      `INSERT INTO organizations 
-       (name, organization_type, region, contact_email, contact_phone, 
+      `INSERT INTO organizations
+       (name, organization_type, region, contact_email, contact_phone,
         address, is_sponsored, sponsor_name, notes, plan_type, subscription_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'free', 'active')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'free', 'active')
+       RETURNING id`,
       [name, organizationType || 'elderly_protection', region, contactEmail, contactPhone,
        address, isSponsored, sponsorName, notes]
     );
-    
+
     const organizationId = result.lastID;
     
     // 현재 월 할당량 초기화

@@ -618,7 +618,7 @@ app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
     const selectedEngine = sttEngine || 'openai'; // 기본값: openai
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📁 파일 업로드 완료:', req.file.filename);
+    console.log('📁 파일 업로드 완료:', req.file ? req.file.filename : '(Blob 다운로드)');
     console.log('📋 상담 유형:', consultationType);
     console.log('📋 상담 단계:', consultationStage || '미지정');
     console.log('🎙️  STT 엔진:', selectedEngine === 'clova' ? '네이버 클로바' : 'OpenAI Whisper');
@@ -750,16 +750,20 @@ app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
     }
 
     // 처리 완료 후 임시 파일 및 Blob 삭제
-    if (blobUrl) {
+    if (audioFilePath) {
       try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+    }
+    if (blobUrl) {
       try { await del(blobUrl); } catch (e) { console.warn('Blob delete failed:', e.message); }
     }
 
   } catch (error) {
     console.error('❌ 업로드 오류:', error);
     // 임시 파일 정리
-    if (blobUrl && audioFilePath) {
+    if (audioFilePath) {
       try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+    }
+    if (blobUrl) {
       try { await del(blobUrl); } catch (e) { /* ignore */ }
     }
     res.status(500).json({

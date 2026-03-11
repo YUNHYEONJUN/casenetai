@@ -98,9 +98,10 @@ async function seedOrganizations() {
     for (const org of organizations) {
       // 기관 등록
       const result = await db.run(
-        `INSERT INTO organizations 
+        `INSERT INTO organizations
          (name, organization_type, region, plan_type, subscription_status, is_sponsored)
-         VALUES (?, ?, ?, 'free', 'active', 0)`,
+         VALUES (?, ?, ?, 'free', 'active', 0)
+         RETURNING id`,
         [org.name, org.type, org.region]
       );
       

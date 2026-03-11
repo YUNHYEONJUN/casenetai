@@ -93,10 +93,11 @@ class UsageTrackingService {
       
       // 로그 생성 (처리 전)
       const result = await db.run(
-        `INSERT INTO anonymization_logs 
-         (user_id, organization_id, file_name, file_type, file_size_kb, 
+        `INSERT INTO anonymization_logs
+         (user_id, organization_id, file_name, file_type, file_size_kb,
           status, processing_time_minutes, quota_deducted)
-         VALUES (?, ?, ?, ?, ?, 'processing', ?, 0.0)`,
+         VALUES (?, ?, ?, ?, ?, 'processing', ?, 0.0)
+         RETURNING id`,
         [userId, organizationId, fileName, fileType, fileSizeKB, estimatedMinutes]
       );
       

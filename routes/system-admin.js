@@ -45,8 +45,11 @@ router.get('/organizations', async (req, res) => {
 
     if (search) {
       paramIndex++;
-      where.push(`(o.name LIKE $${paramIndex} OR o.business_registration_number LIKE $${paramIndex})`);
-      params.push(`%${search}%`);
+      const nameIdx = paramIndex;
+      paramIndex++;
+      const brnIdx = paramIndex;
+      where.push(`(o.name LIKE $${nameIdx} OR o.business_registration_number LIKE $${brnIdx})`);
+      params.push(`%${search}%`, `%${search}%`);
     }
     
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
