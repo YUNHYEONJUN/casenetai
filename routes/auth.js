@@ -10,7 +10,11 @@ const { authenticateToken } = require('../middleware/auth');
 const passport = require('../config/passport');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET 환경 변수가 설정되지 않았습니다.');
+  process.exit(1);
+}
 const JWT_EXPIRES_IN = '1h';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
 

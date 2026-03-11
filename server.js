@@ -190,10 +190,10 @@ app.get('/api/setup-admin', async (req, res) => {
     const setupAdmin = require('./scripts/setup-admin');
     const result = await setupAdmin(pool);
     await pool.end();
-    res.json({ success: true, message: '관리자 계정 설정 완료', email: result.email, password: 'CaseNet2026!@#' });
+    res.json({ success: true, message: '관리자 계정 설정 완료', email: result.email });
   } catch (error) {
     console.error('setup-admin 오류:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: '관리자 계정 설정 중 오류가 발생했습니다.' });
   }
 });
 
@@ -428,7 +428,7 @@ app.post('/api/blob-token', optionalAuth, async (req, res) => {
 });
 
 // 오디오 파일 분석 및 비용 견적 API
-app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
+app.post('/api/analyze-audio', optionalAuth, upload.single('audioFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
@@ -438,20 +438,16 @@ app.post('/api/analyze-audio', upload.single('audioFile'), async (req, res) => {
     const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
     
     // ffprobe로 오디오 길이 측정
-    const { exec } = require('child_process');
+    const { execFile } = require('child_process');
     const { promisify } = require('util');
-    const execPromise = promisify(exec);
-    
+    const execFilePromise = promisify(execFile);
+
     try {
-      // Command Injection 방지: 파일 경로 검증
-      const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
-      if (safePath !== audioFilePath) {
-        throw new Error('Invalid file path detected');
-      }
-      
-      const { stdout } = await execPromise(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
-      );
+      // execFile로 command injection 방지 (인자가 쉘을 거치지 않음)
+      const { stdout } = await execFilePromise('ffprobe', [
+        '-v', 'error', '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1', audioFilePath
+      ]);
       
       const durationSeconds = parseFloat(stdout.trim());
       const durationMinutes = Math.ceil(durationSeconds / 60);
@@ -643,21 +639,17 @@ app.post('/api/upload-audio', optionalAuth, (req, res, next) => {
         const startTime = Date.now();
         
         // 오디오 길이 측정 (실제 비용 계산용)
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execPromise = promisify(exec);
-        
+        const { execFile: execFileFn } = require('child_process');
+        const { promisify: promisifyFn } = require('util');
+        const execFileP = promisifyFn(execFileFn);
+
         let actualCost = null;
         try {
-          // Command Injection 방지: 파일 경로 검증
-          const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
-          if (safePath !== audioFilePath) {
-            throw new Error('Invalid file path detected');
-          }
-          
-          const { stdout } = await execPromise(
-            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
-          );
+          // execFile로 command injection 방지
+          const { stdout } = await execFileP('ffprobe', [
+            '-v', 'error', '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1', audioFilePath
+          ]);
           const durationSeconds = parseFloat(stdout.trim());
           const durationMinutes = Math.ceil(durationSeconds / 60);
           
@@ -950,14 +942,13 @@ app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
     const startTime = Date.now();
     let actualCost = null;
     try {
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execPromise = promisify(exec);
-      const safePath = audioFilePath.replace(/[;&|`$()]/g, '');
-      if (safePath !== audioFilePath) throw new Error('Invalid file path');
-      const { stdout } = await execPromise(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${safePath}"`
-      );
+      const { execFile: execFileCb } = require('child_process');
+      const { promisify: promisifyUtil } = require('util');
+      const execFileAsync = promisifyUtil(execFileCb);
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v', 'error', '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1', audioFilePath
+      ]);
       const durationSeconds = parseFloat(stdout.trim());
       const durationMinutes = Math.ceil(durationSeconds / 60);
       const exchangeRate = 1320;

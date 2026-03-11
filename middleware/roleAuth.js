@@ -70,8 +70,9 @@ function requireOwnOrgAdmin(req, res, next) {
 
   // Organization Admin은 자신의 기관만
   if (req.user.role === 'org_admin') {
-    const targetOrgId = parseInt(req.params.organizationId || req.body.organizationId);
-    
+    const rawOrgId = req.params.organizationId || req.body.organizationId;
+    const targetOrgId = rawOrgId ? parseInt(rawOrgId, 10) : NaN;
+
     if (!req.user.organizationId) {
       return res.status(403).json({
         success: false,
@@ -79,7 +80,7 @@ function requireOwnOrgAdmin(req, res, next) {
       });
     }
 
-    if (req.user.organizationId !== targetOrgId) {
+    if (isNaN(targetOrgId) || req.user.organizationId !== targetOrgId) {
       return res.status(403).json({
         success: false,
         error: '다른 기관의 정보에 접근할 수 없습니다'
@@ -170,10 +171,11 @@ function requireSelfOrAdmin(req, res, next) {
     });
   }
 
-  const targetUserId = parseInt(req.params.userId || req.params.id);
+  const rawUserId = req.params.userId || req.params.id;
+  const targetUserId = rawUserId ? parseInt(rawUserId, 10) : NaN;
 
   // 본인 확인
-  if (req.user.userId === targetUserId) {
+  if (!isNaN(targetUserId) && req.user.userId === targetUserId) {
     return next();
   }
 

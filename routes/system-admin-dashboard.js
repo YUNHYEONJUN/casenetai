@@ -273,7 +273,7 @@ router.get('/organizations/:id/usage', authenticateToken, requireSystemAdmin, as
       SELECT 
         u.id,
         u.name,
-        u.email,
+        u.oauth_email as email,
         u.oauth_nickname,
         u.role,
         u.is_approved,
@@ -417,7 +417,7 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
       SELECT 
         u.id,
         u.name,
-        u.email,
+        u.oauth_email as email,
         u.oauth_nickname,
         u.oauth_provider,
         u.role,
@@ -600,41 +600,41 @@ router.get('/activity-logs', authenticateToken, requireSystemAdmin, async (req, 
       FROM anonymization_logs al
       LEFT JOIN users u ON al.user_id = u.id
       LEFT JOIN organizations o ON al.organization_id = o.id
-      WHERE al.created_at >= CURRENT_TIMESTAMP - INTERVAL '${parseInt(days)} days'
+      WHERE al.created_at >= CURRENT_TIMESTAMP - make_interval(days => ?)
       ORDER BY al.created_at DESC
       LIMIT ?
-    `, [parseInt(limit)]);
-    
+    `, [parseInt(days), parseInt(limit)]);
+
     // 최근 결제
     const recentPayments = await db.all(`
-      SELECT 
+      SELECT
         p.*,
         u.name as user_name,
         u.oauth_nickname
       FROM payments p
       LEFT JOIN users u ON p.user_id = u.id
-      WHERE p.created_at >= CURRENT_TIMESTAMP - INTERVAL '${parseInt(days)} days'
+      WHERE p.created_at >= CURRENT_TIMESTAMP - make_interval(days => ?)
       ORDER BY p.created_at DESC
       LIMIT ?
-    `, [parseInt(limit)]);
-    
+    `, [parseInt(days), parseInt(limit)]);
+
     // 최근 가입 신청
     const recentJoinRequests = await db.all(`
-      SELECT 
+      SELECT
         jr.*,
         u.name as user_name,
         o.name as organization_name
       FROM organization_join_requests jr
       LEFT JOIN users u ON jr.user_id = u.id
       LEFT JOIN organizations o ON jr.organization_id = o.id
-      WHERE jr.created_at >= CURRENT_TIMESTAMP - INTERVAL '${parseInt(days)} days'
+      WHERE jr.created_at >= CURRENT_TIMESTAMP - make_interval(days => ?)
       ORDER BY jr.created_at DESC
       LIMIT 50
-    `);
-    
+    `, [parseInt(days)]);
+
     // 최근 로그인 사용자
     const recentLogins = await db.all(`
-      SELECT 
+      SELECT
         u.id,
         u.name,
         u.oauth_nickname,
@@ -643,11 +643,11 @@ router.get('/activity-logs', authenticateToken, requireSystemAdmin, async (req, 
         o.name as organization_name
       FROM users u
       LEFT JOIN organizations o ON u.organization_id = o.id
-      WHERE u.last_login_at >= CURRENT_TIMESTAMP - INTERVAL '${parseInt(days)} days'
+      WHERE u.last_login_at >= CURRENT_TIMESTAMP - make_interval(days => ?)
         AND u.deleted_at IS NULL
       ORDER BY u.last_login_at DESC
       LIMIT 50
-    `);
+    `, [parseInt(days)]);
     
     res.json({
       success: true,

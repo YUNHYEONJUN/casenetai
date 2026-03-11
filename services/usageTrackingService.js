@@ -287,11 +287,11 @@ class UsageTrackingService {
     
     try {
       const logs = await db.query(
-        `SELECT al.*, u.name as user_name, u.email as user_email
+        `SELECT al.*, u.name as user_name, u.oauth_email as user_email
          FROM anonymization_logs al
          LEFT JOIN users u ON al.user_id = u.id
-         WHERE al.organization_id = ? 
-         ORDER BY al.created_at DESC 
+         WHERE al.organization_id = ?
+         ORDER BY al.created_at DESC
          LIMIT ? OFFSET ?`,
         [organizationId, limit, offset]
       );

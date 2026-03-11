@@ -269,20 +269,21 @@ class AuthService {
       
       // 사용자 정보 조회
       const user = await db.get(
-        'SELECT id, oauth_email as email, role FROM users WHERE id = $1',
+        'SELECT id, oauth_email as email, role, organization_id FROM users WHERE id = $1',
         [decoded.userId]
       );
-      
+
       if (!user) {
         throw new Error('사용자를 찾을 수 없습니다');
       }
-      
-      // 새 액세스 토큰 생성
+
+      // 새 액세스 토큰 생성 (organizationId 포함)
       const newToken = jwt.sign(
         {
           userId: user.id,
           email: user.email,
-          role: user.role
+          role: user.role,
+          organizationId: user.organization_id
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }

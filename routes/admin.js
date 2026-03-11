@@ -409,7 +409,7 @@ router.get('/logs/anonymization', async (req, res) => {
       `SELECT
          al.*,
          u.name as user_name,
-         u.email as user_email,
+         u.oauth_email as user_email,
          o.name as organization_name
        FROM anonymization_logs al
        LEFT JOIN users u ON al.user_id = u.id
