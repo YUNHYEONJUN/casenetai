@@ -54,20 +54,44 @@ const upload = multer({
 // POST /api/statement/transcribe
 // 음성 파일 → STT 변환 (로그인 필수)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/transcribe', authenticateToken, upload.single('audio'), async (req, res) => {
+router.post('/transcribe', authenticateToken, (req, res, next) => {
+  // Content-Type에 따라 multer 적용 결정 (JSON = 청크 조립 파일 경로)
+  if (req.headers['content-type']?.includes('application/json')) {
+    next();
+  } else {
+    upload.single('audio')(req, res, next);
+  }
+}, async (req, res) => {
+  let audioFilePath = null;
+  let isChunkedFile = false;
+
   try {
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: '음성 파일이 업로드되지 않았습니다.' 
+    // 파일 소스 결정 (우선순위: 청크조립파일 > 직접업로드)
+    if (req.body.serverFilePath) {
+      const resolvedPath = path.resolve(req.body.serverFilePath);
+      const tmpDir = os.tmpdir();
+      if (!resolvedPath.startsWith(tmpDir)) {
+        return res.status(400).json({ success: false, error: '잘못된 파일 경로입니다.' });
+      }
+      if (!fs.existsSync(resolvedPath)) {
+        return res.status(400).json({ success: false, error: '업로드된 파일을 찾을 수 없습니다.' });
+      }
+      audioFilePath = resolvedPath;
+      isChunkedFile = true;
+    } else if (req.file) {
+      audioFilePath = req.file.path;
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: '음성 파일이 업로드되지 않았습니다.'
       });
     }
 
-    console.log('🎤 STT 변환 시작:', req.file.filename);
+    console.log('🎤 STT 변환 시작:', isChunkedFile ? '청크 조립 파일' : req.file.filename);
 
     // OpenAI Whisper API 호출
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(req.file.path),
+      file: fs.createReadStream(audioFilePath),
       model: 'whisper-1',
       language: 'ko',
       response_format: 'verbose_json',
@@ -75,9 +99,6 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
     });
 
     console.log('✅ STT 변환 완료:', transcription.text.substring(0, 100) + '...');
-
-    // 임시 파일 정리
-    try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
 
     res.json({
       success: true,
@@ -88,15 +109,16 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
 
   } catch (error) {
     console.error('❌ STT 변환 오류:', error);
-    // 임시 파일 정리
-    if (req.file && req.file.path) {
-      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
-    }
     res.status(500).json({
       success: false,
       error: 'STT 변환 중 오류가 발생했습니다.',
       details: error.message
     });
+  } finally {
+    // 임시 파일 정리
+    if (audioFilePath) {
+      try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+    }
   }
 });
 

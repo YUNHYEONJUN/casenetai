@@ -126,6 +126,57 @@ function handleFileSelect() {
 // 음성 → 텍스트 변환 (STT)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+/**
+ * 대용량 파일 청크 업로드 (Vercel 4.5MB 제한 대응)
+ */
+async function uploadLargeFileChunked(file, token) {
+    const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = Date.now() + '-' + Math.random().toString(36).slice(2);
+
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('uploadId', uploadId);
+        formData.append('chunkIndex', String(i));
+        formData.append('totalChunks', String(totalChunks));
+        formData.append('fileName', file.name);
+
+        const res = await fetch('/api/upload-chunk', {
+            method: 'POST',
+            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            body: formData
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || '파일 청크 업로드 실패');
+        }
+    }
+
+    // 청크 조립
+    const completeRes = await fetch('/api/upload-chunk-complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ uploadId, fileName: file.name })
+    });
+
+    if (!completeRes.ok) {
+        const err = await completeRes.json().catch(() => ({}));
+        throw new Error(err.error || '파일 조립 실패');
+    }
+
+    const result = await completeRes.json();
+    return result.filePath;
+}
+
 async function transcribeAudio() {
     if (!selectedFile) {
         alert('파일을 먼저 선택해주세요.');
@@ -135,17 +186,33 @@ async function transcribeAudio() {
     showProgress('음성 파일을 텍스트로 변환 중...', '잠시만 기다려주세요 (1-2분 소요)');
 
     try {
-        const formData = new FormData();
-        formData.append('audio', selectedFile);
-
         const token = localStorage.getItem('token');
-        const response = await fetch('/api/fact-confirmation/transcribe', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
-            body: formData
-        });
+        const DIRECT_UPLOAD_LIMIT = 3.5 * 1024 * 1024; // 3.5MB (Vercel 4.5MB 한도 여유분)
+        let response;
+
+        if (selectedFile.size > DIRECT_UPLOAD_LIMIT) {
+            // 대용량: 청크 분할 업로드 후 서버 경로 전달
+            const serverFilePath = await uploadLargeFileChunked(selectedFile, token);
+            response = await fetch('/api/fact-confirmation/transcribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ serverFilePath })
+            });
+        } else {
+            // 소용량: FormData 직접 업로드
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+            response = await fetch('/api/fact-confirmation/transcribe', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+        }
 
         if (!response.ok) {
             throw new Error('텍스트 변환에 실패했습니다.');
@@ -157,12 +224,12 @@ async function transcribeAudio() {
         console.log('✅ STT 변환 완료:', transcribedText.substring(0, 100) + '...');
 
         hideProgress();
-        
+
         // Step 2로 이동
         updateStep(2);
         showSection('infoSection');
 
-        alert('✅ 텍스트 변환이 완료되었습니다!\n이제 개인정보를 입력해주세요.');
+        alert('텍스트 변환이 완료되었습니다!\n이제 개인정보를 입력해주세요.');
 
     } catch (error) {
         console.error('❌ STT 오류:', error);

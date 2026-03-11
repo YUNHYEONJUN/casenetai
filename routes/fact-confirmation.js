@@ -6,6 +6,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const { Document, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, WidthType, BorderStyle, HeadingLevel } = require('docx');
 const { Packer } = require('docx');
+const os = require('os');
 const { authenticateToken } = require('../middleware/auth');
 const OpenAI = require('openai');
 
@@ -14,20 +15,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Multer 설정 (음성 파일 업로드)
+// Multer 설정 (음성 파일 업로드) - Vercel 서버리스 호환 (/tmp 사용)
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/fact-confirmation');
-    try {
-      await fsPromises.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error);
-    }
+  destination: (req, file, cb) => {
+    cb(null, os.tmpdir());
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `fact-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const safeExtname = path.extname(path.basename(file.originalname));
+    cb(null, `fact-${uniqueSuffix}${safeExtname}`);
   }
 });
 
@@ -35,13 +31,22 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /wav|mp3|m4a|mp4/;
+    // 파일명 보안 검증
+    const basename = path.basename(file.originalname);
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
+      return cb(new Error('잘못된 파일명입니다.'));
+    }
+
+    const allowedTypes = /wav|mp3|m4a|mp4|ogg|webm/;
+    const allowedMimes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a',
+                          'audio/mp4', 'audio/ogg', 'audio/webm', 'video/webm', 'video/mp4'];
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (extname) {
+    const mimetype = allowedMimes.includes(file.mimetype);
+
+    if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('지원하지 않는 파일 형식입니다. (wav, mp3, m4a, mp4만 가능)'));
+      cb(new Error('지원하지 않는 파일 형식입니다. (wav, mp3, m4a, mp4, ogg, webm만 가능)'));
     }
   }
 });
@@ -50,20 +55,44 @@ const upload = multer({
 // POST /api/fact-confirmation/transcribe
 // 음성 파일 → STT 변환
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/transcribe', authenticateToken, upload.single('audio'), async (req, res) => {
+router.post('/transcribe', authenticateToken, (req, res, next) => {
+  // Content-Type에 따라 multer 적용 결정 (JSON = 청크 조립 파일 경로)
+  if (req.headers['content-type']?.includes('application/json')) {
+    next();
+  } else {
+    upload.single('audio')(req, res, next);
+  }
+}, async (req, res) => {
+  let audioFilePath = null;
+  let isChunkedFile = false;
+
   try {
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: '음성 파일이 업로드되지 않았습니다.' 
+    // 파일 소스 결정 (우선순위: 청크조립파일 > 직접업로드)
+    if (req.body.serverFilePath) {
+      const resolvedPath = path.resolve(req.body.serverFilePath);
+      const tmpDir = os.tmpdir();
+      if (!resolvedPath.startsWith(tmpDir)) {
+        return res.status(400).json({ success: false, error: '잘못된 파일 경로입니다.' });
+      }
+      if (!fs.existsSync(resolvedPath)) {
+        return res.status(400).json({ success: false, error: '업로드된 파일을 찾을 수 없습니다.' });
+      }
+      audioFilePath = resolvedPath;
+      isChunkedFile = true;
+    } else if (req.file) {
+      audioFilePath = req.file.path;
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: '음성 파일이 업로드되지 않았습니다.'
       });
     }
 
-    console.log('🎤 사실확인서 STT 변환 시작:', req.file.filename);
+    console.log('🎤 사실확인서 STT 변환 시작:', isChunkedFile ? '청크 조립 파일' : req.file.filename);
 
     // OpenAI Whisper API 호출
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(req.file.path),
+      file: fs.createReadStream(audioFilePath),
       model: 'whisper-1',
       language: 'ko',
       response_format: 'verbose_json'
@@ -84,6 +113,11 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
       error: 'STT 변환 중 오류가 발생했습니다.',
       details: error.message
     });
+  } finally {
+    // 임시 파일 정리
+    if (audioFilePath) {
+      try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
+    }
   }
 });
 
