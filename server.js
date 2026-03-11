@@ -891,7 +891,7 @@ app.post('/api/upload-audio-stream', optionalAuth, (req, res, next) => {
       // 청크 업로드로 조립된 파일 (경로 검증)
       const resolvedPath = path.resolve(serverFilePath);
       const tmpDir = os.tmpdir();
-      if (!resolvedPath.startsWith(tmpDir)) {
+      if (!resolvedPath.startsWith(tmpDir + path.sep) && resolvedPath !== tmpDir) {
         sendEvent('error', { message: '잘못된 파일 경로입니다.' });
         res.end();
         return;
@@ -1443,10 +1443,10 @@ app.post('/api/download-word', express.json(), async (req, res) => {
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 400, after: 200 }
           }),
-          new Paragraph({ text: `상담일자: ${report.기본정보.상담일자}`, spacing: { after: 100 } }),
-          new Paragraph({ text: `상담유형: ${consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형}`, spacing: { after: 100 } }),
-          new Paragraph({ text: `접수번호: ${report.기본정보.접수번호}`, spacing: { after: 100 } }),
-          new Paragraph({ text: `상담원: ${report.기본정보.상담원 || '미입력'}`, spacing: { after: 300 } }),
+          new Paragraph({ text: `상담일자: ${report.기본정보?.상담일자 || '미입력'}`, spacing: { after: 100 } }),
+          new Paragraph({ text: `상담유형: ${consultationTypeText[report.기본정보?.상담유형] || report.기본정보?.상담유형 || '미입력'}`, spacing: { after: 100 } }),
+          new Paragraph({ text: `접수번호: ${report.기본정보?.접수번호 || '미입력'}`, spacing: { after: 100 } }),
+          new Paragraph({ text: `상담원: ${report.기본정보?.상담원 || '미입력'}`, spacing: { after: 300 } }),
           
           // 상담 요약
           new Paragraph({
@@ -1600,7 +1600,7 @@ app.post('/api/download-word', express.json(), async (req, res) => {
     const buffer = await Packer.toBuffer(doc);
     
     // 파일 다운로드
-    const filename = `상담일지_${report.기본정보.접수번호}_${report.기본정보.상담일자}.docx`;
+    const filename = `상담일지_${report.기본정보?.접수번호 || '미정'}_${report.기본정보?.상담일자 || new Date().toISOString().slice(0, 10)}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
     res.send(buffer);

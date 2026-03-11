@@ -70,7 +70,7 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
     if (req.body.serverFilePath) {
       const resolvedPath = path.resolve(req.body.serverFilePath);
       const tmpDir = os.tmpdir();
-      if (!resolvedPath.startsWith(tmpDir)) {
+      if (!resolvedPath.startsWith(tmpDir + path.sep) && resolvedPath !== tmpDir) {
         return res.status(400).json({ success: false, error: '잘못된 파일 경로입니다.' });
       }
       if (!fs.existsSync(resolvedPath)) {

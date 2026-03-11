@@ -319,6 +319,7 @@ async function generateDocument() {
 
 function renderPreview(doc) {
     const previewEl = window.document.getElementById('previewDocument');
+    if (!previewEl) return;
 
     let html = '';
 

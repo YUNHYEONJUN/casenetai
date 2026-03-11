@@ -455,6 +455,10 @@ class FeedbackWidget {
         body: JSON.stringify(feedbackData)
       });
 
+      if (!response.ok) {
+        throw new Error('서버 오류가 발생했습니다.');
+      }
+
       const result = await response.json();
 
       if (result.success) {

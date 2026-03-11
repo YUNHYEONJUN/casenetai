@@ -523,7 +523,7 @@ uploadBtn.addEventListener('click', async function() {
                 if (xhr.readyState === 4) {
                     if (finalResult) {
                         resolve(finalResult);
-                    } else if (!finalResult) {
+                    } else {
                         reject(new Error('서버 응답이 완료되지 않았습니다.'));
                     }
                 }

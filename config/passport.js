@@ -66,7 +66,7 @@ passport.use(new KakaoStrategy({
           [user.id]
         );
         
-        console.log('✅ 카카오 로그인 성공:', user.email || user.oauth_nickname);
+        console.log('✅ 카카오 로그인 성공:', user.oauth_email || user.oauth_nickname);
         return done(null, user);
       }
       
@@ -145,7 +145,7 @@ passport.use(new NaverStrategy({
           [user.id]
         );
         
-        console.log('✅ 네이버 로그인 성공:', user.email || user.oauth_nickname);
+        console.log('✅ 네이버 로그인 성공:', user.oauth_email || user.oauth_nickname);
         return done(null, user);
       }
       
@@ -224,7 +224,7 @@ passport.use(new GoogleStrategy({
           [user.id]
         );
         
-        console.log('✅ 구글 로그인 성공:', user.email || user.oauth_nickname);
+        console.log('✅ 구글 로그인 성공:', user.oauth_email || user.oauth_nickname);
         return done(null, user);
       }
       
