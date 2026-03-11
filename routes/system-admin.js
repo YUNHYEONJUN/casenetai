@@ -65,7 +65,7 @@ router.get('/organizations', async (req, res) => {
       LEFT JOIN users u ON u.organization_id = o.id AND u.status = 'active'
       LEFT JOIN users admin_user ON admin_user.id = o.created_by_admin_id
       ${whereClause}
-      GROUP BY o.id
+      GROUP BY o.id, admin_user.name, admin_user.oauth_email
       ORDER BY o.created_at DESC
       LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}
     `, [...params, parseInt(limit), parseInt(offset)]);
@@ -711,18 +711,20 @@ router.post('/approve-user/:userId', async (req, res) => {
     
     // 감사 로그 기록
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO audit_logs (user_id, user_role, action, resource_type, resource_id, description, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         req.user.userId,
+        req.user.role,
         'APPROVE_USER',
         'user',
         userId,
         JSON.stringify({ role, approved_by: req.user.userId }),
-        req.ip
+        req.ip,
+        req.get('user-agent')
       ]
     );
-    
+
     res.json({
       success: true,
       message: '사용자가 승인되었습니다'
@@ -773,18 +775,20 @@ router.post('/promote-to-org-admin/:userId', async (req, res) => {
     
     // 감사 로그 기록
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO audit_logs (user_id, user_role, action, resource_type, resource_id, description, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         req.user.userId,
+        req.user.role,
         'PROMOTE_TO_ORG_ADMIN',
         'user',
         userId,
         JSON.stringify({ organization_id, promoted_by: req.user.userId }),
-        req.ip
+        req.ip,
+        req.get('user-agent')
       ]
     );
-    
+
     res.json({
       success: true,
       message: '기관 관리자로 승격되었습니다'
@@ -822,15 +826,17 @@ router.post('/reject-user/:userId', async (req, res) => {
     
     // 감사 로그 기록
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO audit_logs (user_id, user_role, action, resource_type, resource_id, description, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         req.user.userId,
+        req.user.role,
         'REJECT_USER',
         'user',
         userId,
         JSON.stringify({ rejected_by: req.user.userId }),
-        req.ip
+        req.ip,
+        req.get('user-agent')
       ]
     );
     

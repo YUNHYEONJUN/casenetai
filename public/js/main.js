@@ -601,6 +601,9 @@ uploadBtn.addEventListener('click', async function() {
             progressBar.style.width = '0%';
         }, 1000);
 
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '상담일지 생성하기';
+
     } catch (error) {
 
         console.error('Error:', error);
@@ -932,8 +935,11 @@ editBtn.addEventListener('click', function() {
     }
 });
 
+let reportBackup = null;
+
 // 수정 모드 진입
 function enterEditMode() {
+    reportBackup = JSON.parse(JSON.stringify(currentReport));
     isEditMode = true;
     editBtn.textContent = '수정 완료';
     editBtn.classList.remove('btn-secondary');
@@ -1094,10 +1100,20 @@ function updateReportField(label, value) {
 downloadBtn.addEventListener('click', function() {
     // 편집 모드일 때는 취소
     if (isEditMode) {
-        // 편집 취소 - 원래 데이터로 다시 표시
+        // 편집 취소 - 백업 데이터로 복원
         if (confirm('수정 내용을 취소하시겠습니까?')) {
-            exitEditMode();
-            displayReport(currentReport); // 원래 데이터로 다시 표시
+            if (reportBackup) {
+                currentReport = reportBackup;
+                reportBackup = null;
+            }
+            isEditMode = false;
+            editBtn.textContent = '수정';
+            editBtn.classList.remove('btn-primary');
+            editBtn.classList.add('btn-secondary');
+            downloadBtn.textContent = '다운로드';
+            downloadBtn.classList.remove('btn-secondary');
+            downloadBtn.classList.add('btn-primary');
+            displayReport(currentReport);
         }
         return;
     }

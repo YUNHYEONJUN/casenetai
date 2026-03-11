@@ -21,8 +21,7 @@ router.get('/overview', authenticateToken, requireSystemAdmin, async (req, res) 
     const orgStats = await db.get(`
       SELECT 
         COUNT(*) as total_organizations,
-        SUM(CASE WHEN subscription_status = 'active' THEN 1 ELSE 0 END) as active_organizations,
-        SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) as alive_organizations
+        SUM(CASE WHEN subscription_status = 'active' THEN 1 ELSE 0 END) as active_organizations
       FROM organizations
     `);
     
@@ -36,9 +35,8 @@ router.get('/overview', authenticateToken, requireSystemAdmin, async (req, res) 
         SUM(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as approved_users,
         SUM(CASE WHEN is_approved = false THEN 1 ELSE 0 END) as pending_users
       FROM users
-      WHERE deleted_at IS NULL
     `);
-    
+
     // 3. 이번 달 사용량 통계 (익명화)
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -182,13 +180,12 @@ router.get('/organizations/usage', authenticateToken, requireSystemAdmin, async 
         COALESCE(q.remaining_hours, 10.0) as remaining_hours,
         COALESCE(q.request_count, 0) as request_count,
         q.last_used_at,
-        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND deleted_at IS NULL) as user_count,
-        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_approved = true AND deleted_at IS NULL) as approved_user_count,
+        (SELECT COUNT(*) FROM users WHERE organization_id = o.id ) as user_count,
+        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_approved = true ) as approved_user_count,
         (SELECT COUNT(*) FROM anonymization_logs WHERE organization_id = o.id) as total_anonymizations
       FROM organizations o
       LEFT JOIN organization_usage_quotas q ON o.id = q.organization_id 
         AND q.year = ? AND q.month = ?
-      WHERE o.deleted_at IS NULL
       ORDER BY ${sortColumn} ${sortOrder}
       LIMIT ? OFFSET ?
     `, [targetYear, targetMonth, parseInt(limit), offset]);
@@ -197,9 +194,8 @@ router.get('/organizations/usage', authenticateToken, requireSystemAdmin, async 
     const totalCount = await db.get(`
       SELECT COUNT(*) as count 
       FROM organizations 
-      WHERE deleted_at IS NULL
     `);
-    
+
     // 사용률 계산 추가
     const enrichedOrgs = organizations.map(org => ({
       ...org,
@@ -252,8 +248,7 @@ router.get('/organizations/:id/usage', authenticateToken, requireSystemAdmin, as
     
     // 기관 정보
     const organization = await db.get(`
-      SELECT * FROM organizations WHERE id = ? AND deleted_at IS NULL
-    `, [id]);
+      SELECT * FROM organizations WHERE id = ?    `, [id]);
     
     if (!organization) {
       return res.status(404).json({
@@ -289,7 +284,7 @@ router.get('/organizations/:id/usage', authenticateToken, requireSystemAdmin, as
          AND EXTRACT(MONTH FROM created_at) = ?) as monthly_anonymizations
       FROM users u
       LEFT JOIN credits c ON u.id = c.user_id
-      WHERE u.organization_id = ? AND u.deleted_at IS NULL
+      WHERE u.organization_id = ?
       ORDER BY monthly_anonymizations DESC
     `, [id, targetYear, targetMonth, id]);
     
@@ -381,7 +376,7 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
     const offset = (page - 1) * limit;
     
     // WHERE 조건 구성
-    let whereConditions = ['u.deleted_at IS NULL'];
+    let whereConditions = [];
     let params = [];
     let paramIndex = 1;
 
@@ -407,9 +402,14 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
     
     // 정렬 검증
     const validSortColumns = ['total_used', 'balance', 'total_anonymizations', 'last_login_at', 'name'];
-    const sortColumn = validSortColumns.includes(sort) ? 
-      (sort === 'total_anonymizations' ? 'total_anonymizations' : `c.${sort}`) : 
-      'c.total_used';
+    const sortColumnMap = {
+      'total_used': 'c.total_used',
+      'balance': 'c.balance',
+      'total_anonymizations': 'total_anonymizations',
+      'last_login_at': 'u.last_login_at',
+      'name': 'u.name'
+    };
+    const sortColumn = validSortColumns.includes(sort) ? sortColumnMap[sort] : 'c.total_used';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     
     // 사용자별 사용 현황 조회
@@ -424,7 +424,6 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
         u.organization_id,
         o.name as organization_name,
         u.is_approved,
-        u.is_active,
         u.last_login_at,
         u.created_at,
         c.balance,
@@ -504,7 +503,7 @@ router.get('/users/:id/usage', authenticateToken, requireSystemAdmin, async (req
       FROM users u
       LEFT JOIN organizations o ON u.organization_id = o.id
       LEFT JOIN credits c ON u.id = c.user_id
-      WHERE u.id = ? AND u.deleted_at IS NULL
+      WHERE u.id = ?
     `, [id]);
     
     if (!user) {
@@ -644,7 +643,6 @@ router.get('/activity-logs', authenticateToken, requireSystemAdmin, async (req, 
       FROM users u
       LEFT JOIN organizations o ON u.organization_id = o.id
       WHERE u.last_login_at >= CURRENT_TIMESTAMP - make_interval(days => ?)
-        AND u.deleted_at IS NULL
       ORDER BY u.last_login_at DESC
       LIMIT 50
     `, [parseInt(days)]);
@@ -716,7 +714,6 @@ router.get('/charts/usage-trends', authenticateToken, requireSystemAdmin, async 
         COUNT(*) as new_users,
         SUM(CASE WHEN role = 'org_admin' THEN 1 ELSE 0 END) as new_org_admins
       FROM users
-      WHERE deleted_at IS NULL
       GROUP BY EXTRACT(YEAR FROM created_at), EXTRACT(MONTH FROM created_at)
       ORDER BY year DESC, month DESC
       LIMIT ?

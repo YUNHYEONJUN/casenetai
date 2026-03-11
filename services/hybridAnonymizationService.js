@@ -66,22 +66,49 @@ class HybridAnonymizationService {
   async ruleBasedAnonymize(text, options) {
     const startTime = Date.now();
     const result = anonymizationService.anonymize(text);
-    
+
+    // mappings는 { names: [...], facilities: [...], ... } 형태의 객체
+    // 이를 [{ original, anonymized, type }] 배열로 변환
+    const mappingsArray = this.convertMappingsToArray(result.mappings || {});
+
     return {
       success: true,
       method: 'rule',
       anonymized_text: result.anonymizedText,
-      mappings: result.mappings || [],
+      mappings: mappingsArray,
       stats: {
-        total_entities: result.mappings?.length || 0,
-        names: result.mappings?.filter(m => m.type === 'name').length || 0,
-        contacts: result.mappings?.filter(m => ['phone', 'email', 'address'].includes(m.type)).length || 0,
-        identifiers: result.mappings?.filter(m => m.type === 'identifier').length || 0,
-        facilities: result.mappings?.filter(m => m.type === 'facility').length || 0
+        total_entities: mappingsArray.length,
+        names: mappingsArray.filter(m => m.type === 'name').length,
+        contacts: mappingsArray.filter(m => ['phone', 'email', 'address'].includes(m.type)).length,
+        identifiers: mappingsArray.filter(m => m.type === 'identifier').length,
+        facilities: mappingsArray.filter(m => m.type === 'facility').length
       },
       processing_time_ms: Date.now() - startTime,
       cost_estimate: { usd: 0, krw: 0 }
     };
+  }
+
+  /**
+   * anonymizationService의 mappings 객체를 배열로 변환
+   */
+  convertMappingsToArray(mappings) {
+    const typeMap = {
+      names: 'name',
+      facilities: 'facility',
+      phones: 'phone',
+      addresses: 'address',
+      emails: 'email',
+      residentIds: 'identifier'
+    };
+    const result = [];
+    for (const [key, items] of Object.entries(mappings)) {
+      if (Array.isArray(items)) {
+        items.forEach(item => {
+          result.push({ ...item, type: typeMap[key] || key });
+        });
+      }
+    }
+    return result;
   }
 
   /**

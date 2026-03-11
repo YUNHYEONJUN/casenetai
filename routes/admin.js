@@ -156,7 +156,7 @@ router.get('/organizations/:id', async (req, res) => {
     
     // 기관 사용자 목록
     const users = await db.query(
-      `SELECT id, email, name, role, created_at, last_login_at 
+      `SELECT id, oauth_email as email, name, role, created_at, last_login_at
        FROM users 
        WHERE organization_id = ?
        ORDER BY created_at DESC`,

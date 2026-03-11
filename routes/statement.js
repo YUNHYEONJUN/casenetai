@@ -409,7 +409,7 @@ router.get('/list', authenticateToken, async (req, res) => {
     const { status, page = 1, limit = 20, search } = req.query;
 
     let query = `
-      SELECT s.*, u.username as creator_name
+      SELECT s.*, u.name as creator_name
       FROM statements s
       LEFT JOIN users u ON s.user_id = u.id
       WHERE s.user_id = $1
@@ -438,17 +438,29 @@ router.get('/list', authenticateToken, async (req, res) => {
     // 정렬 및 페이징
     query += ` ORDER BY s.investigation_date DESC, s.created_at DESC`;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, (page - 1) * limit);
+    params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
 
     const result = await db.query(query, params);
 
     // 전체 개수 조회
     let countQuery = `SELECT COUNT(*) FROM statements WHERE user_id = $1`;
     const countParams = [userId];
-    
+    let countParamIndex = 2;
+
     if (status) {
-      countQuery += ` AND status = $2`;
+      countQuery += ` AND status = $${countParamIndex}`;
       countParams.push(status);
+      countParamIndex++;
+    }
+
+    if (search) {
+      countQuery += ` AND (
+        subject_name ILIKE $${countParamIndex} OR
+        subject_organization ILIKE $${countParamIndex} OR
+        investigation_agency ILIKE $${countParamIndex}
+      )`;
+      countParams.push(`%${search}%`);
+      countParamIndex++;
     }
 
     const countResult = await db.query(countQuery, countParams);
@@ -487,7 +499,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     const result = await db.query(
-      `SELECT s.*, u.username as creator_name
+      `SELECT s.*, u.name as creator_name
        FROM statements s
        LEFT JOIN users u ON s.user_id = u.id
        WHERE s.id = $1 AND s.user_id = $2`,

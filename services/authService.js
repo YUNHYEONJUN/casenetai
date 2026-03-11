@@ -180,9 +180,9 @@ class AuthService {
         { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
       );
       
-      // 세션 저장 (Access Token 만료 시간에 맞춤)
+      // 세션 저장 (Refresh Token 만료 시간에 맞춤)
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 1); // 1시간
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7일 (리프레시 토큰 수명과 일치)
       
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)

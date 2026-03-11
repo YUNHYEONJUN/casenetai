@@ -60,6 +60,9 @@ class AnonymizationService {
     anonymize(text) {
         if (!text) return { anonymizedText: '', mappings: {} };
 
+        // 매번 호출 시 상태 초기화 (동시 요청 간 데이터 오염 방지)
+        this.reset();
+
         let result = text;
 
         // 1. 주민등록번호 익명화 (가장 먼저)

@@ -36,8 +36,8 @@ router.post('/', async (req, res) => {
     const { getDB } = require('../database/db-postgres');
     const db = getDB();
     await db.run(
-      `INSERT INTO feedback_log (user_id, rating, comment, report_type, created_at)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      `INSERT INTO anonymization_feedback (user_id, rating, comment, report_type)
+       VALUES (?, ?, ?, ?)`,
       [userId, rating, comment || '', reportType || 'consultation']
     );
     res.json({ success: true, message: '피드백이 저장되었습니다.' });

@@ -129,6 +129,11 @@ app.use(express.json({ limit: '10mb' })); // JSON 페이로드 크기 제한
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Passport 초기화 (OAuth 인증에 필요)
+const passport = require('passport');
+require('./config/passport');
+app.use(passport.initialize());
+
 // 전역 Rate Limiter 적용
 app.use('/api/', apiLimiter);
 
