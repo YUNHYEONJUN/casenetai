@@ -214,15 +214,17 @@
         async function loadStats() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('/api/org-admin/stats', {
+                const response = await fetch('/api/org-admin/statistics', {
                     headers: {'Authorization': `Bearer ${token}`}
                 });
 
-                const stats = await response.json();
-                document.getElementById('orgName').textContent = stats.organizationName + ' 관리';
-                document.getElementById('totalMembers').textContent = stats.totalMembers || 0;
-                document.getElementById('pendingMembers').textContent = stats.pendingMembers || 0;
-                document.getElementById('activeMembers').textContent = stats.activeMembers || 0;
+                const data = await response.json();
+                if (data.success) {
+                    const stats = data.statistics;
+                    document.getElementById('totalMembers').textContent = stats.employees?.total || 0;
+                    document.getElementById('pendingMembers').textContent = stats.pendingRequests || 0;
+                    document.getElementById('activeMembers').textContent = stats.employees?.approved || 0;
+                }
             } catch (error) {
                 console.error('통계 로드 오류:', error);
             }
@@ -231,21 +233,23 @@
         async function loadPendingUsers() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('/api/org-admin/pending-users', {
+                const response = await fetch('/api/org-admin/join-requests?status=pending', {
                     headers: {'Authorization': `Bearer ${token}`}
                 });
 
-                const users = await response.json();
-                renderUsers(users);
+                const data = await response.json();
+                if (data.success) {
+                    renderUsers(data.requests);
+                }
             } catch (error) {
                 document.getElementById('pendingTable').innerHTML = '<div class="loading">데이터를 불러올 수 없습니다.</div>';
             }
         }
 
-        function renderUsers(users) {
+        function renderUsers(requests) {
             const container = document.getElementById('pendingTable');
-            
-            if (users.length === 0) {
+
+            if (!requests || requests.length === 0) {
                 container.innerHTML = '<div class="loading">승인 대기 중인 사용자가 없습니다.</div>';
                 return;
             }
@@ -256,27 +260,27 @@
                         <tr>
                             <th>사용자</th>
                             <th>로그인 방법</th>
-                            <th>가입일</th>
+                            <th>신청일</th>
                             <th>작업</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
-            users.forEach(user => {
+            requests.forEach(req => {
                 html += `
                     <tr>
                         <td>
-                            <strong>${esc(user.name || user.oauth_nickname)}</strong><br>
-                            <small style="color: #64748b;">${esc(user.oauth_email || '-')}</small>
+                            <strong>${esc(req.user_name || '')}</strong><br>
+                            <small style="color: #64748b;">${esc(req.user_email || '-')}</small>
                         </td>
-                        <td><span class="badge">${esc(user.oauth_provider)}</span></td>
-                        <td>${new Date(user.created_at).toLocaleDateString('ko-KR')}</td>
+                        <td><span class="badge">${esc(req.oauth_provider || '')}</span></td>
+                        <td>${new Date(req.created_at).toLocaleDateString('ko-KR')}</td>
                         <td>
-                            <button class="action-btn btn-approve" onclick="approveUser(${user.id})">
+                            <button class="action-btn btn-approve" onclick="approveRequest(${parseInt(req.id)})">
                                 ✓ 승인
                             </button>
-                            <button class="action-btn btn-reject" onclick="rejectUser(${user.id})">
+                            <button class="action-btn btn-reject" onclick="rejectRequest(${parseInt(req.id)})">
                                 ✕ 거부
                             </button>
                         </td>
@@ -288,14 +292,14 @@
             container.innerHTML = html;
         }
 
-        async function approveUser(userId) {
+        async function approveRequest(requestId) {
             if (!confirm('이 사용자를 승인하시겠습니까?')) return;
 
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`/api/org-admin/approve-user/${userId}`, {
-                    method: 'POST',
-                    headers: {'Authorization': `Bearer ${token}`}
+                const response = await fetch(`/api/org-admin/join-requests/${requestId}/approve`, {
+                    method: 'PUT',
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'}
                 });
 
                 if (!response.ok) throw new Error('승인 실패');
@@ -308,14 +312,15 @@
             }
         }
 
-        async function rejectUser(userId) {
+        async function rejectRequest(requestId) {
             if (!confirm('이 사용자를 거부하시겠습니까?')) return;
 
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`/api/org-admin/reject-user/${userId}`, {
-                    method: 'POST',
-                    headers: {'Authorization': `Bearer ${token}`}
+                const response = await fetch(`/api/org-admin/join-requests/${requestId}/reject`, {
+                    method: 'PUT',
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({ reason: '관리자에 의한 거부' })
                 });
 
                 if (!response.ok) throw new Error('거부 실패');

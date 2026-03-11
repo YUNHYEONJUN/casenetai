@@ -503,10 +503,10 @@
             ${users.map(user => `
               <tr>
                 <td>
-                  <strong>${user.name || user.oauth_nickname}</strong><br>
-                  <small>${user.email || user.oauth_provider}</small>
+                  <strong>${esc(user.name || user.oauth_nickname || '')}</strong><br>
+                  <small>${esc(user.email || user.oauth_provider || '')}</small>
                 </td>
-                <td>${user.organization_name || '-'}</td>
+                <td>${esc(user.organization_name || '-')}</td>
                 <td>
                   ${user.role === 'system_admin' 
                     ? '<span class="badge danger">System Admin</span>' 
@@ -558,9 +558,9 @@
           <tbody>
             ${data.recent_anonymizations.slice(0, 20).map(log => `
               <tr>
-                <td>${log.user_name || '-'}</td>
-                <td>${log.organization_name || '-'}</td>
-                <td>${log.file_name}</td>
+                <td>${esc(log.user_name || '-')}</td>
+                <td>${esc(log.organization_name || '-')}</td>
+                <td>${esc(log.file_name || '-')}</td>
                 <td>${(log.processing_time_minutes || 0).toFixed(2)}분</td>
                 <td>${log.total_anonymized || 0}개</td>
                 <td>${new Date(log.created_at).toLocaleString('ko-KR')}</td>
@@ -583,9 +583,9 @@
           <tbody>
             ${data.recent_payments.slice(0, 20).map(payment => `
               <tr>
-                <td>${payment.user_name || '-'}</td>
-                <td>${payment.amount.toLocaleString()}원</td>
-                <td>${payment.payment_method || '-'}</td>
+                <td>${esc(payment.user_name || '-')}</td>
+                <td>${(payment.amount || 0).toLocaleString()}원</td>
+                <td>${esc(payment.payment_method || '-')}</td>
                 <td>
                   ${payment.status === 'success' 
                     ? '<span class="badge success">성공</span>' 

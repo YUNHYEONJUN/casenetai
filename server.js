@@ -236,7 +236,7 @@ const upload = multer({
   fileFilter: function (req, file, cb) {
     // 파일명 보안 검증
     const basename = path.basename(file.originalname);
-    if (basename.includes('..') || basename.includes('/') || basename.includes('\\\\')) {
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
       return cb(new Error('잘못된 파일명입니다.'));
     }
     
@@ -1091,7 +1091,7 @@ const documentUpload = multer({
   fileFilter: function (req, file, cb) {
     // 파일명 보안 검증
     const basename = path.basename(file.originalname);
-    if (basename.includes('..') || basename.includes('/') || basename.includes('\\\\')) {
+    if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
       return cb(new Error('잘못된 파일명입니다.'));
     }
     

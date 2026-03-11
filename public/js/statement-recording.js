@@ -492,8 +492,7 @@ async function generateStatement() {
         
         // 기본 정보 설정
         const now = new Date();
-        document.getElementById('investigationDate').value = 
-            `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${now.getHours()}시 ${now.getMinutes()}분`;
+        document.getElementById('investigationDate').value = now.toISOString().slice(0, 16);
         
         // 문답 표시
         renderQaList();

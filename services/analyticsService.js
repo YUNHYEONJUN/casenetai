@@ -100,11 +100,11 @@ class AnalyticsService {
     const byFileType = await db.query(`
       SELECT
         COUNT(*) as total_anonymizations,
-        SUM(names_detected) as total_names,
-        SUM(contacts_detected) as total_contacts,
-        SUM(identifiers_detected) as total_identifiers,
-        SUM(facilities_detected) as total_facilities,
-        AVG(names_detected + contacts_detected + identifiers_detected + facilities_detected) as avg_entities_per_doc,
+        SUM(anonymized_names) as total_names,
+        SUM(anonymized_phones + anonymized_emails + anonymized_addresses) as total_contacts,
+        SUM(anonymized_ids) as total_identifiers,
+        SUM(anonymized_facilities) as total_facilities,
+        AVG(total_anonymized) as avg_entities_per_doc,
         file_type,
         COUNT(*) as count
       FROM anonymization_logs
@@ -114,10 +114,10 @@ class AnalyticsService {
 
     const total = await db.get(`
       SELECT
-        SUM(names_detected) as total_names,
-        SUM(contacts_detected) as total_contacts,
-        SUM(identifiers_detected) as total_identifiers,
-        SUM(facilities_detected) as total_facilities
+        SUM(anonymized_names) as total_names,
+        SUM(anonymized_phones + anonymized_emails + anonymized_addresses) as total_contacts,
+        SUM(anonymized_ids) as total_identifiers,
+        SUM(anonymized_facilities) as total_facilities
       FROM anonymization_logs
       ${whereClause}
     `, params);

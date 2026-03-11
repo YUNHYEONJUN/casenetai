@@ -129,8 +129,8 @@ async function processDocument() {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || '익명화 처리 중 오류가 발생했습니다.');
+            const errData = await response.json();
+            throw new Error(errData.error || '익명화 처리 중 오류가 발생했습니다.');
         }
 
         const data = await response.json();
