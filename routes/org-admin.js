@@ -157,7 +157,7 @@ const updateEmployeeSchema = z.object({
   body: z.object({
     name: z.string().max(100).optional(),
     phone: z.string().max(20).optional(),
-    role: z.string().max(50).optional(),
+    role: z.enum(['user', 'org_admin']).optional(),
     status: z.string().max(50).optional(),
   }),
 });

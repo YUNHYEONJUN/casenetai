@@ -415,11 +415,16 @@
         </div>
     </footer>
 
+    <script src="/js/auth.js"></script>
     <script src="/js/security-utils.js"></script>
     <script src="/js/main.js?v=20260306c"></script>
     <script>
         // 로그아웃 함수
-        function logout() {
+        async function logout() {
+            try {
+                const token = localStorage.getItem('token');
+                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+            } catch(e) {}
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             alert('로그아웃되었습니다.');

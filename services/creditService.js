@@ -23,7 +23,7 @@ class CreditService {
 
     if (!credit) {
       await db.run(
-        'INSERT INTO credits (user_id, balance, free_trial_count) VALUES ($1, 0, 3)',
+        'INSERT INTO credits (user_id, balance, free_trial_count) VALUES ($1, 0, 3) ON CONFLICT (user_id) DO NOTHING',
         [userId]
       );
 

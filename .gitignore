@@ -19,3 +19,15 @@ database/*.db-journal
 *-report.json
 *-bugs.json
 *-scan-report.json
+
+# 테스트/빌드
+coverage/
+dist/
+
+# 로그/인증서
+logs/
+*.pem
+*.key
+
+# OS
+Thumbs.db

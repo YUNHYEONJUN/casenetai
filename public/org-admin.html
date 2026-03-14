@@ -195,9 +195,11 @@
                     headers: {'Authorization': `Bearer ${token}`}
                 });
 
+                if (!response.ok) throw new Error('인증 실패');
                 const data = await response.json();
-                
-                if (data.role !== 'org_admin') {
+
+                const role = data.user?.role;
+                if (!data.success || (role !== 'org_admin' && role !== 'system_admin')) {
                     alert('기관 관리자만 접근할 수 있습니다.');
                     window.location.href = '/dashboard.html';
                     return false;
@@ -333,7 +335,11 @@
             }
         }
 
-        function logout() {
+        async function logout() {
+            try {
+                const token = localStorage.getItem('token');
+                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+            } catch(e) {}
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('authProvider');

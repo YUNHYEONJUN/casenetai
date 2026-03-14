@@ -248,7 +248,7 @@ router.get('/top-issues', async (req, res) => {
     const { limit = 10 } = req.query;
     
     const result = await analyticsService.getTopIssues({
-      limit: parseInt(limit)
+      limit: parseInt(limit) || 10
     });
 
     res.json(result);

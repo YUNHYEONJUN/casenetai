@@ -333,8 +333,8 @@
                 }
 
                 const data = await response.json();
-                
-                if (data.role !== 'system_admin') {
+
+                if (!data.success || data.user?.role !== 'system_admin') {
                     alert('시스템 관리자만 접근할 수 있습니다.');
                     window.location.href = '/dashboard.html';
                     return false;
@@ -342,7 +342,6 @@
 
                 return true;
             } catch (error) {
-                console.error('권한 확인 실패:', error);
                 alert('권한 확인에 실패했습니다.');
                 window.location.href = '/login.html';
                 return false;
@@ -627,7 +626,11 @@
         }
 
         // 로그아웃
-        function logout() {
+        async function logout() {
+            try {
+                const token = localStorage.getItem('token');
+                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+            } catch(e) {}
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login.html';

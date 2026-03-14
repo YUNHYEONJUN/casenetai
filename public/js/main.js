@@ -105,7 +105,6 @@ function saveDraft() {
         };
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         showDraftBanner('auto-saved');
-        console.log('Draft auto-saved', draft.savedAt);
     } catch (err) {
         console.warn('Draft save failed:', err);
     }
@@ -125,7 +124,6 @@ function loadDraft() {
 function clearDraft() {
     localStorage.removeItem(DRAFT_KEY);
     hideDraftBanner();
-    console.log('Draft cleared');
 }
 
 function showDraftBanner(mode) {
@@ -187,7 +185,6 @@ audioFileInput.addEventListener('change', async function(e) {
         fileNameDisplay.textContent = `선택된 파일: ${file.name} (${formatFileSize(file.size)})`;
         fileNameDisplay.style.color = 'var(--success-color)';
         fileNameDisplay.style.fontWeight = '600';
-        console.log('✅ 파일 선택됨:', file.name);
         
         // 비용 분석 시작
         await analyzeCost(file);
@@ -277,7 +274,6 @@ function checkFormValid() {
     }
     
     // 디버깅 로그
-    console.log('📋 폼 검증:', {
         상담유형: consultationTypeSelect.value || '미선택',
         파일: selectedFile ? selectedFile.name : '미선택',
         버튼활성화: isValid
@@ -346,7 +342,6 @@ function analyzeCost(file) {
     sttCost.textContent = `약 ${estimatedCost}원 (추정)`;
     totalCost.textContent = `${estimatedCost}~${estimatedCost + 12}원 (추정)`;
 
-    console.log('Cost estimate:', costEstimate);
 }
 
 // 대용량 파일 청크 업로드 (Vercel 4.5MB 제한 우회)
@@ -435,7 +430,6 @@ uploadBtn.addEventListener('click', async function() {
             `처리를 진행하시겠습니까?`;
         
         if (!confirm(confirmMessage)) {
-            console.log('❌ 사용자가 처리를 취소했습니다.');
             return;
         }
     } else {
@@ -451,8 +445,6 @@ uploadBtn.addEventListener('click', async function() {
     resultContainer.style.display = 'none';
 
     try {
-        console.log('STT engine: clova (fixed)');
-        console.log('Stage:', consultationStageSelect.value);
 
         // 진행 상황 업데이트
         progressBar.style.width = '5%';
@@ -469,7 +461,6 @@ uploadBtn.addEventListener('click', async function() {
                 progressBar.style.width = pct + '%';
                 progressText.textContent = msg;
             });
-            console.log('Chunked upload complete, path:', serverFilePath);
         }
 
         // Step 2: SSE 스트리밍으로 서버에 처리 요청
@@ -551,7 +542,6 @@ uploadBtn.addEventListener('click', async function() {
             }
         });
 
-        console.log('Result:', result);
 
         // 서버 응답 확인
         if (!result.success) {
@@ -570,7 +560,6 @@ uploadBtn.addEventListener('click', async function() {
 
         // 실제 비용 정보 표시
         if (result.actualCost) {
-            console.log('실제 비용:', {
                 처리시간: result.processingTime,
                 오디오길이: result.actualCost.duration.formatted,
                 STT비용: `${result.actualCost.sttCost}원`,
@@ -1155,7 +1144,6 @@ downloadBtn.addEventListener('click', function() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         
-        console.log('✅ TXT 파일 다운로드 완료');
         
     } catch (error) {
         console.error('다운로드 오류:', error);
@@ -1350,7 +1338,6 @@ function sendFeedbackComment() {
     document.getElementById('feedbackBtns').style.display = 'none';
     document.getElementById('feedbackComment').style.display = 'none';
     document.getElementById('feedbackDone').style.display = 'block';
-    console.log('Feedback submitted:', currentFeedbackRating, comment);
 }
 
 // --- #2 템플릿 저장/불러오기 ---
@@ -1445,7 +1432,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 // 페이지 로드 시 초기 상태 체크
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('페이지 로드 완료');
     checkFormValid();
 
     // Check for saved draft
@@ -1472,7 +1458,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (shared.source === 'statement' || shared.source === 'fact-confirmation') {
                 if (shared.transcript && confirm('다른 기능에서 전달된 텍스트 데이터가 있습니다. 불러오시겠습니까?')) {
                     // transcript를 활용할 수 있도록 세션에 유지
-                    console.log('Shared data loaded from:', shared.source);
                 }
             }
         } catch (err) { /* ignore */ }

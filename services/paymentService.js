@@ -77,7 +77,7 @@ class PaymentService {
    * 결제 승인 (토스페이먼츠 콜백 후 실행)
    * - 크레딧 충전 성공 후에만 payment status를 'success'로 변경
    */
-  async confirmPayment(orderId, paymentKey, amount) {
+  async confirmPayment(orderId, paymentKey, amount, userId) {
     const db = getDB();
 
     // 트랜잭션 내에서 FOR UPDATE로 동시 접근 방지
@@ -91,6 +91,10 @@ class PaymentService {
 
       if (!payment) {
         throw new Error('결제 정보를 찾을 수 없습니다');
+      }
+
+      if (payment.user_id !== userId) {
+        throw new Error('결제 권한이 없습니다');
       }
 
       // 이미 성공한 결제는 멱등성 보장 (동일 결과 반환)
@@ -233,8 +237,12 @@ class PaymentService {
   /**
    * 결제 실패 처리
    */
-  async failPayment(orderId, errorCode, errorMessage) {
+  async failPayment(orderId, errorCode, errorMessage, userId) {
     const db = getDB();
+
+    const payment = await db.get('SELECT user_id FROM payments WHERE order_id = $1', [orderId]);
+    if (!payment) throw new Error('결제 정보를 찾을 수 없습니다');
+    if (payment.user_id !== userId) throw new Error('결제 권한이 없습니다');
 
     await db.run(
       `UPDATE payments

@@ -210,12 +210,13 @@ router.get('/organizations/usage', authenticateToken, requireSystemAdmin, async 
 router.get('/organizations/:id/usage', authenticateToken, requireSystemAdmin, async (req, res) => {
   try {
     const db = getDB();
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: '유효하지 않은 ID입니다' } });
     const { year, month } = req.query;
 
     const now = new Date();
-    const targetYear = year ? parseInt(year) : now.getFullYear();
-    const targetMonth = month ? parseInt(month) : (now.getMonth() + 1);
+    const targetYear = parseInt(year) || now.getFullYear();
+    const targetMonth = parseInt(month) || (now.getMonth() + 1);
 
     const organization = await db.get('SELECT * FROM organizations WHERE id = $1', [id]);
 
@@ -387,7 +388,8 @@ router.get('/users/usage', authenticateToken, requireSystemAdmin, async (req, re
 router.get('/users/:id/usage', authenticateToken, requireSystemAdmin, async (req, res) => {
   try {
     const db = getDB();
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: '유효하지 않은 ID입니다' } });
     const { limit = 50 } = req.query;
     const safeLimit = Math.max(1, Math.min(parseInt(limit) || 50, 500));
 

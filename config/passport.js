@@ -24,26 +24,12 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'YOUR_GOOGLE_CL
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Passport Serialization (세션 관리)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const db = getDB();
-    const user = await db.get('SELECT id, oauth_email, oauth_nickname, name, role, organization_id, service_type, is_approved, created_at FROM users WHERE id = $1', [id]);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 카카오 OAuth Strategy
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+if (KAKAO_CLIENT_ID === 'YOUR_KAKAO_CLIENT_ID') {
+  logger.warn('카카오 OAuth 키가 설정되지 않았습니다. 카카오 로그인이 비활성화됩니다.');
+} else {
 
 passport.use(new KakaoStrategy({
     clientID: KAKAO_CLIENT_ID,
@@ -120,9 +106,15 @@ passport.use(new KakaoStrategy({
   }
 ));
 
+} // end kakao if
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 네이버 OAuth Strategy
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+if (NAVER_CLIENT_ID === 'YOUR_NAVER_CLIENT_ID') {
+  logger.warn('네이버 OAuth 키가 설정되지 않았습니다. 네이버 로그인이 비활성화됩니다.');
+} else {
 
 passport.use(new NaverStrategy({
     clientID: NAVER_CLIENT_ID,
@@ -199,9 +191,15 @@ passport.use(new NaverStrategy({
   }
 ));
 
+} // end naver if
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 구글 OAuth Strategy
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+  logger.warn('구글 OAuth 키가 설정되지 않았습니다. 구글 로그인이 비활성화됩니다.');
+} else {
 
 passport.use(new GoogleStrategy({
     clientID: GOOGLE_CLIENT_ID,
@@ -277,5 +275,7 @@ passport.use(new GoogleStrategy({
     }
   }
 ));
+
+} // end google if
 
 module.exports = passport;

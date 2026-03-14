@@ -36,6 +36,9 @@ router.post('/text-compare', authenticateToken, express.json(), async (req, res)
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ success: false, error: '텍스트가 비어있습니다.' });
     }
+    if (text.length > 50000) {
+      return res.status(400).json({ success: false, error: '텍스트가 너무 깁니다. 최대 50,000자까지 지원합니다.' });
+    }
 
     const result = await hybridService.anonymize(text, { method });
     if (!result.success) throw new Error(result.error || '익명화 실패');

@@ -355,13 +355,11 @@
 
     <script src="/js/security-utils.js?v=20260306"></script>
     <script>
-        console.log('[Login] Page loaded, JS running');
         const alertMessage = document.getElementById('alertMessage');
 
         // 폼 submit 이벤트 리스너 (인라인 onsubmit 대신)
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            console.log('[Login] Form submitted');
             handleEmailLogin();
         });
 

@@ -69,13 +69,6 @@ const apiLimiter = rateLimit({
   skip: (req) => req.path === '/api/status' || req.path === '/api/anonymization/health',
 });
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { success: false, error: { code: 'RATE_LIMIT', message: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.' } },
-  skipSuccessfulRequests: true,
-});
-
 const anonymizationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -209,10 +202,15 @@ const setupAdminLimiter = rateLimit({
 
 // POST만 허용 (GET으로 마스터 비번 전송 방지)
 app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
+  const crypto = require('crypto');
   const key = req.body.key;
   const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
   if (!MASTER_PASSWORD) return res.status(500).json({ error: '서버 설정 오류가 발생했습니다.' });
-  if (!key || key !== MASTER_PASSWORD) return res.status(403).json({ error: '인증에 실패했습니다.' });
+  const keyBuf = Buffer.from(String(key || ''));
+  const correctBuf = Buffer.from(String(MASTER_PASSWORD));
+  if (keyBuf.length !== correctBuf.length || !crypto.timingSafeEqual(keyBuf, correctBuf)) {
+    return res.status(403).json({ error: '인증에 실패했습니다.' });
+  }
 
   // body에 추가 데이터가 없으면 검증만 (admin-setup.html 첫 단계)
   if (!req.body.email) {
@@ -220,11 +218,10 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
   }
 
   try {
-    const { Pool } = require('pg');
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    const { getDB } = require('./database/db-postgres');
+    const db = getDB();
     const setupAdmin = require('./scripts/setup-admin');
-    const result = await setupAdmin(pool);
-    await pool.end();
+    const result = await setupAdmin(db);
     res.json({ success: true, message: '관리자 계정 설정 완료' });
   } catch (error) {
     require('./lib/logger').logger.error('setup-admin 오류', { error: error.message });

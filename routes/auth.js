@@ -5,6 +5,7 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const authService = require('../services/authService');
@@ -124,16 +125,18 @@ const loginLimiter = rateLimit({
 // 회원가입 (관리자 전용)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/register', async (req, res) => {
+router.post('/register', loginLimiter, async (req, res) => {
   try {
     const { email, password, name, phone, organizationId, masterPassword, role, credits } = req.body;
 
     const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
     if (!MASTER_PASSWORD) {
-      return res.status(500).json({ success: false, error: 'MASTER_PASSWORD 환경변수가 설정되지 않았습니다.' });
+      return res.status(500).json({ success: false, error: '서버 설정 오류가 발생했습니다.' });
     }
-    if (masterPassword !== MASTER_PASSWORD) {
-      return res.status(403).json({ success: false, error: '관리자 권한이 필요합니다. 마스터 비밀번호를 확인하세요.' });
+    const mpBuf = Buffer.from(String(masterPassword || ''));
+    const correctBuf = Buffer.from(String(MASTER_PASSWORD));
+    if (mpBuf.length !== correctBuf.length || !crypto.timingSafeEqual(mpBuf, correctBuf)) {
+      return res.status(403).json({ success: false, error: '인증에 실패했습니다.' });
     }
 
     if (!email || !password || !name) {

@@ -220,7 +220,12 @@ const adminAllSchema = z.object({
 
 router.get('/admin/all', isAdmin, validate(adminAllSchema), async (req, res, next) => {
   try {
-    const result = await feedbackService.getFeedbacks(req.query);
+    const filters = { ...req.query };
+    // org_admin은 자기 기관 피드백만 조회 가능
+    if (req.user.role === 'org_admin' && req.user.organizationId) {
+      filters.organizationId = req.user.organizationId;
+    }
+    const result = await feedbackService.getFeedbacks(filters);
     success(res, result);
   } catch (err) {
     next(err);

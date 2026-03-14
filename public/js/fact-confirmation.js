@@ -119,7 +119,6 @@ function handleFileSelect() {
     // 변환 버튼 활성화
     document.getElementById('transcribeBtn').disabled = false;
 
-    console.log('✅ 파일 선택 완료:', file.name);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -221,7 +220,6 @@ async function transcribeAudio() {
         const result = await response.json();
         transcribedText = result.transcript;
 
-        console.log('✅ STT 변환 완료:', transcribedText.substring(0, 100) + '...');
 
         hideProgress();
 
@@ -295,7 +293,6 @@ async function generateDocument() {
         const result = await response.json();
         parsedDocument = result.document;
 
-        console.log('✅ 문서 생성 완료');
 
         hideProgress();
 
@@ -447,7 +444,6 @@ async function downloadWord() {
 
         alert(`✅ Word 파일이 다운로드되었습니다!\n\n파일명: ${fileName}`);
 
-        console.log('✅ Word 다운로드 완료:', fileName);
 
     } catch (error) {
         console.error('❌ Word 다운로드 오류:', error);

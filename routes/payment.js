@@ -91,7 +91,7 @@ const confirmSchema = z.object({
 router.post('/confirm', authenticateToken, validate(confirmSchema), async (req, res, next) => {
   try {
     const { orderId, paymentKey, amount } = req.body;
-    const result = await paymentService.confirmPayment(orderId, paymentKey, amount);
+    const result = await paymentService.confirmPayment(orderId, paymentKey, amount, req.user.userId);
     success(res, result);
   } catch (err) {
     next(err);
@@ -113,7 +113,7 @@ const failSchema = z.object({
 router.post('/fail', authenticateToken, validate(failSchema), async (req, res, next) => {
   try {
     const { orderId, errorCode, errorMessage } = req.body;
-    const result = await paymentService.failPayment(orderId, errorCode, errorMessage);
+    const result = await paymentService.failPayment(orderId, errorCode, errorMessage, req.user.userId);
     success(res, result);
   } catch (err) {
     next(err);

@@ -264,7 +264,7 @@ class FeedbackService {
    * 개선 제안 제출
    */
   async submitSuggestion(suggestionData) {
-    const { userId, organizationId, category, title, description, priority } = suggestionData;
+    const { userId, organizationId, category, title, content: description, priority } = suggestionData;
 
     const db = getDB();
     const result = await db.run(`

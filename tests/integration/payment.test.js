@@ -144,7 +144,7 @@ describe('Payment Routes', () => {
         .send({ orderId: 'order-1', paymentKey: 'key-1', amount: 5000 });
 
       expect(res.status).toBe(200);
-      expect(paymentService.confirmPayment).toHaveBeenCalledWith('order-1', 'key-1', 5000);
+      expect(paymentService.confirmPayment).toHaveBeenCalledWith('order-1', 'key-1', 5000, 1);
     });
 
     it('필수 필드 누락 시 400을 반환한다', async () => {

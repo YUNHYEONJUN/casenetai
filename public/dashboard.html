@@ -158,6 +158,7 @@
         </div>
     </div>
 
+    <script src="/js/auth.js"></script>
     <script src="/js/security-utils.js"></script>
     <script>
         const esc = SecurityUtils.escapeHtml;
@@ -217,13 +218,16 @@
         }
 
         // 로그아웃
-        function logout() {
-            if (confirm('로그아웃 하시겠습니까?')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('refreshToken');
-                localStorage.removeItem('authProvider');
-                window.location.href = '/';
-            }
+        async function logout() {
+            if (!confirm('로그아웃 하시겠습니까?')) return;
+            try {
+                const token = localStorage.getItem('token');
+                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+            } catch(e) {}
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('authProvider');
+            window.location.href = '/login.html';
         }
 
         // 사용자 정보 로드
@@ -246,10 +250,10 @@
                 const data = await apiCall('/api/payment/credit/balance');
                 
                 if (data.success) {
-                    document.getElementById('creditBalance').textContent = 
-                        data.balance.toLocaleString() + '원';
-                    document.getElementById('freeTrialCount').textContent = 
-                        data.freeTrialCount + '회';
+                    document.getElementById('creditBalance').textContent =
+                        (data.balance || 0).toLocaleString() + '원';
+                    document.getElementById('freeTrialCount').textContent =
+                        (data.freeTrialCount || 0) + '회';
                 }
             } catch (error) {
                 console.error('잔액 로드 실패:', error);
@@ -262,13 +266,15 @@
                 const data = await apiCall('/api/payment/credit/stats');
                 
                 if (data.success) {
+                    const tm = data.thisMonth || {};
+                    const tt = data.total || {};
                     // 이번 달
-                    document.getElementById('monthlyUsage').textContent = data.thisMonth.count + '건';
-                    document.getElementById('monthlyUsageDetail').textContent = 
-                        `${Math.round(data.thisMonth.minutes)}분 / ${data.thisMonth.cost.toLocaleString()}원`;
-                    
+                    document.getElementById('monthlyUsage').textContent = (tm.count || 0) + '건';
+                    document.getElementById('monthlyUsageDetail').textContent =
+                        `${Math.round(tm.minutes || 0)}분 / ${(tm.cost || 0).toLocaleString()}원`;
+
                     // 전체
-                    document.getElementById('totalUsage').textContent = data.total.count + '건';
+                    document.getElementById('totalUsage').textContent = (tt.count || 0) + '건';
                     document.getElementById('totalUsageDetail').textContent = 
                         `${Math.round(data.total.minutes)}분 / ${data.total.cost.toLocaleString()}원`;
                 }
@@ -338,15 +344,9 @@
 
         // 페이지 로드 시 실행
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('대시보드 로드 시작');
-            
-            await loadUserInfo();
-            await loadBalance();
-            await loadStats();
-            await loadTransactions();
+            await Promise.all([loadUserInfo(), loadBalance(), loadStats(), loadTransactions()]);
             loadSavedTemplates();
 
-            console.log('대시보드 로드 완료');
         });
 
         // 저장된 템플릿 로드 (localStorage)

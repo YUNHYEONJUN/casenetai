@@ -140,12 +140,23 @@ describe('PaymentService', () => {
 
   describe('failPayment', () => {
     it('should update payment status to failed', async () => {
-      const result = await paymentService.failPayment('ORD_1', 'ERR_CODE', 'Error msg');
+      mockDb.get.mockResolvedValueOnce({ user_id: 1 });
+      const result = await paymentService.failPayment('ORD_1', 'ERR_CODE', 'Error msg', 1);
       expect(result.success).toBe(true);
       expect(mockDb.run).toHaveBeenCalledWith(
         expect.stringContaining("status = 'failed'"),
         expect.any(Array)
       );
+    });
+
+    it('should throw if payment not found', async () => {
+      mockDb.get.mockResolvedValueOnce(undefined);
+      await expect(paymentService.failPayment('ORD_X', 'ERR', 'msg', 1)).rejects.toThrow('결제 정보를 찾을 수 없습니다');
+    });
+
+    it('should throw if user is not owner', async () => {
+      mockDb.get.mockResolvedValueOnce({ user_id: 2 });
+      await expect(paymentService.failPayment('ORD_1', 'ERR', 'msg', 1)).rejects.toThrow('결제 권한이 없습니다');
     });
   });
 

@@ -133,7 +133,7 @@ router.post('/download-word', authenticateToken, express.json(), async (req, res
     const buffer = await Packer.toBuffer(doc);
     const filename = `상담일지_${report.기본정보?.접수번호 || '미정'}_${report.기본정보?.상담일자 || new Date().toISOString().slice(0, 10)}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.send(buffer);
   } catch (error) {
     logger.error('워드 파일 생성 오류', { error: error.message });
