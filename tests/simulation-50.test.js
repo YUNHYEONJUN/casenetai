@@ -3,61 +3,33 @@
  * DB 없이 코드 로직, 라우트 구조, 미들웨어, 서비스를 검증
  */
 
-const assert = require('assert');
-const Module = require('module');
-
-// DATABASE_URL 없이 테스트할 수 있도록 db-postgres.js를 모킹
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
-  if (id === '../database/db-postgres' || id.endsWith('database/db-postgres') || id.endsWith('db-postgres.js')) {
-    return {
-      getDB: () => ({
-        query: async () => [],
-        get: async () => undefined,
-        run: async () => ({ lastID: null, changes: 0 }),
-        all: async () => [],
-        transaction: async (cb) => cb({ query: async () => ({ rows: [] }) }),
-        healthCheck: async () => true,
-        getPoolStatus: () => ({ totalCount: 0, idleCount: 0, waitingCount: 0 }),
-      }),
-      getPool: () => ({}),
-      Database: class {}
-    };
-  }
-  return originalRequire.apply(this, arguments);
-};
-
-// JWT_SECRET 설정
+// JWT_SECRET 설정 (jest.mock보다 먼저)
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'test-secret-key-for-simulation-min32chars!!';
 }
 
-let passed = 0;
-let failed = 0;
-const failures = [];
+// DATABASE_URL 없이 테스트할 수 있도록 db-postgres.js를 모킹
+jest.mock('../database/db-postgres', () => ({
+  getDB: () => ({
+    query: async () => [],
+    get: async () => undefined,
+    run: async () => ({ lastID: null, changes: 0 }),
+    all: async () => [],
+    transaction: async (cb) => cb({ query: async () => ({ rows: [] }) }),
+    healthCheck: async () => true,
+    getPoolStatus: () => ({ totalCount: 0, idleCount: 0, waitingCount: 0 }),
+  }),
+  getPool: () => ({}),
+  Database: class {}
+}));
 
-function test(name, fn) {
-  try {
-    fn();
-    passed++;
-    console.log(`  ✅ #${passed + failed} ${name}`);
-  } catch (e) {
-    failed++;
-    const msg = `  ❌ #${passed + failed} ${name}: ${e.message}`;
-    console.log(msg);
-    failures.push({ name, error: e.message });
-  }
-}
+const assert = require('assert');
 
-console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('  CaseNetAI 50 Scenario Simulation Test');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 1. DB Placeholder Converter Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('📦 DB Layer Tests');
 
 // Mock DB convertPlaceholders
 function convertPlaceholders(sql) {
@@ -96,7 +68,6 @@ test('5. ? 없는 쿼리 처리', () => {
 // 2. Dynamic paramIndex Tests (Route Pattern Simulation)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Dynamic paramIndex Tests');
 
 test('6. system-admin orgs: paramIndex 0부터 시작 → LIMIT/OFFSET 정합성', () => {
   // routes/system-admin.js line 43: let paramIndex = 0;
@@ -229,7 +200,6 @@ test('10. system-admin users: search 시 paramIndex 3개 증가', () => {
 // 3. Auth & Token Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Auth & Token Tests');
 
 test('11. JWT payload 구조 검증 (userId, email, role, organizationId)', () => {
   const jwt = require('jsonwebtoken');
@@ -282,7 +252,6 @@ test('14. TokenBlacklist: 만료된 토큰 cleanup', () => {
 // 4. roleAuth Middleware Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Role Auth Tests');
 
 const roleAuth = require('../middleware/roleAuth');
 
@@ -377,7 +346,6 @@ test('24. requireUser: 로그인 사용자 허용', () => {
 // 5. Error Classes Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Error Classes Tests');
 
 const { AppError, ValidationError, AuthenticationError, ForbiddenError, NotFoundError, ConflictError, QuotaExceededError } = require('../lib/errors');
 
@@ -419,7 +387,6 @@ test('30. QuotaExceededError: 429', () => {
 // 6. Response Helper Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Response Helper Tests');
 
 const { success: successFn, created: createdFn, paginated: paginatedFn, error: errorFn, errorHandler } = require('../lib/response');
 
@@ -477,7 +444,6 @@ test('36. errorHandler: 프로그래밍 에러 → 500 + 제네릭 메시지 (pr
 // 7. Path Validation Tests (Statement/Fact-Confirmation)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Path Validation Tests');
 
 const path = require('path');
 const os = require('os');
@@ -516,7 +482,6 @@ test('41. tmp 하위 중첩 디렉토리 허용', () => {
 // 8. Payment Service Logic Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Payment Logic Tests');
 
 // 보너스 계산 로직 시뮬레이션
 const BONUS_TIERS = [
@@ -564,7 +529,6 @@ test('47. 보너스: 0원 → 0', () => {
 // 9. Logger & Security Tests
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('\n📦 Logger & Security Tests');
 
 const { maskSensitiveData } = require('../lib/logger');
 
@@ -595,20 +559,3 @@ test('50. 민감 키 마스킹 (password, token, secret)', () => {
   assert.strictEqual(result.name, '홍길동');
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Summary
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log(`  Results: ${passed} passed, ${failed} failed (${passed + failed} total)`);
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-if (failures.length > 0) {
-  console.log('\n🔴 Failures:');
-  failures.forEach((f, i) => {
-    console.log(`  ${i + 1}. ${f.name}`);
-    console.log(`     → ${f.error}`);
-  });
-}
-
-process.exit(failed > 0 ? 1 : 0);
