@@ -243,6 +243,11 @@ class FeedbackService {
    */
   async respondToFeedback(feedbackId, adminId, response) {
     const db = getDB();
+    const existing = await db.get('SELECT id FROM anonymization_feedback WHERE id = $1', [feedbackId]);
+    if (!existing) {
+      throw new Error('해당 피드백을 찾을 수 없습니다.');
+    }
+
     const result = await db.run(`
       UPDATE anonymization_feedback
       SET

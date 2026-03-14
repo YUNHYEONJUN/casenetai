@@ -368,18 +368,25 @@
         </div>
     </footer>
 
+    <script src="/js/auth.js"></script>
     <script src="/js/security-utils.js"></script>
     <script src="https://js.tosspayments.com/v1"></script>
     <script>
         let selectedAmount = 0;
         let selectedBonus = 0;
+        let isPaymentProcessing = false;
 
         // 로그아웃 함수
-        function logout() {
+        async function logout() {
+            if (!confirm('로그아웃 하시겠습니까?')) return;
+            try {
+                const token = localStorage.getItem('token');
+                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+            } catch(e) {}
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
-            alert('로그아웃되었습니다.');
-            window.location.href = '/';
+            localStorage.removeItem('authProvider');
+            window.location.href = '/login.html';
         }
 
         // 인증 확인
@@ -405,8 +412,8 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    document.getElementById('currentBalance').textContent = 
-                        data.balance.toLocaleString() + ' 크레딧';
+                    document.getElementById('currentBalance').textContent =
+                        (data.balance || 0).toLocaleString() + ' 크레딧';
                     
                     // 무료 체험 횟수 표시
                     if (data.freeTrialCount > 0) {
@@ -463,9 +470,15 @@
                 return;
             }
 
+            if (isPaymentProcessing) return;
+            isPaymentProcessing = true;
+            const paymentBtn = document.getElementById('paymentBtn');
+            paymentBtn.disabled = true;
+            paymentBtn.textContent = '처리 중...';
+
             try {
                 const token = localStorage.getItem('token');
-                
+
                 // 1. 결제 준비 API 호출
                 const prepareResponse = await fetch('/api/payment/prepare', {
                     method: 'POST',
@@ -502,6 +515,10 @@
             } catch (error) {
                 console.error('결제 처리 오류:', error);
                 alert('결제 처리 중 오류가 발생했습니다.');
+            } finally {
+                isPaymentProcessing = false;
+                paymentBtn.disabled = false;
+                paymentBtn.textContent = selectedAmount.toLocaleString() + '원 결제하기';
             }
         }
 

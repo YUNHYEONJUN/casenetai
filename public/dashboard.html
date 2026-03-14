@@ -275,8 +275,8 @@
 
                     // 전체
                     document.getElementById('totalUsage').textContent = (tt.count || 0) + '건';
-                    document.getElementById('totalUsageDetail').textContent = 
-                        `${Math.round(data.total.minutes)}분 / ${data.total.cost.toLocaleString()}원`;
+                    document.getElementById('totalUsageDetail').textContent =
+                        `${Math.round(tt.minutes || 0)}분 / ${(tt.cost || 0).toLocaleString()}원`;
                 }
             } catch (error) {
                 console.error('통계 로드 실패:', error);

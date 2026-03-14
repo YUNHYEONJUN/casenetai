@@ -313,13 +313,6 @@ router.put('/:id', authenticateToken, validate(updateSchema), async (req, res, n
     const statementId = req.params.id;
     const userId = req.user.userId;
 
-    const {
-      investigationDate, investigationLocation, investigationAgency,
-      subjectName, subjectBirthDate, subjectOrganization,
-      subjectPosition, subjectContact,
-      transcript, statementContent, status
-    } = req.body;
-
     const checkResult = await db.query(
       'SELECT * FROM statements WHERE id = $1 AND user_id = $2',
       [statementId, userId]
@@ -329,29 +322,46 @@ router.put('/:id', authenticateToken, validate(updateSchema), async (req, res, n
       throw new ForbiddenError('수정 권한이 없거나 존재하지 않는 진술서입니다.');
     }
 
+    // 부분 업데이트: 전달된 필드만 갱신 (undefined 필드는 기존 값 유지)
+    const fieldMap = {
+      investigationDate: 'investigation_date',
+      investigationLocation: 'investigation_location',
+      investigationAgency: 'investigation_agency',
+      subjectName: 'subject_name',
+      subjectBirthDate: 'subject_birth_date',
+      subjectOrganization: 'subject_organization',
+      subjectPosition: 'subject_position',
+      subjectContact: 'subject_contact',
+      transcript: 'transcript',
+      statementContent: 'statement_content',
+      status: 'status',
+    };
+
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
+      if (req.body[jsKey] !== undefined) {
+        const val = jsKey === 'statementContent' ? JSON.stringify(req.body[jsKey]) : req.body[jsKey];
+        setClauses.push(`${dbCol} = $${paramIndex}`);
+        values.push(val);
+        paramIndex++;
+      }
+    }
+
+    if (setClauses.length === 0) {
+      throw new ValidationError('수정할 항목이 없습니다.');
+    }
+
+    setClauses.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(statementId, userId);
+
     const result = await db.query(
-      `UPDATE statements SET
-        investigation_date = $1,
-        investigation_location = $2,
-        investigation_agency = $3,
-        subject_name = $4,
-        subject_birth_date = $5,
-        subject_organization = $6,
-        subject_position = $7,
-        subject_contact = $8,
-        transcript = $9,
-        statement_content = $10,
-        status = $11,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12 AND user_id = $13
+      `UPDATE statements SET ${setClauses.join(', ')}
+      WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}
       RETURNING *`,
-      [
-        investigationDate, investigationLocation, investigationAgency,
-        subjectName, subjectBirthDate, subjectOrganization,
-        subjectPosition, subjectContact,
-        transcript, JSON.stringify(statementContent), status,
-        statementId, userId
-      ]
+      values
     );
 
     logger.info('진술서 수정 완료', { id: statementId });

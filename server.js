@@ -291,6 +291,7 @@ if (require.main === module) {
 
   process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+    process.exit(1);
   });
 
   process.on('unhandledRejection', (reason) => {

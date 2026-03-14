@@ -229,7 +229,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
     res.json(result);
   } catch (error) {
     logger.error('로그아웃 오류', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: '로그아웃 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -262,7 +262,7 @@ router.post('/refresh', async (req, res) => {
     logger.error('토큰 갱신 오류', { error: error.message });
     // 리프레시 실패 시 쿠키 제거 (재로그인 유도)
     clearTokenCookies(res);
-    res.status(401).json({ success: false, error: error.message });
+    res.status(401).json({ success: false, error: '토큰 갱신에 실패했습니다. 다시 로그인해주세요.' });
   }
 });
 
@@ -276,7 +276,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     res.json(result);
   } catch (error) {
     logger.error('사용자 정보 조회 오류', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: '사용자 정보 조회에 실패했습니다.' });
   }
 });
 

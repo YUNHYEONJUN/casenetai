@@ -354,7 +354,7 @@ router.post('/upload-audio-stream', authenticateToken, (req, res, next) => {
     });
   } catch (error) {
     logger.error('SSE 처리 오류', { error: error.message });
-    sendEvent('error', { message: error.message || '처리 중 오류가 발생했습니다.' });
+    sendEvent('error', { message: '처리 중 오류가 발생했습니다.' });
   } finally {
     if (audioFilePath) { try { fs.unlinkSync(audioFilePath); } catch (_) { /* ignore */ } }
     if (blobUrl) { try { await del(blobUrl); } catch (_) { /* ignore */ } }
@@ -374,7 +374,7 @@ router.get('/status', async (req, res) => {
     status: 'running',
     apiKeyConfigured: isValid,
     mode: isValid ? 'production' : 'mock',
-    database: { healthy: dbHealthy, pool: poolStatus }
+    database: { healthy: dbHealthy }
   });
 });
 

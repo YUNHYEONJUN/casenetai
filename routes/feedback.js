@@ -68,6 +68,7 @@ router.post('/submit', authenticateToken, validate(submitFeedbackSchema), async 
     const feedbackData = {
       ...req.body,
       userId: req.user.userId,
+      organizationId: req.user.organizationId,
     };
 
     const result = await feedbackService.submitFeedback(feedbackData);

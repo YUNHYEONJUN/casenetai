@@ -273,11 +273,6 @@ function checkFormValid() {
         statusMessage.style.display = 'none';
     }
     
-    // 디버깅 로그
-        상담유형: consultationTypeSelect.value || '미선택',
-        파일: selectedFile ? selectedFile.name : '미선택',
-        버튼활성화: isValid
-    });
     
     // 버튼 상태 시각적 피드백
     if (isValid) {
@@ -560,13 +555,6 @@ uploadBtn.addEventListener('click', async function() {
 
         // 실제 비용 정보 표시
         if (result.actualCost) {
-                처리시간: result.processingTime,
-                오디오길이: result.actualCost.duration.formatted,
-                STT비용: `${result.actualCost.sttCost}원`,
-                AI비용: `${result.actualCost.aiCost}원`,
-                총비용: `${result.actualCost.totalCost}원`,
-                엔진: result.actualCost.engine
-            });
 
             const costInfoContainer = document.getElementById('costInfoContainer');
             const totalCost = document.getElementById('totalCost');

@@ -165,7 +165,9 @@
         </div>
     </div>
 
+    <script src="/js/security-utils.js"></script>
     <script>
+        const esc = SecurityUtils.escapeHtml;
         async function confirmPayment() {
             // URL에서 파라미터 추출
             const urlParams = new URLSearchParams(window.location.search);

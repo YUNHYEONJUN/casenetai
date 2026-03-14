@@ -320,8 +320,15 @@ async function uploadAndConvert() {
 /**
  * 로그아웃
  */
-function logout() {
+async function logout() {
+    if (!confirm('로그아웃 하시겠습니까?')) return;
+    try {
+        const token = localStorage.getItem('token');
+        if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+    } catch(e) {}
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('authProvider');
     localStorage.removeItem('user');
     window.location.href = '/login.html';
 }

@@ -42,7 +42,7 @@ router.post('/upload-blob', authenticateToken, audioUpload.single('audioFile'), 
     res.json({ url: blob.url, pathname: blob.pathname });
   } catch (error) {
     logger.error('Server blob upload error', { error: error.message });
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: '파일 업로드 중 오류가 발생했습니다.' });
   }
 });
 
@@ -69,7 +69,7 @@ router.post('/blob-upload', authenticateToken, async (req, res) => {
     res.json(jsonResponse);
   } catch (error) {
     logger.error('Blob upload error', { error: error.message });
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: '파일 업로드 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -95,7 +95,7 @@ router.post('/blob-upload-server', authenticateToken, audioUpload.single('audioF
       try { fs.unlinkSync(req.file.path); } catch (_) { /* ignore */ }
     }
     logger.error('Blob server upload error', { error: error.message });
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: '파일 업로드 중 오류가 발생했습니다.' });
   }
 });
 
@@ -131,7 +131,7 @@ router.post('/blob-token', authenticateToken, async (req, res) => {
     res.json({ ...jsonResponse, uploadUrl: `${blobApiUrl}/${pathname}` });
   } catch (error) {
     logger.error('Blob token error', { error: error.message });
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: '업로드 토큰 발급 중 오류가 발생했습니다.' });
   }
 });
 
@@ -214,10 +214,9 @@ router.post('/upload-chunk-complete', authenticateToken, async (req, res) => {
     try { fs.rmdirSync(chunkDir); } catch (_) { /* ignore */ }
 
     const fileSize = (fs.statSync(assembledPath).size / 1024 / 1024).toFixed(2);
-    logger.info('Chunks assembled', { chunks: chunkFiles.length, path: assembledPath, sizeMB: fileSize });
-    // 절대 경로 대신 파일명만 반환 (정보 노출 방지)
-    const safeFileName = path.basename(assembledPath);
-    res.json({ success: true, filePath: path.join(os.tmpdir(), safeFileName) });
+    logger.info('Chunks assembled', { chunks: chunkFiles.length, sizeMB: fileSize });
+    // 파일 경로 반환 (audio route에서 path traversal 검증됨)
+    res.json({ success: true, filePath: assembledPath });
   } catch (error) {
     logger.error('Chunk complete error', { error: error.message });
     res.status(500).json({ error: '파일 조립 중 오류가 발생했습니다.' });

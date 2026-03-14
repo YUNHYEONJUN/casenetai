@@ -4,9 +4,27 @@
 
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const analyticsService = require('../services/analyticsService');
 const { isAdmin } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
 const { logger } = require('../lib/logger');
+
+// 공통 쿼리 스키마
+const dateRangeQuery = z.object({
+  query: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    organizationId: z.coerce.number().int().positive().optional(),
+  }),
+});
+
+const dateRangeOnlyQuery = z.object({
+  query: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+  }),
+});
 
 // 모든 분석 API는 관리자 전용
 router.use(isAdmin);
@@ -15,7 +33,7 @@ router.use(isAdmin);
  * 대시보드 요약 통계
  * GET /api/analytics/dashboard
  */
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', validate(dateRangeQuery), async (req, res) => {
   try {
     const { startDate, endDate, organizationId } = req.query;
     
@@ -39,7 +57,7 @@ router.get('/dashboard', async (req, res) => {
  * 사용 통계
  * GET /api/analytics/usage
  */
-router.get('/usage', async (req, res) => {
+router.get('/usage', validate(dateRangeQuery), async (req, res) => {
   try {
     const { startDate, endDate, organizationId } = req.query;
     
@@ -66,7 +84,7 @@ router.get('/usage', async (req, res) => {
  * 익명화 통계
  * GET /api/analytics/anonymization
  */
-router.get('/anonymization', async (req, res) => {
+router.get('/anonymization', validate(dateRangeQuery), async (req, res) => {
   try {
     const { startDate, endDate, organizationId } = req.query;
     
@@ -93,7 +111,7 @@ router.get('/anonymization', async (req, res) => {
  * 피드백 요약
  * GET /api/analytics/feedback-summary
  */
-router.get('/feedback-summary', async (req, res) => {
+router.get('/feedback-summary', validate(dateRangeQuery), async (req, res) => {
   try {
     const { startDate, endDate, organizationId } = req.query;
     
@@ -120,7 +138,15 @@ router.get('/feedback-summary', async (req, res) => {
  * 성능 메트릭
  * GET /api/analytics/performance
  */
-router.get('/performance', async (req, res) => {
+const performanceQuery = z.object({
+  query: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    method: z.string().max(50).optional(),
+  }),
+});
+
+router.get('/performance', validate(performanceQuery), async (req, res) => {
   try {
     const { startDate, endDate, method } = req.query;
     
@@ -147,7 +173,7 @@ router.get('/performance', async (req, res) => {
  * 오류 분석
  * GET /api/analytics/errors
  */
-router.get('/errors', async (req, res) => {
+router.get('/errors', validate(dateRangeOnlyQuery), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -173,7 +199,15 @@ router.get('/errors', async (req, res) => {
  * 시계열 트렌드
  * GET /api/analytics/trend
  */
-router.get('/trend', async (req, res) => {
+const trendQuery = z.object({
+  query: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식: YYYY-MM-DD').optional(),
+    metric: z.enum(['requests', 'duration', 'cost', 'errors']).optional(),
+  }),
+});
+
+router.get('/trend', validate(trendQuery), async (req, res) => {
   try {
     const { startDate, endDate, metric = 'requests' } = req.query;
     
@@ -197,7 +231,7 @@ router.get('/trend', async (req, res) => {
  * 기관별 비교
  * GET /api/analytics/organizations
  */
-router.get('/organizations', async (req, res) => {
+router.get('/organizations', validate(dateRangeOnlyQuery), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -220,7 +254,7 @@ router.get('/organizations', async (req, res) => {
  * 방식별 비교 (Rule vs AI vs CLOVA vs Hybrid)
  * GET /api/analytics/methods
  */
-router.get('/methods', async (req, res) => {
+router.get('/methods', validate(dateRangeOnlyQuery), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -243,10 +277,16 @@ router.get('/methods', async (req, res) => {
  * 주요 문제점 분석
  * GET /api/analytics/top-issues
  */
-router.get('/top-issues', async (req, res) => {
+const topIssuesQuery = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  }),
+});
+
+router.get('/top-issues', validate(topIssuesQuery), async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    
+
     const result = await analyticsService.getTopIssues({
       limit: parseInt(limit) || 10
     });
