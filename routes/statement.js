@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const multer = require('multer');
 const fs = require('fs');
-const fsPromises = require('fs').promises;
 const path = require('path');
 const os = require('os');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const { validate, paginationQuery } = require('../middleware/validate');
+const { success, created, paginated } = require('../lib/response');
+const { ValidationError, NotFoundError, ForbiddenError } = require('../lib/errors');
+const { logger } = require('../lib/logger');
 const { getDB } = require('../database/db-postgres');
 const OpenAI = require('openai');
 
@@ -30,7 +34,6 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
   fileFilter: (req, file, cb) => {
-    // 파일명 보안 검증
     const basename = path.basename(file.originalname);
     if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
       return cb(new Error('잘못된 파일명입니다.'));
@@ -55,67 +58,60 @@ const upload = multer({
 // 음성 파일 → STT 변환 (로그인 필수)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/transcribe', authenticateToken, (req, res, next) => {
-  // Content-Type에 따라 multer 적용 결정 (JSON = 청크 조립 파일 경로)
   if (req.headers['content-type']?.includes('application/json')) {
     next();
   } else {
     upload.single('audio')(req, res, next);
   }
-}, async (req, res) => {
+}, async (req, res, next) => {
   let audioFilePath = null;
   let isChunkedFile = false;
 
   try {
-    // 파일 소스 결정 (우선순위: 청크조립파일 > 직접업로드)
     if (req.body.serverFilePath) {
       const resolvedPath = path.resolve(req.body.serverFilePath);
-      const tmpDir = os.tmpdir();
-      if (!resolvedPath.startsWith(tmpDir + path.sep) && resolvedPath !== tmpDir) {
-        return res.status(400).json({ success: false, error: '잘못된 파일 경로입니다.' });
+      const tmpDir = path.resolve(os.tmpdir());
+      const relative = path.relative(tmpDir, resolvedPath);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new ValidationError('잘못된 파일 경로입니다.');
       }
       if (!fs.existsSync(resolvedPath)) {
-        return res.status(400).json({ success: false, error: '업로드된 파일을 찾을 수 없습니다.' });
+        throw new ValidationError('업로드된 파일을 찾을 수 없습니다.');
       }
       audioFilePath = resolvedPath;
       isChunkedFile = true;
     } else if (req.file) {
       audioFilePath = req.file.path;
     } else {
-      return res.status(400).json({
-        success: false,
-        error: '음성 파일이 업로드되지 않았습니다.'
-      });
+      throw new ValidationError('음성 파일이 업로드되지 않았습니다.');
     }
 
-    console.log('🎤 STT 변환 시작:', isChunkedFile ? '청크 조립 파일' : req.file.filename);
+    logger.info('STT 변환 시작', { type: isChunkedFile ? 'chunked' : 'direct' });
 
-    // OpenAI Whisper API 호출
+    const audioStream = fs.createReadStream(audioFilePath);
+    audioStream.on('error', (streamErr) => {
+      logger.error('오디오 스트림 오류', { error: streamErr.message });
+    });
+
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(audioFilePath),
+      file: audioStream,
       model: 'whisper-1',
       language: 'ko',
       response_format: 'verbose_json',
       timestamp_granularities: ['word']
     });
 
-    console.log('✅ STT 변환 완료:', transcription.text.substring(0, 100) + '...');
+    logger.info('STT 변환 완료', { length: transcription.text.length });
 
-    res.json({
-      success: true,
+    success(res, {
       transcript: transcription.text,
       duration: transcription.duration,
       words: transcription.words || []
     });
 
-  } catch (error) {
-    console.error('❌ STT 변환 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: 'STT 변환 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   } finally {
-    // 임시 파일 정리
     if (audioFilePath) {
       try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
     }
@@ -126,18 +122,18 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
 // POST /api/statement/parse
 // STT 텍스트 → AI 문답 분리 (로그인 필수)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/parse', authenticateToken, async (req, res) => {
+
+const parseSchema = z.object({
+  body: z.object({
+    transcript: z.string().min(1, '변환된 텍스트가 필요합니다.'),
+  }),
+});
+
+router.post('/parse', authenticateToken, validate(parseSchema), async (req, res, next) => {
   try {
     const { transcript } = req.body;
 
-    if (!transcript) {
-      return res.status(400).json({
-        success: false,
-        error: '변환된 텍스트가 필요합니다.'
-      });
-    }
-
-    console.log('🤖 AI 문답 분리 시작...');
+    logger.info('AI 문답 분리 시작');
 
     const prompt = `다음은 노인학대 조사 현장에서 녹취된 대화입니다.
 노인보호전문기관 직원(조사자)과 시설 종사자(피조사자) 간의 질문과 답변을 **경찰/검찰 조서 형식**으로 정리해주세요.
@@ -180,7 +176,6 @@ JSON 배열로 출력하되, 각 항목은 다음 구조를 따릅니다:
 
 출력은 JSON 배열만 반환하세요 (다른 설명 없이).`;
 
-
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -198,39 +193,27 @@ JSON 배열로 출력하되, 각 항목은 다음 구조를 따릅니다:
     });
 
     const responseText = completion.choices[0].message.content.trim();
-    
-    // JSON 파싱
+
     let qaList;
     try {
-      // JSON 코드 블록 제거 (```json ... ```)
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
                        responseText.match(/```\s*([\s\S]*?)\s*```/) ||
                        [null, responseText];
       qaList = JSON.parse(jsonMatch[1]);
     } catch (parseError) {
-      console.error('❌ JSON 파싱 오류:', parseError);
-      return res.status(500).json({
-        success: false,
-        error: 'AI 응답을 파싱할 수 없습니다.',
-        rawResponse: responseText
-      });
+      logger.error('JSON 파싱 오류', { error: parseError.message });
+      throw new ValidationError('AI 응답을 파싱할 수 없습니다.');
     }
 
-    console.log(`✅ AI 문답 분리 완료: ${qaList.length}개 항목`);
+    logger.info('AI 문답 분리 완료', { count: qaList.length });
 
-    res.json({
-      success: true,
-      qaList: qaList,
+    success(res, {
+      qaList,
       totalQuestions: qaList.length
     });
 
-  } catch (error) {
-    console.error('❌ AI 문답 분리 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: 'AI 문답 분리 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -238,43 +221,45 @@ JSON 배열로 출력하되, 각 항목은 다음 구조를 따릅니다:
 // POST /api/statement/save
 // 진술서 저장
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/save', authenticateToken, async (req, res) => {
+
+const saveSchema = z.object({
+  body: z.object({
+    investigationDate: z.string().min(1, '조사일시는 필수 항목입니다'),
+    investigationLocation: z.string().optional(),
+    investigationAgency: z.string().optional(),
+    subjectName: z.string().min(1, '피조사자 성명은 필수 항목입니다'),
+    subjectBirthDate: z.string().optional(),
+    subjectOrganization: z.string().optional(),
+    subjectPosition: z.string().optional(),
+    subjectContact: z.string().optional(),
+    audioUrl: z.string().optional(),
+    transcript: z.string().optional(),
+    statementContent: z.any().optional(),
+    status: z.enum(['draft', 'completed', 'archived']).default('draft'),
+  }),
+});
+
+router.post('/save', authenticateToken, validate(saveSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
     const {
-      investigationDate,
-      investigationLocation,
-      investigationAgency,
-      subjectName,
-      subjectBirthDate,
-      subjectOrganization,
-      subjectPosition,
-      subjectContact,
-      audioUrl,
-      transcript,
-      statementContent,
-      status = 'draft'
+      investigationDate, investigationLocation, investigationAgency,
+      subjectName, subjectBirthDate, subjectOrganization,
+      subjectPosition, subjectContact,
+      audioUrl, transcript, statementContent, status
     } = req.body;
 
     const userId = req.user.userId;
     const organizationId = req.user.organizationId;
 
-    // 필수 필드 검증
-    if (!investigationDate || !subjectName) {
-      return res.status(400).json({
-        success: false,
-        error: '조사일시와 피조사자 성명은 필수 항목입니다.'
-      });
-    }
-
-    console.log('💾 진술서 저장 시작:', subjectName);
+    logger.info('진술서 저장 시작', { subjectName });
 
     const result = await db.query(
       `INSERT INTO statements (
         user_id, organization_id,
         investigation_date, investigation_location, investigation_agency,
-        subject_name, subject_birth_date, subject_organization, 
+        subject_name, subject_birth_date, subject_organization,
         subject_position, subject_contact,
         audio_url, transcript, statement_content, status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -288,22 +273,12 @@ router.post('/save', authenticateToken, async (req, res) => {
       ]
     );
 
-    const savedStatement = result[0];
+    logger.info('진술서 저장 완료', { id: result[0].id });
 
-    console.log('✅ 진술서 저장 완료: ID', savedStatement.id);
+    created(res, { statement: result[0] });
 
-    res.json({
-      success: true,
-      statement: savedStatement
-    });
-
-  } catch (error) {
-    console.error('❌ 진술서 저장 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 저장 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -311,41 +286,48 @@ router.post('/save', authenticateToken, async (req, res) => {
 // PUT /api/statement/:id
 // 진술서 수정
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.put('/:id', authenticateToken, async (req, res) => {
+
+const updateSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+  body: z.object({
+    investigationDate: z.string().optional(),
+    investigationLocation: z.string().optional(),
+    investigationAgency: z.string().optional(),
+    subjectName: z.string().optional(),
+    subjectBirthDate: z.string().optional(),
+    subjectOrganization: z.string().optional(),
+    subjectPosition: z.string().optional(),
+    subjectContact: z.string().optional(),
+    transcript: z.string().optional(),
+    statementContent: z.any().optional(),
+    status: z.enum(['draft', 'completed', 'archived']).optional(),
+  }),
+});
+
+router.put('/:id', authenticateToken, validate(updateSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
     const statementId = req.params.id;
     const userId = req.user.userId;
-    
+
     const {
-      investigationDate,
-      investigationLocation,
-      investigationAgency,
-      subjectName,
-      subjectBirthDate,
-      subjectOrganization,
-      subjectPosition,
-      subjectContact,
-      transcript,
-      statementContent,
-      status
+      investigationDate, investigationLocation, investigationAgency,
+      subjectName, subjectBirthDate, subjectOrganization,
+      subjectPosition, subjectContact,
+      transcript, statementContent, status
     } = req.body;
 
-    // 권한 확인 (본인이 작성한 진술서만 수정 가능)
     const checkResult = await db.query(
       'SELECT * FROM statements WHERE id = $1 AND user_id = $2',
       [statementId, userId]
     );
 
     if (checkResult.length === 0) {
-      return res.status(403).json({
-        success: false,
-        error: '수정 권한이 없거나 존재하지 않는 진술서입니다.'
-      });
+      throw new ForbiddenError('수정 권한이 없거나 존재하지 않는 진술서입니다.');
     }
-
-    console.log('✏️ 진술서 수정 시작: ID', statementId);
 
     const result = await db.query(
       `UPDATE statements SET
@@ -364,36 +346,20 @@ router.put('/:id', authenticateToken, async (req, res) => {
       WHERE id = $12 AND user_id = $13
       RETURNING *`,
       [
-        investigationDate,
-        investigationLocation,
-        investigationAgency,
-        subjectName,
-        subjectBirthDate,
-        subjectOrganization,
-        subjectPosition,
-        subjectContact,
-        transcript,
-        JSON.stringify(statementContent),
-        status,
-        statementId,
-        userId
+        investigationDate, investigationLocation, investigationAgency,
+        subjectName, subjectBirthDate, subjectOrganization,
+        subjectPosition, subjectContact,
+        transcript, JSON.stringify(statementContent), status,
+        statementId, userId
       ]
     );
 
-    console.log('✅ 진술서 수정 완료: ID', statementId);
+    logger.info('진술서 수정 완료', { id: statementId });
 
-    res.json({
-      success: true,
-      statement: result[0]
-    });
+    success(res, { statement: result[0] });
 
-  } catch (error) {
-    console.error('❌ 진술서 수정 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 수정 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -401,12 +367,22 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // GET /api/statement/list
 // 진술서 목록 조회 (/:id 보다 먼저 정의해야 함)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.get('/list', authenticateToken, async (req, res) => {
+
+const listSchema = z.object({
+  query: z.object({
+    status: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    search: z.string().optional(),
+  }),
+});
+
+router.get('/list', authenticateToken, validate(listSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
     const userId = req.user.userId;
-    const { status, page = 1, limit = 20, search } = req.query;
+    const { status, page, limit, search } = req.query;
 
     let query = `
       SELECT s.*, u.name as creator_name
@@ -417,14 +393,12 @@ router.get('/list', authenticateToken, async (req, res) => {
     const params = [userId];
     let paramIndex = 2;
 
-    // 상태 필터
     if (status) {
       query += ` AND s.status = $${paramIndex}`;
       params.push(status);
       paramIndex++;
     }
 
-    // 검색
     if (search) {
       query += ` AND (
         s.subject_name ILIKE $${paramIndex} OR
@@ -435,15 +409,14 @@ router.get('/list', authenticateToken, async (req, res) => {
       paramIndex++;
     }
 
-    // 정렬 및 페이징
     query += ` ORDER BY s.investigation_date DESC, s.created_at DESC`;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+    params.push(limit, (page - 1) * limit);
 
     const result = await db.query(query, params);
 
     // 전체 개수 조회
-    let countQuery = `SELECT COUNT(*) FROM statements WHERE user_id = $1`;
+    let countQuery = `SELECT COUNT(*) as count FROM statements WHERE user_id = $1`;
     const countParams = [userId];
     let countParamIndex = 2;
 
@@ -464,26 +437,17 @@ router.get('/list', authenticateToken, async (req, res) => {
     }
 
     const countResult = await db.query(countQuery, countParams);
-    const totalCount = parseInt(countResult[0].count);
+    const total = parseInt(countResult[0].count);
 
-    res.json({
-      success: true,
-      statements: result,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit)
-      }
+    paginated(res, {
+      items: result,
+      total,
+      page,
+      limit,
     });
 
-  } catch (error) {
-    console.error('❌ 진술서 목록 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 목록 조회 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -491,7 +455,14 @@ router.get('/list', authenticateToken, async (req, res) => {
 // GET /api/statement/:id
 // 진술서 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.get('/:id', authenticateToken, async (req, res) => {
+
+const idParamSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+router.get('/:id', authenticateToken, validate(idParamSchema), async (req, res, next) => {
   const db = getDB();
 
   try {
@@ -507,24 +478,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     );
 
     if (result.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: '진술서를 찾을 수 없습니다.'
-      });
+      throw new NotFoundError('진술서');
     }
 
-    res.json({
-      success: true,
-      statement: result[0]
-    });
+    success(res, { statement: result[0] });
 
-  } catch (error) {
-    console.error('❌ 진술서 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 조회 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -532,47 +492,33 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // DELETE /api/statement/:id
 // 진술서 삭제
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, validate(idParamSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
     const statementId = req.params.id;
     const userId = req.user.userId;
 
-    // 권한 확인
     const checkResult = await db.query(
       'SELECT * FROM statements WHERE id = $1 AND user_id = $2',
       [statementId, userId]
     );
 
     if (checkResult.length === 0) {
-      return res.status(403).json({
-        success: false,
-        error: '삭제 권한이 없거나 존재하지 않는 진술서입니다.'
-      });
+      throw new ForbiddenError('삭제 권한이 없거나 존재하지 않는 진술서입니다.');
     }
 
-    console.log('🗑️ 진술서 삭제: ID', statementId);
+    logger.info('진술서 삭제', { id: statementId });
 
     await db.query(
       'DELETE FROM statements WHERE id = $1 AND user_id = $2',
       [statementId, userId]
     );
 
-    console.log('✅ 진술서 삭제 완료');
+    success(res, { message: '진술서가 삭제되었습니다.' });
 
-    res.json({
-      success: true,
-      message: '진술서가 삭제되었습니다.'
-    });
-
-  } catch (error) {
-    console.error('❌ 진술서 삭제 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '진술서 삭제 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 

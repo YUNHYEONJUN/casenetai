@@ -416,7 +416,7 @@
     </footer>
 
     <script src="/js/security-utils.js"></script>
-    <script src="js/main.js?v=20260306c"></script>
+    <script src="/js/main.js?v=20260306c"></script>
     <script>
         // 로그아웃 함수
         function logout() {
@@ -632,10 +632,17 @@
             container.innerHTML = html;
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        // security-utils.js의 SecurityUtils.escapeHtml 사용
+        const escapeHtml = (typeof SecurityUtils !== 'undefined' && SecurityUtils.escapeHtml)
+            ? SecurityUtils.escapeHtml
+            : function(text) { if (text == null) return ''; return String(text).replace(/[&<>"'/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;','/':'&#x2F;'}[c])); };
+
+        // CSV Injection 방어
+        function csvSafe(value) {
+            if (value == null) return '';
+            let str = String(value).replace(/"/g, '""');
+            if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
+            return '"' + str + '"';
         }
 
         function copyAnonymizedText() {
@@ -683,7 +690,7 @@
                 const items = mappings[key];
                 if (items && items.length > 0) {
                     items.forEach(item => {
-                        csv += `${categories[key]},"${item.original}","${item.anonymized}"\n`;
+                        csv += `${csvSafe(categories[key])},${csvSafe(item.original)},${csvSafe(item.anonymized)}\n`;
                     });
                 }
             });

@@ -4,9 +4,13 @@
 
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const feedbackService = require('../services/feedbackService');
-const analyticsService = require('../services/analyticsService');
-const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { authenticateToken, optionalAuth, isAdmin } = require('../middleware/auth');
+const { validate, paginationQuery } = require('../middleware/validate');
+const { success, created, error } = require('../lib/response');
+const { ValidationError } = require('../lib/errors');
+const { logger } = require('../lib/logger');
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 사용자 피드백 API
@@ -16,34 +20,31 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
  * 간단 피드백 제출 (비로그인 허용)
  * POST /api/feedback
  */
-router.post('/', async (req, res) => {
+const simpleFeedbackSchema = z.object({
+  body: z.object({
+    rating: z.coerce.number().int().min(1, '평점은 1~5 사이여야 합니다').max(5, '평점은 1~5 사이여야 합니다'),
+    comment: z.string().max(2000).optional().default(''),
+    reportType: z.string().max(50).optional().default('consultation'),
+    timestamp: z.string().optional(),
+  }),
+});
+
+router.post('/', optionalAuth, validate(simpleFeedbackSchema), async (req, res, next) => {
   try {
-    const { rating, comment, reportType, timestamp } = req.body;
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ success: false, error: '평점은 1~5 사이여야 합니다.' });
-    }
-    // 로그인한 사용자면 userId 추출
-    let userId = null;
-    try {
-      const token = req.headers['authorization']?.split(' ')[1];
-      if (token) {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'casenetai-secret-key-change-in-production');
-        userId = decoded.userId;
-      }
-    } catch (_) { /* anonymous feedback */ }
+    const { rating, comment, reportType } = req.body;
+    const userId = req.user?.userId || null;
 
     const { getDB } = require('../database/db-postgres');
     const db = getDB();
     await db.run(
       `INSERT INTO anonymization_feedback (user_id, rating, comment, report_type)
-       VALUES (?, ?, ?, ?)`,
-      [userId, rating, comment || '', reportType || 'consultation']
+       VALUES ($1, $2, $3, $4)`,
+      [userId, rating, comment, reportType]
     );
-    res.json({ success: true, message: '피드백이 저장되었습니다.' });
-  } catch (error) {
-    console.error('간단 피드백 저장 오류:', error);
-    res.json({ success: true, message: '피드백이 접수되었습니다.' }); // 실패해도 200 반환
+    success(res, { message: '피드백이 저장되었습니다.' });
+  } catch (err) {
+    logger.error('간단 피드백 저장 오류:', err);
+    res.status(500).json({ success: false, error: { code: 'FEEDBACK_SAVE_ERROR', message: '피드백 저장 중 오류가 발생했습니다.' } });
   }
 });
 
@@ -51,22 +52,28 @@ router.post('/', async (req, res) => {
  * 피드백 제출
  * POST /api/feedback/submit
  */
-router.post('/submit', authenticateToken, async (req, res) => {
+const submitFeedbackSchema = z.object({
+  body: z.object({
+    rating: z.coerce.number().int().min(1).max(5).optional(),
+    comment: z.string().max(5000).optional(),
+    method: z.string().max(50).optional(),
+    reportId: z.coerce.number().int().positive().optional(),
+    errorDetails: z.string().max(5000).optional(),
+    category: z.string().max(50).optional(),
+  }),
+});
+
+router.post('/submit', authenticateToken, validate(submitFeedbackSchema), async (req, res, next) => {
   try {
     const feedbackData = {
       ...req.body,
-      userId: req.user.userId
+      userId: req.user.userId,
     };
 
     const result = await feedbackService.submitFeedback(feedbackData);
-    res.json(result);
-  } catch (error) {
-    console.error('피드백 제출 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '피드백 제출 중 오류가 발생했습니다.',
-      details: error.message
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -74,26 +81,26 @@ router.post('/submit', authenticateToken, async (req, res) => {
  * 내 피드백 목록 조회
  * GET /api/feedback/my-feedbacks
  */
-router.get('/my-feedbacks', authenticateToken, async (req, res) => {
+const myFeedbacksSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+    method: z.string().optional(),
+    minRating: z.coerce.number().int().min(1).max(5).optional(),
+    maxRating: z.coerce.number().int().min(1).max(5).optional(),
+  }),
+});
+
+router.get('/my-feedbacks', authenticateToken, validate(myFeedbacksSchema), async (req, res, next) => {
   try {
-    const { limit, offset, method, minRating, maxRating } = req.query;
-    
     const result = await feedbackService.getFeedbacks({
       userId: req.user.userId,
-      limit: limit ? parseInt(limit) : 50,
-      offset: offset ? parseInt(offset) : 0,
-      method,
-      minRating: minRating ? parseInt(minRating) : undefined,
-      maxRating: maxRating ? parseInt(maxRating) : undefined
+      ...req.query,
     });
 
-    res.json(result);
-  } catch (error) {
-    console.error('피드백 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '피드백 조회 중 오류가 발생했습니다.'
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -101,34 +108,35 @@ router.get('/my-feedbacks', authenticateToken, async (req, res) => {
  * 피드백 통계 (내 기관)
  * GET /api/feedback/stats
  */
-router.get('/stats', authenticateToken, async (req, res) => {
+const statsSchema = z.object({
+  query: z.object({
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    method: z.string().optional(),
+  }),
+});
+
+router.get('/stats', authenticateToken, validate(statsSchema), async (req, res, next) => {
   try {
     const authService = require('../services/authService');
     const userInfo = await authService.getUserInfo(req.user.userId);
-    
+
     if (!userInfo.success || !userInfo.user.organization) {
-      return res.status(400).json({
-        success: false,
-        error: '기관 정보를 찾을 수 없습니다.'
-      });
+      throw new ValidationError('기관 정보를 찾을 수 없습니다.');
     }
 
     const { startDate, endDate, method } = req.query;
-    
+
     const result = await feedbackService.getFeedbackStatistics({
       organizationId: userInfo.user.organization.id,
       startDate,
       endDate,
-      method
+      method,
     });
 
-    res.json(result);
-  } catch (error) {
-    console.error('통계 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '통계 조회 중 오류가 발생했습니다.'
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -136,32 +144,34 @@ router.get('/stats', authenticateToken, async (req, res) => {
  * 개선 제안 제출
  * POST /api/feedback/suggestion
  */
-router.post('/suggestion', authenticateToken, async (req, res) => {
+const suggestionSchema = z.object({
+  body: z.object({
+    title: z.string().min(1).max(200),
+    category: z.string().max(50).optional(),
+    content: z.string().min(1).max(5000),
+    priority: z.enum(['low', 'medium', 'high']).optional(),
+  }),
+});
+
+router.post('/suggestion', authenticateToken, validate(suggestionSchema), async (req, res, next) => {
   try {
     const authService = require('../services/authService');
     const userInfo = await authService.getUserInfo(req.user.userId);
-    
+
     if (!userInfo.success || !userInfo.user.organization) {
-      return res.status(400).json({
-        success: false,
-        error: '기관 정보를 찾을 수 없습니다.'
-      });
+      throw new ValidationError('기관 정보를 찾을 수 없습니다.');
     }
 
     const suggestionData = {
       ...req.body,
       userId: req.user.userId,
-      organizationId: userInfo.user.organization.id
+      organizationId: userInfo.user.organization.id,
     };
 
     const result = await feedbackService.submitSuggestion(suggestionData);
-    res.json(result);
-  } catch (error) {
-    console.error('제안 제출 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '제안 제출 중 오류가 발생했습니다.'
-    });
+    created(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -169,24 +179,21 @@ router.post('/suggestion', authenticateToken, async (req, res) => {
  * 개선 제안 목록 조회
  * GET /api/feedback/suggestions
  */
-router.get('/suggestions', authenticateToken, async (req, res) => {
-  try {
-    const { category, status, limit, offset } = req.query;
-    
-    const result = await feedbackService.getSuggestions({
-      category,
-      status,
-      limit: limit ? parseInt(limit) : 50,
-      offset: offset ? parseInt(offset) : 0
-    });
+const suggestionsListSchema = z.object({
+  query: z.object({
+    category: z.string().optional(),
+    status: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+  }),
+});
 
-    res.json(result);
-  } catch (error) {
-    console.error('제안 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '제안 조회 중 오류가 발생했습니다.'
-    });
+router.get('/suggestions', authenticateToken, validate(suggestionsListSchema), async (req, res, next) => {
+  try {
+    const result = await feedbackService.getSuggestions(req.query);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -198,28 +205,25 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
  * 모든 피드백 조회 (관리자)
  * GET /api/feedback/admin/all
  */
-router.get('/admin/all', isAdmin, async (req, res) => {
-  try {
-    const { organizationId, method, minRating, maxRating, hasErrors, isReviewed, limit, offset } = req.query;
-    
-    const result = await feedbackService.getFeedbacks({
-      organizationId: organizationId ? parseInt(organizationId) : undefined,
-      method,
-      minRating: minRating ? parseInt(minRating) : undefined,
-      maxRating: maxRating ? parseInt(maxRating) : undefined,
-      hasErrors: hasErrors === 'true',
-      isReviewed: isReviewed === 'true',
-      limit: limit ? parseInt(limit) : 100,
-      offset: offset ? parseInt(offset) : 0
-    });
+const adminAllSchema = z.object({
+  query: z.object({
+    organizationId: z.coerce.number().int().positive().optional(),
+    method: z.string().optional(),
+    minRating: z.coerce.number().int().min(1).max(5).optional(),
+    maxRating: z.coerce.number().int().min(1).max(5).optional(),
+    hasErrors: z.enum(['true', 'false']).optional().transform(v => v === 'true'),
+    isReviewed: z.enum(['true', 'false']).optional().transform(v => v === 'true'),
+    limit: z.coerce.number().int().min(1).max(100).default(100),
+    offset: z.coerce.number().int().min(0).default(0),
+  }),
+});
 
-    res.json(result);
-  } catch (error) {
-    console.error('피드백 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '피드백 조회 중 오류가 발생했습니다.'
-    });
+router.get('/admin/all', isAdmin, validate(adminAllSchema), async (req, res, next) => {
+  try {
+    const result = await feedbackService.getFeedbacks(req.query);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -227,48 +231,26 @@ router.get('/admin/all', isAdmin, async (req, res) => {
  * 피드백에 응답 (관리자)
  * POST /api/feedback/admin/respond/:id
  */
-router.post('/admin/respond/:id', isAdmin, async (req, res) => {
+const respondSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive('유효하지 않은 Feedback ID입니다'),
+  }),
+  body: z.object({
+    response: z.string().min(1, '응답 내용이 필요합니다').max(5000),
+  }),
+});
+
+router.post('/admin/respond/:id', isAdmin, validate(respondSchema), async (req, res, next) => {
   try {
-    // Null safety 체크
-    if (!req.params.id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Feedback ID가 필요합니다.'
-      });
-    }
-    
-    const feedbackId = parseInt(req.params.id);
-    
-    // 유효한 숫자인지 확인
-    if (isNaN(feedbackId)) {
-      return res.status(400).json({
-        success: false,
-        error: '유효하지 않은 Feedback ID입니다.'
-      });
-    }
-    
-    const { response } = req.body;
-
-    if (!response) {
-      return res.status(400).json({
-        success: false,
-        error: '응답 내용이 필요합니다.'
-      });
-    }
-
     const result = await feedbackService.respondToFeedback(
-      feedbackId,
+      req.params.id,
       req.user.userId,
-      response
+      req.body.response
     );
 
-    res.json(result);
-  } catch (error) {
-    console.error('응답 등록 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '응답 등록 중 오류가 발생했습니다.'
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -276,24 +258,29 @@ router.post('/admin/respond/:id', isAdmin, async (req, res) => {
  * 전체 피드백 통계 (관리자)
  * GET /api/feedback/admin/statistics
  */
-router.get('/admin/statistics', isAdmin, async (req, res) => {
+const adminStatsSchema = z.object({
+  query: z.object({
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    organizationId: z.coerce.number().int().positive().optional(),
+    method: z.string().optional(),
+  }),
+});
+
+router.get('/admin/statistics', isAdmin, validate(adminStatsSchema), async (req, res, next) => {
   try {
     const { startDate, endDate, organizationId, method } = req.query;
-    
+
     const result = await feedbackService.getFeedbackStatistics({
       startDate,
       endDate,
-      organizationId: organizationId ? parseInt(organizationId) : undefined,
-      method
+      organizationId,
+      method,
     });
 
-    res.json(result);
-  } catch (error) {
-    console.error('통계 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '통계 조회 중 오류가 발생했습니다.'
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -301,25 +288,18 @@ router.get('/admin/statistics', isAdmin, async (req, res) => {
  * 일별 통계 집계 실행 (관리자)
  * POST /api/feedback/admin/aggregate-daily
  */
-router.post('/admin/aggregate-daily', isAdmin, async (req, res) => {
+const aggregateSchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식은 YYYY-MM-DD여야 합니다'),
+  }),
+});
+
+router.post('/admin/aggregate-daily', isAdmin, validate(aggregateSchema), async (req, res, next) => {
   try {
-    const { date } = req.body;
-
-    if (!date) {
-      return res.status(400).json({
-        success: false,
-        error: '날짜가 필요합니다. (형식: YYYY-MM-DD)'
-      });
-    }
-
-    const result = await feedbackService.aggregateDailyStatistics(date);
-    res.json(result);
-  } catch (error) {
-    console.error('통계 집계 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '통계 집계 중 오류가 발생했습니다.'
-    });
+    const result = await feedbackService.aggregateDailyStatistics(req.body.date);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 

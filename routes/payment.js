@@ -4,27 +4,23 @@
 
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const paymentService = require('../services/paymentService');
 const creditService = require('../services/creditService');
 const { authenticateToken } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
+const { success, error } = require('../lib/response');
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 크레딧 잔액 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.get('/credit/balance', authenticateToken, async (req, res) => {
+router.get('/credit/balance', authenticateToken, async (req, res, next) => {
   try {
     const balance = await creditService.getBalance(req.user.userId);
-    res.json({
-      success: true,
-      ...balance
-    });
-  } catch (error) {
-    console.error('❌ 잔액 조회 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    success(res, balance);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -32,19 +28,19 @@ router.get('/credit/balance', authenticateToken, async (req, res) => {
 // 거래 내역 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.get('/credit/transactions', authenticateToken, async (req, res) => {
+const transactionsSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+  }),
+});
+
+router.get('/credit/transactions', authenticateToken, validate(transactionsSchema), async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const offset = parseInt(req.query.offset) || 0;
-    
-    const result = await creditService.getTransactions(req.user.userId, limit, offset);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 거래 내역 조회 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    const result = await creditService.getTransactions(req.user.userId, req.query.limit, req.query.offset);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -52,16 +48,12 @@ router.get('/credit/transactions', authenticateToken, async (req, res) => {
 // 사용 통계 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.get('/credit/stats', authenticateToken, async (req, res) => {
+router.get('/credit/stats', authenticateToken, async (req, res, next) => {
   try {
     const result = await creditService.getUsageStats(req.user.userId);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 사용 통계 조회 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -69,25 +61,18 @@ router.get('/credit/stats', authenticateToken, async (req, res) => {
 // 결제 요청 준비
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/prepare', authenticateToken, async (req, res) => {
+const prepareSchema = z.object({
+  body: z.object({
+    amount: z.coerce.number().int().min(1000, '충전 금액은 1,000원 이상이어야 합니다').max(10000000, '충전 금액은 10,000,000원 이하여야 합니다'),
+  }),
+});
+
+router.post('/prepare', authenticateToken, validate(prepareSchema), async (req, res, next) => {
   try {
-    const { amount } = req.body;
-    
-    if (!amount || amount < 1000) {
-      return res.status(400).json({
-        success: false,
-        error: '최소 충전 금액은 1,000원입니다'
-      });
-    }
-    
-    const result = await paymentService.preparePayment(req.user.userId, amount);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 결제 준비 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    const result = await paymentService.preparePayment(req.user.userId, req.body.amount);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -95,25 +80,21 @@ router.post('/prepare', authenticateToken, async (req, res) => {
 // 결제 승인 (토스페이먼츠 콜백)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/confirm', authenticateToken, async (req, res) => {
+const confirmSchema = z.object({
+  body: z.object({
+    orderId: z.string().min(1, 'orderId는 필수입니다'),
+    paymentKey: z.string().min(1, 'paymentKey는 필수입니다'),
+    amount: z.coerce.number().positive('amount는 필수입니다'),
+  }),
+});
+
+router.post('/confirm', authenticateToken, validate(confirmSchema), async (req, res, next) => {
   try {
     const { orderId, paymentKey, amount } = req.body;
-    
-    if (!orderId || !paymentKey || !amount) {
-      return res.status(400).json({
-        success: false,
-        error: '필수 파라미터가 누락되었습니다'
-      });
-    }
-    
     const result = await paymentService.confirmPayment(orderId, paymentKey, amount);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 결제 승인 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -121,25 +102,21 @@ router.post('/confirm', authenticateToken, async (req, res) => {
 // 결제 실패 처리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/fail', authenticateToken, async (req, res) => {
+const failSchema = z.object({
+  body: z.object({
+    orderId: z.string().min(1, 'orderId가 필요합니다'),
+    errorCode: z.string().optional(),
+    errorMessage: z.string().optional(),
+  }),
+});
+
+router.post('/fail', authenticateToken, validate(failSchema), async (req, res, next) => {
   try {
     const { orderId, errorCode, errorMessage } = req.body;
-    
-    if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        error: 'orderId가 필요합니다'
-      });
-    }
-    
     const result = await paymentService.failPayment(orderId, errorCode, errorMessage);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 결제 실패 처리 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -147,19 +124,19 @@ router.post('/fail', authenticateToken, async (req, res) => {
 // 결제 내역 조회
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.get('/history', authenticateToken, async (req, res) => {
+const historySchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    offset: z.coerce.number().int().min(0).default(0),
+  }),
+});
+
+router.get('/history', authenticateToken, validate(historySchema), async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = parseInt(req.query.offset) || 0;
-    
-    const result = await paymentService.getPaymentHistory(req.user.userId, limit, offset);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ 결제 내역 조회 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    const result = await paymentService.getPaymentHistory(req.user.userId, req.query.limit, req.query.offset);
+    success(res, result);
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -167,41 +144,26 @@ router.get('/history', authenticateToken, async (req, res) => {
 // 보너스 계산 (미리보기)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.get('/bonus/:amount', (req, res) => {
+const bonusSchema = z.object({
+  params: z.object({
+    amount: z.coerce.number().int().min(0, '올바른 금액을 입력해주세요'),
+  }),
+});
+
+router.get('/bonus/:amount', validate(bonusSchema), (req, res, next) => {
   try {
-    // Null safety 체크
-    if (!req.params.amount) {
-      return res.status(400).json({
-        success: false,
-        error: '금액이 필요합니다.'
-      });
-    }
-    
-    const amount = parseInt(req.params.amount);
-    
-    if (isNaN(amount) || amount < 0) {
-      return res.status(400).json({
-        success: false,
-        error: '올바른 금액을 입력해주세요'
-      });
-    }
-    
+    const { amount } = req.params;
     const bonusAmount = paymentService.calculateBonus(amount);
     const totalCredit = amount + bonusAmount;
-    
-    res.json({
-      success: true,
-      amount: amount,
-      bonusAmount: bonusAmount,
-      totalCredit: totalCredit,
-      bonusRate: amount > 0 ? Math.round((bonusAmount / amount) * 100) : 0
+
+    success(res, {
+      amount,
+      bonusAmount,
+      totalCredit,
+      bonusRate: amount > 0 ? Math.round((bonusAmount / amount) * 100) : 0,
     });
-  } catch (error) {
-    console.error('❌ 보너스 계산 API 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 

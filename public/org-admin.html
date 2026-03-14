@@ -334,7 +334,9 @@
         }
 
         function logout() {
-            localStorage.clear();
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('authProvider');
             window.location.href = '/login.html';
         }
 

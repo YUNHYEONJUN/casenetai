@@ -1,6 +1,7 @@
 /**
  * 인증 유틸리티
  * - 자동 토큰 갱신 (401 응답 시 refresh token 사용)
+ * - httpOnly 쿠키 기반 리프레시 (JS에서 refresh token 접근 불가)
  * - 인증 체크 및 로그아웃
  */
 
@@ -9,76 +10,103 @@
   let refreshPromise = null;
 
   /**
+   * 쿠키에서 값 읽기
+   */
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+  }
+
+  /**
+   * access token 가져오기 (localStorage > cookie 우선순위)
+   */
+  function getAccessToken() {
+    return localStorage.getItem('token') || getCookie('access_token');
+  }
+
+  /**
    * refresh token으로 access token 갱신
+   * - refresh_token은 httpOnly 쿠키이므로 credentials: 'include'로 자동 전송
    */
   async function refreshAccessToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) {
-      return null;
-    }
-
     try {
-      const response = await fetch('/api/auth/refresh', {
+      var response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',
+        body: JSON.stringify({})
       });
 
       if (!response.ok) {
         return null;
       }
 
-      const data = await response.json();
+      var data = await response.json();
       if (data.success && data.token) {
         localStorage.setItem('token', data.token);
-        if (data.refreshToken) {
-          localStorage.setItem('refreshToken', data.refreshToken);
-        }
         return data.token;
       }
       return null;
-    } catch {
+    } catch (e) {
       return null;
     }
   }
 
   /**
-   * 인증된 API 호출 (자동 토큰 갱신 포함)
+   * 타임아웃 지원 fetch
    */
-  async function authenticatedFetch(url, options = {}) {
-    let token = localStorage.getItem('token');
+  function fetchWithTimeout(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || 30000; // 기본 30초
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
+
+    return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+      .finally(function() { clearTimeout(timeoutId); });
+  }
+
+  /**
+   * 인증된 API 호출 (자동 토큰 갱신 + 타임아웃 포함)
+   */
+  async function authenticatedFetch(url, options) {
+    options = options || {};
+    var token = getAccessToken();
     if (!token) {
       window.location.href = '/login.html';
       return null;
     }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-      'Authorization': `Bearer ${token}`
-    };
+    var timeout = options.timeout || 30000;
+    var headers = Object.assign({}, options.headers || {}, {
+      'Authorization': 'Bearer ' + token
+    });
 
-    let response = await fetch(url, { ...options, headers });
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
-    // 401이면 토큰 갱신 시도
+    var response = await fetchWithTimeout(url, Object.assign({}, options, {
+      headers: headers,
+      credentials: 'include'
+    }), timeout);
+
     if (response.status === 401) {
-      // 동시 갱신 방지
       if (!isRefreshing) {
         isRefreshing = true;
-        refreshPromise = refreshAccessToken();
+        refreshPromise = refreshAccessToken().finally(function() {
+          isRefreshing = false;
+        });
       }
 
-      const newToken = await refreshPromise;
-      isRefreshing = false;
-      refreshPromise = null;
+      var newToken = await refreshPromise;
 
       if (newToken) {
-        headers['Authorization'] = `Bearer ${newToken}`;
-        response = await fetch(url, { ...options, headers });
+        headers['Authorization'] = 'Bearer ' + newToken;
+        response = await fetchWithTimeout(url, Object.assign({}, options, {
+          headers: headers,
+          credentials: 'include'
+        }), timeout);
       } else {
-        // 갱신 실패 - 로그인 페이지로
         localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
         window.location.href = '/login.html';
         return null;
       }
@@ -90,8 +118,8 @@
   /**
    * 인증된 API 호출 + JSON 파싱
    */
-  async function apiCall(url, options = {}) {
-    const response = await authenticatedFetch(url, options);
+  async function apiCall(url, options) {
+    var response = await authenticatedFetch(url, options);
     if (!response) return null;
     return response.json();
   }
@@ -101,9 +129,17 @@
    */
   function logout() {
     if (confirm('로그아웃 하시겠습니까?')) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      window.location.href = '/';
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + getAccessToken(),
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      }).finally(function() {
+        localStorage.removeItem('token');
+        window.location.href = '/';
+      });
     }
   }
 
@@ -111,9 +147,10 @@
    * 인증 체크 (비로그인 시 로그인 페이지로)
    */
   function requireAuth() {
-    const token = localStorage.getItem('token');
+    var token = getAccessToken();
     if (!token) {
-      window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+      localStorage.setItem('loginRedirect', window.location.pathname);
+      window.location.href = '/login.html';
       return false;
     }
     return true;
@@ -121,10 +158,11 @@
 
   // 전역 노출
   window.AuthUtils = {
-    authenticatedFetch,
-    apiCall,
-    logout,
-    requireAuth,
-    refreshAccessToken
+    authenticatedFetch: authenticatedFetch,
+    apiCall: apiCall,
+    logout: logout,
+    requireAuth: requireAuth,
+    refreshAccessToken: refreshAccessToken,
+    getAccessToken: getAccessToken
   };
 })();

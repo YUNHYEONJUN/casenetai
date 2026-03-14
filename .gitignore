@@ -15,4 +15,7 @@ database/*.db-journal
 .vscode/
 .idea/
 
-.vercel
+# 보안 스캔 리포트
+*-report.json
+*-bugs.json
+*-scan-report.json

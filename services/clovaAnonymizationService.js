@@ -4,6 +4,7 @@
  */
 
 const axios = require('axios');
+const { logger } = require('../lib/logger');
 
 class ClovaAnonymizationService {
   constructor(clientId, clientSecret) {
@@ -55,7 +56,7 @@ class ClovaAnonymizationService {
       };
 
     } catch (error) {
-      console.error('❌ CLOVA 익명화 실패:', error.message);
+      logger.error('CLOVA 익명화 실패', { error: error.message });
       return {
         success: false,
         method: 'clova',
@@ -118,7 +119,7 @@ class ClovaAnonymizationService {
 
     } catch (error) {
       // API 오류 시 폴백: 간단한 패턴 매칭
-      console.warn('⚠️ CLOVA API 호출 실패, 폴백 모드 사용:', error.message);
+      logger.warn('CLOVA API 호출 실패, 폴백 모드 사용', { error: error.message });
       return this.fallbackExtraction(text);
     }
   }

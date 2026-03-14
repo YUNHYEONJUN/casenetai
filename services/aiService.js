@@ -3,6 +3,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
+const { logger } = require('../lib/logger');
 
 // OpenAI 클라이언트 초기화 (타임아웃 설정 증가)
 const openai = new OpenAI({
@@ -27,7 +28,7 @@ const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB in bytes (압축 강제)
 function removeConsecutiveDuplicates(text) {
   if (!text) return text;
   
-  console.log('[STT 후처리] 연속 반복 단어 제거 시작');
+  logger.info('[STT 후처리] 연속 반복 단어 제거 시작');
   const originalLength = text.length;
   
   // 1. 단어 단위로 분할 (공백 기준)
@@ -46,7 +47,7 @@ function removeConsecutiveDuplicates(text) {
     
     // 3회 이상 반복되면 1개만 유지, 아니면 원본 유지
     if (repeatCount >= 3) {
-      console.log(`[STT 후처리] "${currentWord}" ${repeatCount}회 반복 → 1회로 축소`);
+      logger.info('[STT 후처리] 반복 단어 축소', { word: currentWord, repeatCount });
       result.push(currentWord);
       i += repeatCount;
     } else {
@@ -62,9 +63,9 @@ function removeConsecutiveDuplicates(text) {
   const reducedLength = cleanedText.length;
   
   if (originalLength !== reducedLength) {
-    console.log(`[STT 후처리] 완료: ${originalLength}자 → ${reducedLength}자 (${((1 - reducedLength / originalLength) * 100).toFixed(1)}% 축소)`);
+    logger.info('[STT 후처리] 완료', { originalLength, reducedLength, reductionPercent: ((1 - reducedLength / originalLength) * 100).toFixed(1) });
   } else {
-    console.log('[STT 후처리] 반복 단어 없음');
+    logger.info('[STT 후처리] 반복 단어 없음');
   }
   
   return cleanedText;
@@ -90,7 +91,7 @@ async function compressAudio(inputPath, targetEngine = 'openai') {
   const outputPath = inputPath.replace(/\.[^.]+$/, '_compressed.mp3');
   
   try {
-    console.log(`[압축] 오디오 파일 압축 시작 (${targetEngine} 용): ${inputPath}`);
+    logger.info('[압축] 오디오 파일 압축 시작', { targetEngine, inputPath });
     
     // 32k bitrate: 40분 오디오 = 약 9.6MB (10MB 제한 안전)
     const bitrate = '32k';
@@ -105,11 +106,11 @@ async function compressAudio(inputPath, targetEngine = 'openai') {
     const originalSize = getFileSize(inputPath);
     const compressedSize = getFileSize(outputPath);
     
-    console.log(`[압축] 완료. 원본: ${(originalSize / 1024 / 1024).toFixed(2)}MB → 압축: ${(compressedSize / 1024 / 1024).toFixed(2)}MB`);
+    logger.info('[압축] 완료', { originalSizeMB: (originalSize / 1024 / 1024).toFixed(2), compressedSizeMB: (compressedSize / 1024 / 1024).toFixed(2) });
     
     return outputPath;
   } catch (error) {
-    console.error('[압축] 오류:', error.message);
+    logger.error('[압축] 오류', { error: error.message });
     throw new Error(`파일 압축 실패: ${error.message}`);
   }
 }
@@ -136,7 +137,7 @@ async function retryWithBackoff(fn, maxRetries = 3, delay = 5000) {
       }
       
       const waitTime = delay * Math.pow(2, i); // 지수 백오프
-      console.log(`[재시도] ${i + 1}/${maxRetries - 1} 실패. ${waitTime/1000}초 후 재시도... (오류: ${error.message})`);
+      logger.info('[재시도] 실패, 재시도 예정', { attempt: i + 1, maxRetries: maxRetries - 1, waitSeconds: waitTime / 1000, error: error.message });
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
@@ -153,21 +154,21 @@ async function transcribeAudio(audioFilePath) {
   
   // 1순위: OpenAI Whisper (고품질, 파일 크기 제한 없음)
   try {
-    console.log('[STT 1순위] OpenAI Whisper 시도 중');
+    logger.info('[STT 1순위] OpenAI Whisper 시도 중');
     const result = await retryWithBackoff(async () => {
       return await transcribeWithWhisper(audioFilePath);
     }, 2, 3000);
-    console.log('[STT] ✅ OpenAI Whisper 성공 (비용: ~384원/48분)');
+    logger.info('[STT] OpenAI Whisper 성공 (비용: ~384원/48분)');
     return result;
   } catch (error) {
     sttErrors.push(`OpenAI Whisper: ${error.message}`);
-    console.error('[STT] ❌ OpenAI Whisper 실패:', error.message);
-    console.warn('[STT 폴백] Naver Clova로 전환');
+    logger.error('[STT] OpenAI Whisper 실패', { error: error.message });
+    logger.warn('[STT 폴백] Naver Clova로 전환');
   }
   
   // 2순위: Naver Clova Speech (한국어 특화, 10MB 제한)
   try {
-    console.log('[STT 2순위] Naver Clova Speech 시도 중 (최후 수단)');
+    logger.info('[STT 2순위] Naver Clova Speech 시도 중 (최후 수단)');
     const clovaStt = require('./clovaSttService');
     
     // Clova API 키 확인
@@ -179,20 +180,20 @@ async function transcribeAudio(audioFilePath) {
     const CLOVA_MAX_SIZE = 10 * 1024 * 1024;
     const fileSize = getFileSize(audioFilePath);
     
-    console.log(`[STT] 파일 크기: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
-    
+    logger.info('[STT] 파일 크기 확인', { sizeMB: (fileSize / 1024 / 1024).toFixed(2) });
+
     if (fileSize > CLOVA_MAX_SIZE) {
       throw new Error(`파일이 10MB를 초과합니다 (${(fileSize / 1024 / 1024).toFixed(2)}MB). Clova는 10MB까지만 지원합니다.`);
     }
     
     // Clova STT 실행
     const result = await retryWithBackoff(() => clovaStt.transcribeWithClova(audioFilePath), 2, 2000);
-    console.log('[STT] ✅ Naver Clova 성공 (비용: ~960원/48분)');
+    logger.info('[STT] Naver Clova 성공 (비용: ~960원/48분)');
     return result;
     
   } catch (error) {
     sttErrors.push(`Naver Clova: ${error.message}`);
-    console.error('[STT] ❌ Naver Clova 실패:', error.message);
+    logger.error('[STT] Naver Clova 실패', { error: error.message });
   }
   
   // 모든 STT 엔진 실패
@@ -210,15 +211,15 @@ async function transcribeWithWhisper(audioFilePath) {
   let needsCleanup = false;
   
   try {
-    console.log(`[STT] OpenAI Whisper 음성 파일 변환 시작: ${audioFilePath}`);
+    logger.info('[STT] OpenAI Whisper 음성 파일 변환 시작', { audioFilePath });
     
     // 파일 크기 확인
     const fileSize = getFileSize(audioFilePath);
-    console.log(`[STT] 파일 크기: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
-    
+    logger.info('[STT] 파일 크기 확인', { sizeMB: (fileSize / 1024 / 1024).toFixed(2) });
+
     // 15MB 초과 시 압축
     if (fileSize > MAX_FILE_SIZE) {
-      console.log(`[STT] 파일이 15MB를 초과합니다. 압축을 진행합니다...`);
+      logger.info('[STT] 파일이 15MB를 초과합니다. 압축을 진행합니다...');
       processFilePath = await compressAudio(audioFilePath);
       needsCleanup = true;
       
@@ -228,7 +229,7 @@ async function transcribeWithWhisper(audioFilePath) {
       }
     }
     
-    console.log(`[STT] Whisper API 호출 시작...`);
+    logger.info('[STT] Whisper API 호출 시작...');
     
     // FormData를 사용한 직접 HTTP 요청 (더 안정적)
     const FormData = require('form-data');
@@ -264,7 +265,7 @@ async function transcribeWithWhisper(audioFilePath) {
       };
       
       const req = https.request(options, (res) => {
-        console.log(`[STT] 응답 상태: ${res.statusCode}`);
+        logger.info('[STT] 응답 상태', { statusCode: res.statusCode });
         let data = '';
         let receivedBytes = 0;
         
@@ -272,12 +273,12 @@ async function transcribeWithWhisper(audioFilePath) {
           data += chunk;
           receivedBytes += chunk.length;
           if (receivedBytes % 1024 === 0) {
-            console.log(`[STT] 수신 중: ${(receivedBytes / 1024).toFixed(1)}KB`);
+            logger.info('[STT] 수신 중', { receivedKB: (receivedBytes / 1024).toFixed(1) });
           }
         });
         
         res.on('end', () => {
-          console.log(`[STT] 응답 완료: ${receivedBytes} bytes`);
+          logger.info('[STT] 응답 완료', { receivedBytes });
           if (res.statusCode === 200) {
             resolve(data);
           } else {
@@ -287,13 +288,13 @@ async function transcribeWithWhisper(audioFilePath) {
       });
       
       req.on('error', (error) => {
-        console.error('[STT] 요청 오류:', error.message);
+        logger.error('[STT] 요청 오류', { error: error.message });
         reject(error);
       });
       
       req.on('timeout', () => {
-        console.error('[STT] 타임아웃 발생 (15분 초과)');
-        console.error('[STT] 파일 크기가 너무 크거나 OpenAI API가 응답하지 않습니다.');
+        logger.error('[STT] 타임아웃 발생 (15분 초과)');
+        logger.error('[STT] 파일 크기가 너무 크거나 OpenAI API가 응답하지 않습니다.');
         req.destroy();
         reject(new Error('요청 타임아웃 (15분 초과) - 파일이 너무 크거나 OpenAI API 응답 지연'));
       });
@@ -303,15 +304,15 @@ async function transcribeWithWhisper(audioFilePath) {
       form.on('data', (chunk) => {
         uploadedBytes += chunk.length;
         if (uploadedBytes % (1024 * 1024) === 0) {
-          console.log(`[STT] 업로드 중: ${(uploadedBytes / 1024 / 1024).toFixed(1)}MB`);
+          logger.info('[STT] 업로드 중', { uploadedMB: (uploadedBytes / 1024 / 1024).toFixed(1) });
         }
       });
       
-      console.log('[STT] 파일 전송 시작...');
+      logger.info('[STT] 파일 전송 시작...');
       form.pipe(req);
     });
 
-    console.log(`[STT] 변환 완료. 원본 텍스트 길이: ${transcription.length}자`);
+    logger.info('[STT] 변환 완료', { textLength: transcription.length });
     
     // 연속 반복 단어 제거 후처리 적용
     const cleanedTranscription = removeConsecutiveDuplicates(transcription);
@@ -319,12 +320,12 @@ async function transcribeWithWhisper(audioFilePath) {
     // 압축 파일 정리
     if (needsCleanup && fs.existsSync(processFilePath)) {
       fs.unlinkSync(processFilePath);
-      console.log(`[STT] 압축 파일 삭제: ${processFilePath}`);
+      logger.info('[STT] 압축 파일 삭제', { processFilePath });
     }
     
     return cleanedTranscription;
   } catch (error) {
-    console.error('[STT] 오류 상세:', {
+    logger.error('[STT] 오류 상세', {
       message: error.message,
       type: error.constructor.name,
       code: error.code,
@@ -349,7 +350,7 @@ async function transcribeWithWhisper(audioFilePath) {
  */
 async function callGeminiAPI(systemPrompt, userPrompt, jsonMode = false) {
   try {
-    console.log('[Gemini API] 호출 시작 (무료)');
+    logger.info('[Gemini API] 호출 시작 (무료)');
     
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.0-flash-exp',
@@ -384,18 +385,18 @@ async function callGeminiAPI(systemPrompt, userPrompt, jsonMode = false) {
       throw new Error('Gemini API 응답이 비어있습니다');
     }
     
-    console.log('[Gemini API] ✅ 성공 (비용: $0.00)');
+    logger.info('[Gemini API] 성공 (비용: $0.00)');
     return text;
   } catch (error) {
-    console.error('[Gemini API] ❌ 실패:', error.message);
+    logger.error('[Gemini API] 실패', { error: error.message });
     
     // 에러 타입별 상세 로깅
     if (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED')) {
-      console.warn('[Gemini API] 무료 할당량 초과 (1,500 req/day)');
+      logger.warn('[Gemini API] 무료 할당량 초과 (1,500 req/day)');
     } else if (error.message.includes('quota')) {
-      console.warn('[Gemini API] 할당량 문제:', error.message);
+      logger.warn('[Gemini API] 할당량 문제', { error: error.message });
     } else if (error.message.includes('safety') || error.message.includes('block')) {
-      console.warn('[Gemini API] 안전성 필터 차단:', error.message);
+      logger.warn('[Gemini API] 안전성 필터 차단', { error: error.message });
     }
     
     throw error;
@@ -411,7 +412,7 @@ async function callGeminiAPI(systemPrompt, userPrompt, jsonMode = false) {
  */
 async function callOpenAIAPI(systemPrompt, userPrompt, jsonMode = false) {
   try {
-    console.log('[OpenAI API] GPT-4o-mini 호출 시작 (저가)');
+    logger.info('[OpenAI API] GPT-4o-mini 호출 시작 (저가)');
     
     const config = {
       model: 'gpt-4o-mini',
@@ -430,10 +431,10 @@ async function callOpenAIAPI(systemPrompt, userPrompt, jsonMode = false) {
     const response = await openai.chat.completions.create(config);
     const text = response.choices[0].message.content;
     
-    console.log('[OpenAI API] ✅ GPT-4o-mini 성공 (비용: ~$0.002)');
+    logger.info('[OpenAI API] GPT-4o-mini 성공 (비용: ~$0.002)');
     return text;
   } catch (error) {
-    console.error('[OpenAI API] ❌ GPT-4o-mini 실패:', error.message);
+    logger.error('[OpenAI API] GPT-4o-mini 실패', { error: error.message });
     throw error;
   }
 }
@@ -453,7 +454,7 @@ async function callAIWithFallback(systemPrompt, userPrompt, jsonMode = false) {
     return await callGeminiAPI(systemPrompt, userPrompt, jsonMode);
   } catch (error) {
     errors.push(`Gemini: ${error.message}`);
-    console.warn('[폴백] Gemini 실패, OpenAI로 전환');
+    logger.warn('[폴백] Gemini 실패, OpenAI로 전환');
   }
   
   // 2순위: OpenAI GPT-4o-mini (저가)
@@ -461,7 +462,7 @@ async function callAIWithFallback(systemPrompt, userPrompt, jsonMode = false) {
     return await callOpenAIAPI(systemPrompt, userPrompt, jsonMode);
   } catch (error) {
     errors.push(`OpenAI: ${error.message}`);
-    console.error('[폴백] 모든 AI API 실패');
+    logger.error('[폴백] 모든 AI API 실패');
     throw new Error(`AI 분석 실패 (모든 엔진 시도 완료): ${errors.join(', ')}`);
   }
 }
@@ -475,7 +476,7 @@ async function callAIWithFallback(systemPrompt, userPrompt, jsonMode = false) {
  */
 async function generateStructuredFields(transcript, consultationType, consultationStage = 'intake') {
   try {
-    console.log(`[AI 분석 1단계] 구조화된 필드 생성 시작 (상담 단계: ${consultationStage})`);
+    logger.info('[AI 분석 1단계] 구조화된 필드 생성 시작', { consultationStage });
     
     // 상담 단계별 시스템 프롬프트 구성
     let systemPrompt = '';
@@ -818,15 +819,15 @@ ${transcript}`;
     try {
       result = JSON.parse(jsonText);
     } catch (parseError) {
-      console.error('[AI 분석 1단계] JSON 파싱 실패:', parseError.message);
-      console.error('[AI 분석 1단계] 원본 응답:', responseText.substring(0, 500));
+      logger.error('[AI 분석 1단계] JSON 파싱 실패', { error: parseError.message });
+      logger.error('[AI 분석 1단계] 원본 응답', { responsePreview: responseText.substring(0, 500) });
       throw new Error(`JSON 파싱 실패: ${parseError.message}`);
     }
     
-    console.log('[AI 분석 1단계] 구조화된 필드 생성 완료');
+    logger.info('[AI 분석 1단계] 구조화된 필드 생성 완료');
     return result;
   } catch (error) {
-    console.error('[AI 분석 1단계] 오류:', error.message);
+    logger.error('[AI 분석 1단계] 오류', { error: error.message });
     throw error;
   }
 }
@@ -840,7 +841,7 @@ ${transcript}`;
  */
 async function processTranscriptChunk(chunk, chunkIndex, totalChunks) {
   try {
-    console.log(`[청크 ${chunkIndex + 1}/${totalChunks}] 처리 시작 (길이: ${chunk.length}자)`);
+    logger.info('[청크] 처리 시작', { chunkIndex: chunkIndex + 1, totalChunks, chunkLength: chunk.length });
     
     const systemPrompt = `당신은 노인보호전문기관의 전문 상담원입니다.
 이 녹취록 일부를 극도로 상세하게 재작성해야 합니다.
@@ -979,11 +980,11 @@ ${chunk}
     }
     
     const sentenceCount = content.split(/[.!?]/).filter(s => s.trim().length > 0).length;
-    console.log(`[청크 ${chunkIndex + 1}/${totalChunks}] 완료 (생성 문장: ${sentenceCount})`);
+    logger.info('[청크] 완료', { chunkIndex: chunkIndex + 1, totalChunks, sentenceCount });
     
     return content;
   } catch (error) {
-    console.error(`[청크 ${chunkIndex + 1}/${totalChunks}] 오류:`, error.message);
+    logger.error('[청크] 오류', { chunkIndex: chunkIndex + 1, totalChunks, error: error.message });
     throw error;
   }
 }
@@ -995,7 +996,7 @@ ${chunk}
  */
 async function generateDetailedConsultationContent(transcript) {
   try {
-    console.log(`[AI 분석 2단계] 청크 기반 상담내용정리 생성 시작 (녹취록 길이: ${transcript.length}자)`);
+    logger.info('[AI 분석 2단계] 청크 기반 상담내용정리 생성 시작', { transcriptLength: transcript.length });
     
     // 청크 크기 결정 (약 5000자씩 분할)
     const chunkSize = 5000;
@@ -1023,7 +1024,7 @@ async function generateDetailedConsultationContent(transcript) {
       currentPos = endPos;
     }
     
-    console.log(`[AI 분석 2단계] 녹취록을 ${chunks.length}개 청크로 분할`);
+    logger.info('[AI 분석 2단계] 녹취록 청크 분할', { chunkCount: chunks.length });
     
     // 각 청크를 병렬로 처리 (최대 3개씩 동시 처리)
     const results = [];
@@ -1035,10 +1036,17 @@ async function generateDetailedConsultationContent(transcript) {
         processTranscriptChunk(chunk, i + idx, chunks.length)
       );
       
-      const batchResults = await Promise.all(batchPromises);
+      const batchSettled = await Promise.allSettled(batchPromises);
+      const batchResults = batchSettled
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+      const batchErrors = batchSettled.filter(r => r.status === 'rejected');
+      if (batchErrors.length > 0) {
+        logger.warn('[AI 분석 2단계] 일부 청크 처리 실패', { failedCount: batchErrors.length, errors: batchErrors.map(e => e.reason?.message) });
+      }
       results.push(...batchResults);
-      
-      console.log(`[AI 분석 2단계] ${i + batchResults.length}/${chunks.length} 청크 처리 완료`);
+
+      logger.info('[AI 분석 2단계] 청크 배치 처리 완료', { processed: i + batchResults.length, total: chunks.length });
     }
     
     // 모든 결과를 하나로 합치기 (각 청크 사이 줄바꿈 2개)
@@ -1046,9 +1054,7 @@ async function generateDetailedConsultationContent(transcript) {
     
     // 생성된 문장 수 확인
     const sentenceCount = consultationContent.split(/[.!?。！？]/).filter(s => s.trim().length > 0).length;
-    console.log(`[AI 분석 2단계] 상담내용정리 생성 완료`);
-    console.log(`[AI 분석 2단계] 최종 생성된 문장 수: ${sentenceCount}문장`);
-    console.log(`[AI 분석 2단계] 최종 길이: ${consultationContent.length}자`);
+    logger.info('[AI 분석 2단계] 상담내용정리 생성 완료', { sentenceCount, contentLength: consultationContent.length });
     
     // 녹취록 길이에 따른 요구 문장 수
     let requiredSentences = 0;
@@ -1059,13 +1065,12 @@ async function generateDetailedConsultationContent(transcript) {
     else requiredSentences = 200;
     
     if (sentenceCount < requiredSentences * 0.5) {
-      console.warn(`[경고] 생성된 문장 수(${sentenceCount})가 요구사항(${requiredSentences})의 50%에도 미달합니다!`);
-      console.warn(`[경고] 추가 확장이 필요할 수 있습니다.`);
+      logger.warn('[경고] 생성된 문장 수가 요구사항의 50%에도 미달합니다', { sentenceCount, requiredSentences });
     }
     
     return consultationContent;
   } catch (error) {
-    console.error('[AI 분석 2단계] 오류:', error.message);
+    logger.error('[AI 분석 2단계] 오류', { error: error.message });
     throw error;
   }
 }
@@ -1079,8 +1084,7 @@ async function generateDetailedConsultationContent(transcript) {
  */
 async function analyzeCounselingTranscript(transcript, consultationType, consultationStage = 'intake') {
   try {
-    console.log(`[AI 분석] 2단계 방식으로 상담일지 생성 시작 (유형: ${consultationType}, 단계: ${consultationStage})`);
-    console.log(`[AI 분석] 녹취록 길이: ${transcript.length}자`);
+    logger.info('[AI 분석] 2단계 방식으로 상담일지 생성 시작', { consultationType, consultationStage, transcriptLength: transcript.length });
     
     // 1단계: 구조화된 필드 생성
     const structuredData = await generateStructuredFields(transcript, consultationType, consultationStage);
@@ -1199,7 +1203,7 @@ async function analyzeCounselingTranscript(transcript, consultationType, consult
       };
     }
 
-    console.log(`[AI 분석] 2단계 방식으로 상담일지 생성 완료 (상담 단계: ${consultationStage})`);
+    logger.info('[AI 분석] 2단계 방식으로 상담일지 생성 완료', { consultationStage });
     return report;
   } catch (error) {
     console.error('[AI 분석] 오류:', error.message);
@@ -1242,8 +1246,8 @@ function getConsultationTypeText(type) {
  */
 async function processAudioToCounselingReport(audioFilePath, consultationType, consultationStage = 'intake') {
   try {
-    console.log(`[파이프라인] 음성 파일 처리 시작 (워터폴 폴백: Whisper → Clova)`);
-    console.log(`[파이프라인] 상담 단계: ${consultationStage}`);
+    logger.info('[파이프라인] 음성 파일 처리 시작 (워터폴 폴백: Whisper → Clova)');
+    logger.info(`[파이프라인] 상담 단계: ${consultationStage}`);
     
     // 1단계: 음성을 텍스트로 변환 (워터폴 폴백)
     const transcript = await transcribeAudio(audioFilePath);
@@ -1254,7 +1258,7 @@ async function processAudioToCounselingReport(audioFilePath, consultationType, c
     // 원본 텍스트도 함께 반환
     report.원본텍스트 = transcript;
     
-    console.log('[파이프라인] 처리 완료');
+    logger.info('[파이프라인] 처리 완료');
     return report;
   } catch (error) {
     console.error('[파이프라인] 오류:', error.message);
@@ -1338,7 +1342,14 @@ async function processAudioWithProgress(audioFilePath, consultationType, consult
       const batchPromises = batch.map((chunk, idx) =>
         processTranscriptChunk(chunk, i + idx, chunks.length)
       );
-      const batchResults = await Promise.all(batchPromises);
+      const batchSettled = await Promise.allSettled(batchPromises);
+      const batchResults = batchSettled
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+      const batchErrors = batchSettled.filter(r => r.status === 'rejected');
+      if (batchErrors.length > 0) {
+        logger.warn('[AI 분석] 일부 청크 처리 실패', { failedCount: batchErrors.length, errors: batchErrors.map(e => e.reason?.message) });
+      }
       results.push(...batchResults);
 
       const chunkProgress = 70 + Math.round(((i + batchResults.length) / chunks.length) * 25);

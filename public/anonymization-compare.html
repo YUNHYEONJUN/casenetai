@@ -539,7 +539,7 @@
                          rec.priority === 'speed' ? '⚡ 속도 우선' : 
                          rec.priority === 'cost' ? '💰 비용 우선' : 
                          '⚖️ 균형 (추천)'}</strong><br>
-                ${rec.method.toUpperCase()} - ${rec.reason}
+                ${esc(rec.method.toUpperCase())} - ${esc(rec.reason)}
               </li>
             `).join('')}
           </ul>

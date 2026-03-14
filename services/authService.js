@@ -6,6 +6,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getDB } = require('../database/db-postgres');
+const { logger } = require('../lib/logger');
 
 // JWT_SECRET 필수 검증
 if (!process.env.JWT_SECRET) {
@@ -35,10 +36,21 @@ class AuthService {
       if (existingUser) {
         throw new Error('이미 사용 중인 이메일입니다');
       }
-      
+
+      // 비밀번호 강도 검증
+      if (!password || password.length < 8) {
+        throw new Error('비밀번호는 최소 8자 이상이어야 합니다');
+      }
+      const hasLetter = /[a-zA-Z]/.test(password);
+      const hasNumber = /[0-9]/.test(password);
+      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+      if ([hasLetter, hasNumber, hasSpecial].filter(Boolean).length < 2) {
+        throw new Error('비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다');
+      }
+
       // 비밀번호 해시
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-      
+
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const result = await db.transaction(async (client) => {
         // 사용자 생성
@@ -60,7 +72,7 @@ class AuthService {
         return userId;
       });
       
-      console.log('✅ 회원가입 성공:', email);
+      logger.info('회원가입 성공', { email });
       
       return {
         success: true,
@@ -69,7 +81,7 @@ class AuthService {
       };
       
     } catch (error) {
-      console.error('❌ 회원가입 실패:', error.message);
+      logger.error('회원가입 실패', { error: error.message });
       throw error;
     }
   }
@@ -77,7 +89,7 @@ class AuthService {
   /**
    * 관리자 전용: 역할 및 크레딧 설정 가능한 회원가입
    */
-  async registerWithRole({ email, password, name, phone, organizationId = null, role = 'system_admin', credits = 10000000, serviceType = 'elderly_protection' }) {
+  async registerWithRole({ email, password, name, phone, organizationId = null, role = 'user', credits = 0, serviceType = 'elderly_protection' }) {
     const db = getDB();
     
     try {
@@ -115,7 +127,7 @@ class AuthService {
         return newUserId;
       });
       
-      console.log(`✅ 관리자 계정 생성 성공: ${email} (${role}, ${credits}원)`);
+      logger.info('관리자 계정 생성 성공', { email, role, credits });
       
       return {
         success: true,
@@ -126,7 +138,7 @@ class AuthService {
       };
       
     } catch (error) {
-      console.error('❌ 관리자 계정 생성 실패:', error.message);
+      logger.error('관리자 계정 생성 실패', { error: error.message });
       throw error;
     }
   }
@@ -202,7 +214,7 @@ class AuthService {
         [user.id]
       );
       
-      console.log('✅ 로그인 성공:', email);
+      logger.info('로그인 성공', { email });
       
       return {
         success: true,
@@ -221,7 +233,7 @@ class AuthService {
       };
       
     } catch (error) {
-      console.error('❌ 로그인 실패:', error.message);
+      logger.error('로그인 실패', { error: error.message });
       throw error;
     }
   }
@@ -248,26 +260,42 @@ class AuthService {
   }
   
   /**
-   * Refresh Token으로 새 토큰 발급
+   * Refresh Token으로 새 토큰 발급 (하위 호환)
    */
   async refreshToken(refreshToken) {
+    return this.refreshTokenWithRotation(refreshToken);
+  }
+
+  /**
+   * Refresh Token 로테이션
+   * - 사용된 리프레시 토큰은 무효화되고 새 리프레시 토큰 발급
+   * - 탈취된 리프레시 토큰의 재사용 시 전체 세션 무효화
+   */
+  async refreshTokenWithRotation(refreshToken) {
     const db = getDB();
-    
+
     try {
-      // Refresh Token 검증
       const decoded = jwt.verify(refreshToken, JWT_SECRET);
-      
-      // 세션 확인
-      const session = await db.get(
-        'SELECT user_id FROM sessions WHERE refresh_token = $1 AND expires_at > CURRENT_TIMESTAMP',
-        [refreshToken]
-      );
-      
-      if (!session) {
+
+      // access token이 refresh로 사용되는 것 방지
+      if (decoded.email || decoded.role) {
         throw new Error('유효하지 않은 리프레시 토큰입니다');
       }
-      
-      // 사용자 정보 조회
+
+      // 세션 확인 (리프레시 토큰으로)
+      const session = await db.get(
+        'SELECT id, user_id FROM sessions WHERE refresh_token = $1 AND expires_at > CURRENT_TIMESTAMP',
+        [refreshToken]
+      );
+
+      if (!session) {
+        // 이미 로테이션된(사용된) 리프레시 토큰으로 접근 → 토큰 탈취 가능성
+        // 해당 사용자의 모든 세션 무효화
+        logger.warn('리프레시 토큰 재사용 감지 (토큰 탈취 의심)', { userId: decoded.userId });
+        await db.run('DELETE FROM sessions WHERE user_id = $1', [decoded.userId]);
+        throw new Error('보안 위험 감지: 모든 세션이 종료되었습니다. 다시 로그인하세요.');
+      }
+
       const user = await db.get(
         'SELECT id, oauth_email as email, role, organization_id FROM users WHERE id = $1',
         [decoded.userId]
@@ -277,7 +305,7 @@ class AuthService {
         throw new Error('사용자를 찾을 수 없습니다');
       }
 
-      // 새 액세스 토큰 생성 (organizationId 포함)
+      // 새 액세스 토큰
       const newToken = jwt.sign(
         {
           userId: user.id,
@@ -288,20 +316,32 @@ class AuthService {
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
       );
-      
-      // 세션 업데이트
-      await db.run(
-        'UPDATE sessions SET token = $1 WHERE refresh_token = $2',
-        [newToken, refreshToken]
+
+      // 새 리프레시 토큰 (로테이션)
+      const newRefreshToken = jwt.sign(
+        { userId: user.id, type: 'refresh' },
+        JWT_SECRET,
+        { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
       );
-      
+
+      // 세션 업데이트: 기존 리프레시 토큰 무효화 + 새 토큰 설정
+      await db.run(
+        `UPDATE sessions
+         SET token = $1,
+             refresh_token = $2,
+             expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+         WHERE id = $3`,
+        [newToken, newRefreshToken, session.id]
+      );
+
       return {
         success: true,
-        token: newToken
+        token: newToken,
+        newRefreshToken
       };
-      
+
     } catch (error) {
-      console.error('❌ 토큰 갱신 실패:', error.message);
+      logger.error('토큰 갱신 실패', { error: error.message });
       throw error;
     }
   }
@@ -311,20 +351,24 @@ class AuthService {
    */
   async logout(token) {
     const db = getDB();
-    
+    const tokenBlacklist = require('../lib/tokenBlacklist');
+
     try {
+      // 토큰을 블랙리스트에 추가 (즉시 무효화)
+      tokenBlacklist.add(token);
+
       await db.run(
         'DELETE FROM sessions WHERE token = $1',
         [token]
       );
-      
+
       return {
         success: true,
         message: '로그아웃되었습니다'
       };
-      
+
     } catch (error) {
-      console.error('❌ 로그아웃 실패:', error.message);
+      logger.error('로그아웃 실패', { error: error.message });
       throw error;
     }
   }
@@ -376,7 +420,7 @@ class AuthService {
       };
       
     } catch (error) {
-      console.error('❌ 사용자 정보 조회 실패:', error.message);
+      logger.error('사용자 정보 조회 실패', { error: error.message });
       throw error;
     }
   }

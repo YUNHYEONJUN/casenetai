@@ -141,11 +141,12 @@ function handleDrop(event) {
     
     const file = event.dataTransfer.files[0];
     if (file) {
-        // 오디오 파일인지 확인
-        if (file.type.startsWith('audio/')) {
+        // 오디오 파일인지 확인 (MIME 또는 확장자)
+        const allowedExts = /\.(mp3|wav|m4a|ogg|webm|mp4)$/i;
+        if (file.type.startsWith('audio/') || file.type.startsWith('video/') || allowedExts.test(file.name)) {
             processSelectedFile(file);
         } else {
-            showAlert('오디오 파일만 업로드 가능합니다.');
+            showAlert('오디오 파일만 업로드 가능합니다. (mp3, wav, m4a, ogg, webm, mp4)');
         }
     }
 }

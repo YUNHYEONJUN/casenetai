@@ -7,6 +7,7 @@
 const anonymizationService = require('./anonymizationService');
 const AIAnonymizationService = require('./aiAnonymizationService');
 const ClovaAnonymizationService = require('./clovaAnonymizationService');
+const { logger } = require('../lib/logger');
 
 class HybridAnonymizationService {
   constructor(config = {}) {
@@ -37,7 +38,7 @@ class HybridAnonymizationService {
   async anonymize(text, options = {}) {
     const method = options.method || this.config.defaultMethod;
 
-    console.log(`🔍 익명화 방식: ${method}`);
+    logger.info('익명화 방식 선택', { method });
 
     switch (method) {
       case 'rule':
@@ -143,23 +144,23 @@ class HybridAnonymizationService {
 
     try {
       // 1단계: 룰 기반 익명화 (항상 실행)
-      console.log('📋 1단계: 룰 기반 익명화...');
+      logger.info('1단계: 룰 기반 익명화 시작');
       results.rule = await this.ruleBasedAnonymize(text, options);
 
       // 2단계: AI 익명화 (사용 가능하면)
       if (this.aiService) {
-        console.log('🤖 2단계: AI 익명화...');
+        logger.info('2단계: AI 익명화 시작');
         results.ai = await this.aiAnonymize(text, options);
       }
 
       // 3단계: CLOVA 익명화 (사용 가능하면)
       if (this.clovaService && options.useClova !== false) {
-        console.log('🔵 3단계: CLOVA 익명화...');
+        logger.info('3단계: CLOVA 익명화 시작');
         results.clova = await this.clovaAnonymize(text, options);
       }
 
       // 4단계: 결과 병합
-      console.log('🔀 4단계: 결과 병합...');
+      logger.info('4단계: 결과 병합 시작');
       const mergedResult = this.mergeResults(text, results, options);
 
       const totalTime = Date.now() - startTime;
@@ -185,7 +186,7 @@ class HybridAnonymizationService {
       };
 
     } catch (error) {
-      console.error('❌ 하이브리드 익명화 실패:', error);
+      logger.error('하이브리드 익명화 실패', { error: error.message });
       
       // 폴백: 룰 기반 결과만 반환
       if (results.rule) {
@@ -235,7 +236,7 @@ class HybridAnonymizationService {
       );
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 
     const totalTime = Date.now() - startTime;
 
@@ -473,7 +474,7 @@ class HybridAnonymizationService {
         const aiHealth = await this.aiService.healthCheck();
         health.ai = aiHealth.available;
       } catch (error) {
-        console.warn('AI 서비스 건강 체크 실패:', error.message);
+        logger.warn('AI 서비스 건강 체크 실패', { error: error.message });
       }
     }
 
@@ -483,7 +484,7 @@ class HybridAnonymizationService {
         const clovaHealth = await this.clovaService.healthCheck();
         health.clova = clovaHealth.available;
       } catch (error) {
-        console.warn('CLOVA 서비스 건강 체크 실패:', error.message);
+        logger.warn('CLOVA 서비스 건강 체크 실패', { error: error.message });
       }
     }
 

@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const analyticsService = require('../services/analyticsService');
 const { isAdmin } = require('../middleware/auth');
+const { logger } = require('../lib/logger');
 
 // 모든 분석 API는 관리자 전용
 router.use(isAdmin);
@@ -26,11 +27,10 @@ router.get('/dashboard', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('대시보드 조회 오류:', error);
+    logger.error('대시보드 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
-      error: '대시보드 조회 중 오류가 발생했습니다.',
-      details: error.message
+      error: '대시보드 조회 중 오류가 발생했습니다.'
     });
   }
 });
@@ -54,7 +54,7 @@ router.get('/usage', async (req, res) => {
       usage: result
     });
   } catch (error) {
-    console.error('사용 통계 조회 오류:', error);
+    logger.error('사용 통계 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '사용 통계 조회 중 오류가 발생했습니다.'
@@ -81,7 +81,7 @@ router.get('/anonymization', async (req, res) => {
       anonymization: result
     });
   } catch (error) {
-    console.error('익명화 통계 조회 오류:', error);
+    logger.error('익명화 통계 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '익명화 통계 조회 중 오류가 발생했습니다.'
@@ -108,7 +108,7 @@ router.get('/feedback-summary', async (req, res) => {
       feedback: result
     });
   } catch (error) {
-    console.error('피드백 요약 조회 오류:', error);
+    logger.error('피드백 요약 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '피드백 요약 조회 중 오류가 발생했습니다.'
@@ -135,7 +135,7 @@ router.get('/performance', async (req, res) => {
       performance: result
     });
   } catch (error) {
-    console.error('성능 메트릭 조회 오류:', error);
+    logger.error('성능 메트릭 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '성능 메트릭 조회 중 오류가 발생했습니다.'
@@ -161,7 +161,7 @@ router.get('/errors', async (req, res) => {
       errors: result
     });
   } catch (error) {
-    console.error('오류 분석 조회 오류:', error);
+    logger.error('오류 분석 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '오류 분석 조회 중 오류가 발생했습니다.'
@@ -185,7 +185,7 @@ router.get('/trend', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('트렌드 조회 오류:', error);
+    logger.error('트렌드 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '트렌드 조회 중 오류가 발생했습니다.'
@@ -208,7 +208,7 @@ router.get('/organizations', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('기관 비교 조회 오류:', error);
+    logger.error('기관 비교 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '기관 비교 조회 중 오류가 발생했습니다.'
@@ -231,7 +231,7 @@ router.get('/methods', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('방식 비교 조회 오류:', error);
+    logger.error('방식 비교 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '방식 비교 조회 중 오류가 발생했습니다.'
@@ -253,7 +253,7 @@ router.get('/top-issues', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('문제점 분석 조회 오류:', error);
+    logger.error('문제점 분석 조회 오류', { error: error.message });
     res.status(500).json({
       success: false,
       error: '문제점 분석 조회 중 오류가 발생했습니다.'

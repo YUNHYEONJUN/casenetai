@@ -38,7 +38,7 @@ class FeedbackService {
         false_positive_examples, false_negative_examples, incorrect_mapping_examples,
         comment, improvement_suggestion,
         anonymization_method, processing_time_ms, detected_entities_count
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING id
     `, [
       logId, userId, organizationId,
@@ -137,11 +137,18 @@ class FeedbackService {
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `, [...params, limit, offset]);
 
+    // JSONB 컬럼은 pg 드라이버가 자동 파싱하므로 문자열일 때만 JSON.parse
+    const safeParse = (val) => {
+      if (!val) return null;
+      if (typeof val === 'object') return val;
+      try { return JSON.parse(val); } catch { return null; }
+    };
+
     const feedbacks = rows.map(row => ({
       ...row,
-      false_positive_examples: row.false_positive_examples ? JSON.parse(row.false_positive_examples) : null,
-      false_negative_examples: row.false_negative_examples ? JSON.parse(row.false_negative_examples) : null,
-      incorrect_mapping_examples: row.incorrect_mapping_examples ? JSON.parse(row.incorrect_mapping_examples) : null
+      false_positive_examples: safeParse(row.false_positive_examples),
+      false_negative_examples: safeParse(row.false_negative_examples),
+      incorrect_mapping_examples: safeParse(row.incorrect_mapping_examples)
     }));
 
     return {
@@ -240,10 +247,10 @@ class FeedbackService {
       UPDATE anonymization_feedback
       SET
         is_reviewed = true,
-        admin_response = ?,
+        admin_response = $1,
         reviewed_at = CURRENT_TIMESTAMP,
-        reviewed_by = ?
-      WHERE id = ?
+        reviewed_by = $2
+      WHERE id = $3
     `, [response, adminId, feedbackId]);
 
     return {
@@ -263,7 +270,7 @@ class FeedbackService {
     const result = await db.run(`
       INSERT INTO improvement_suggestions (
         user_id, organization_id, category, title, description, priority
-      ) VALUES (?, ?, ?, ?, ?, ?)
+      ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `, [userId, organizationId, category, title, description, priority || 'medium']);
 
@@ -366,7 +373,7 @@ class FeedbackService {
         date, total_feedbacks, average_rating, average_accuracy,
         false_positive_count, false_negative_count, incorrect_mapping_count,
         method_statistics
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (date) DO UPDATE SET
         total_feedbacks = EXCLUDED.total_feedbacks,
         average_rating = EXCLUDED.average_rating,

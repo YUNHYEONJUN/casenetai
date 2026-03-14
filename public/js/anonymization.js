@@ -129,7 +129,7 @@ async function processDocument() {
         });
 
         if (!response.ok) {
-            const errData = await response.json();
+            const errData = await response.json().catch(() => ({}));
             throw new Error(errData.error || '익명화 처리 중 오류가 발생했습니다.');
         }
 
@@ -285,11 +285,18 @@ function downloadMappingTable() {
         'residentIds': '주민번호'
     };
 
+    // CSV 인젝션 방지: 수식 문자 prefix 제거, 따옴표 이스케이프
+    function csvSafe(val) {
+        let s = String(val).replace(/"/g, '""');
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return '"' + s + '"';
+    }
+
     Object.keys(categories).forEach(key => {
         const items = mappings[key];
         if (items && items.length > 0) {
             items.forEach(item => {
-                csv += `${categories[key]},"${item.original}","${item.anonymized}"\n`;
+                csv += `${csvSafe(categories[key])},${csvSafe(item.original)},${csvSafe(item.anonymized)}\n`;
             });
         }
     });

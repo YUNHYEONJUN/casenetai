@@ -305,7 +305,7 @@
         </div>
     </div>
 
-    <script src="js/auth.js"></script>
+    <script src="/js/auth.js"></script>
     <script src="/js/security-utils.js"></script>
     <script>
         const esc = SecurityUtils.escapeHtml;
@@ -507,16 +507,16 @@
                 html += `
                     <tr>
                         <td>
-                            <strong>${user.name || user.oauth_nickname}</strong><br>
-                            <small style="color: #64748b;">${user.oauth_email || '-'}</small>
+                            <strong>${esc(user.name || user.oauth_nickname)}</strong><br>
+                            <small style="color: #64748b;">${esc(user.oauth_email || '-')}</small>
                         </td>
                         <td>
-                            <span class="badge">${user.oauth_provider || 'email'}</span>
+                            <span class="badge">${esc(user.oauth_provider || 'email')}</span>
                         </td>
                         <td>
-                            <span class="badge ${user.role}">${getRoleText(user.role)}</span>
+                            <span class="badge ${esc(user.role)}">${esc(getRoleText(user.role))}</span>
                         </td>
-                        <td>${user.organization_name || '-'}</td>
+                        <td>${esc(user.organization_name || '-')}</td>
                         <td>
                             <span class="badge ${user.is_approved ? 'approved' : 'pending'}">
                                 ${user.is_approved ? '✓ 승인됨' : '⏳ 대기 중'}

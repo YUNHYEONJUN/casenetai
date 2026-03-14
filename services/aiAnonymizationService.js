@@ -4,6 +4,7 @@
  */
 
 const OpenAI = require('openai');
+const { logger } = require('../lib/logger');
 
 class AIAnonymizationService {
   constructor(apiKey) {
@@ -62,7 +63,7 @@ class AIAnonymizationService {
       };
 
     } catch (error) {
-      console.error('❌ AI 익명화 실패:', error.message);
+      logger.error('AI 익명화 실패', { error: error.message });
       return {
         success: false,
         method: 'ai',
@@ -173,7 +174,7 @@ ${text}
     let totalCost = { usd: 0, krw: 0 };
 
     for (let i = 0; i < texts.length; i++) {
-      console.log(`📄 처리 중: ${i + 1}/${texts.length}`);
+      logger.info('배치 처리 중', { current: i + 1, total: texts.length });
       const result = await this.analyzeAndAnonymize(texts[i], options);
       results.push(result);
 
@@ -223,7 +224,7 @@ ${text}
 
       return JSON.parse(fullResponse);
     } catch (error) {
-      console.error('❌ 스트리밍 익명화 실패:', error);
+      logger.error('스트리밍 익명화 실패', { error: error.message });
       throw error;
     }
   }

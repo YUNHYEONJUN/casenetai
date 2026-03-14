@@ -6,13 +6,14 @@
 const mammoth = require('mammoth');
 const fs = require('fs').promises;
 const path = require('path');
+const { logger } = require('../lib/logger');
 
 // PDF 파싱은 조건부로 로드 (Vercel 환경 호환성)
 let pdfParse;
 try {
     pdfParse = require('pdf-parse');
 } catch (error) {
-    console.warn('⚠️  pdf-parse를 로드할 수 없습니다. PDF 파싱 기능이 비활성화됩니다.');
+    logger.warn('pdf-parse를 로드할 수 없습니다. PDF 파싱 기능이 비활성화됩니다.');
 }
 
 class DocumentParser {
@@ -23,6 +24,13 @@ class DocumentParser {
         const resolved = path.resolve(filePath);
         // .. 포함 경로 차단
         if (filePath.includes('..')) {
+            throw new Error('잘못된 파일 경로입니다');
+        }
+        // 허용된 디렉토리(tmpdir) 내의 파일만 접근 가능
+        const os = require('os');
+        const tmpDir = path.resolve(os.tmpdir());
+        const relative = path.relative(tmpDir, resolved);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
             throw new Error('잘못된 파일 경로입니다');
         }
         return resolved;

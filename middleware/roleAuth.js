@@ -5,6 +5,7 @@
  * - user: 일반 사용자 (서비스 이용)
  */
 const { getDB } = require('../database/db-postgres');
+const { logger } = require('../lib/logger');
 
 /**
  * System Admin 권한 확인
@@ -141,7 +142,7 @@ async function requireOrganizationMember(req, res, next) {
   // 승인 여부 확인 (JWT에 is_approved가 없으므로 DB에서 조회)
   try {
     const db = getDB();
-    const user = await db.get('SELECT is_approved FROM users WHERE id = ?', [req.user.userId]);
+    const user = await db.get('SELECT is_approved FROM users WHERE id = $1', [req.user.userId]);
     if (!user || !user.is_approved) {
       return res.status(403).json({
         success: false,
@@ -149,7 +150,7 @@ async function requireOrganizationMember(req, res, next) {
       });
     }
   } catch (error) {
-    console.error('❌ 승인 여부 확인 실패:', error);
+    logger.error('승인 여부 확인 실패', { error: error.message });
     return res.status(500).json({
       success: false,
       error: '권한 확인 중 오류가 발생했습니다'
@@ -163,7 +164,7 @@ async function requireOrganizationMember(req, res, next) {
  * 본인 또는 관리자 확인
  * 자신의 정보이거나 관리자인 경우 접근 가능
  */
-function requireSelfOrAdmin(req, res, next) {
+async function requireSelfOrAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -186,9 +187,18 @@ function requireSelfOrAdmin(req, res, next) {
 
   // Organization Admin은 같은 기관 사용자만 접근 가능
   if (req.user.role === 'org_admin' && req.user.organizationId) {
-    // 대상 사용자의 기관 확인 필요 (추가 쿼리)
-    req.needsOrgCheck = true;
-    return next();
+    try {
+      const { getDB } = require('../database/db-postgres');
+      const db = getDB();
+      const targetUser = await db.get('SELECT organization_id FROM users WHERE id = $1', [targetUserId]);
+      if (targetUser && targetUser.organization_id === req.user.organizationId) {
+        return next();
+      }
+      return res.status(403).json({ success: false, error: '같은 기관의 사용자만 접근할 수 있습니다' });
+    } catch (err) {
+      logger.error('Org check error', { error: err.message });
+      return res.status(500).json({ success: false, error: '서버 오류' });
+    }
   }
 
   return res.status(403).json({

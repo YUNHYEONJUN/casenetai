@@ -583,9 +583,9 @@ uploadBtn.addEventListener('click', async function() {
             const totalCost = document.getElementById('totalCost');
             const sttCost = document.getElementById('sttCost');
 
-            if (costInfoContainer.style.display !== 'none') {
-                totalCost.innerHTML = `${e(String(result.actualCost.totalCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(실제)</span>`;
-                sttCost.innerHTML = `${e(String(result.actualCost.sttCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(${e(result.actualCost.engine)})</span>`;
+            if (costInfoContainer && costInfoContainer.style.display !== 'none') {
+                if (totalCost) totalCost.innerHTML = `${e(String(result.actualCost.totalCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(실제)</span>`;
+                if (sttCost) sttCost.innerHTML = `${e(String(result.actualCost.sttCost))}원 <span style="font-size: 0.8em; opacity: 0.8;">(${e(result.actualCost.engine)})</span>`;
             }
         }
 
@@ -631,24 +631,24 @@ function displayReport(report) {
         'office': '내방상담'
     };
 
-    const html = `
+    let html = `
         <div class="report-section">
             <h4>■ 1. 기본정보</h4>
             <div class="report-field">
                 <div class="report-field-label">상담일자</div>
-                <div class="report-field-value">${e(report.기본정보.상담일자)}</div>
+                <div class="report-field-value">${e(report.기본정보?.상담일자 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">상담유형</div>
-                <div class="report-field-value">${e(consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형)}</div>
+                <div class="report-field-value">${e(consultationTypeText[report.기본정보?.상담유형] || report.기본정보?.상담유형 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">접수번호</div>
-                <div class="report-field-value">${e(report.기본정보.접수번호)}</div>
+                <div class="report-field-value">${e(report.기본정보?.접수번호 || '미입력')}</div>
             </div>
             <div class="report-field">
                 <div class="report-field-label">상담원</div>
-                <div class="report-field-value">${e(report.기본정보.상담원 || '미입력')}</div>
+                <div class="report-field-value">${e(report.기본정보?.상담원 || '미입력')}</div>
             </div>
         </div>
 
@@ -1052,45 +1052,60 @@ function updateReportFromDOM() {
 
 // 필드 라벨에 따라 currentReport 업데이트
 function updateReportField(label, value) {
+    if (!currentReport) return;
+
+    // 안전 접근 헬퍼 (하위 객체가 없으면 생성)
+    const ensure = (obj, key) => {
+        if (!obj[key]) obj[key] = {};
+        return obj[key];
+    };
+
     // 기본정보
-    if (label === '상담원') currentReport.기본정보.상담원 = value;
-    
+    if (label === '상담원') ensure(currentReport, '기본정보').상담원 = value;
+
     // 신고자정보
-    if (label === '신고자명') currentReport.신고자정보.신고자명 = value;
-    if (label === '피해노인과의 관계') currentReport.신고자정보.관계 = value;
-    if (label === '연락처' && !currentReport.피해노인정보) currentReport.신고자정보.연락처 = value;
-    if (label === '신고 경위') currentReport.신고자정보.신고경위 = value;
-    
+    if (label === '신고자명') ensure(currentReport, '신고자정보').신고자명 = value;
+    if (label === '피해노인과의 관계') ensure(currentReport, '신고자정보').관계 = value;
+    if (label === '신고 경위') ensure(currentReport, '신고자정보').신고경위 = value;
+
     // 피해노인정보
-    if (label === '성명') currentReport.피해노인정보.성명 = value;
-    if (label === '성별') currentReport.피해노인정보.성별 = value;
-    if (label === '생년월일') currentReport.피해노인정보.생년월일 = value;
-    if (label === '연령') currentReport.피해노인정보.연령 = value.replace('세', '');
-    if (label === '주소') currentReport.피해노인정보.주소 = value;
-    
+    if (label === '성명') ensure(currentReport, '피해노인정보').성명 = value;
+    if (label === '성별') ensure(currentReport, '피해노인정보').성별 = value;
+    if (label === '생년월일') ensure(currentReport, '피해노인정보').생년월일 = value;
+    if (label === '연령') ensure(currentReport, '피해노인정보').연령 = value.replace('세', '');
+    if (label === '주소') ensure(currentReport, '피해노인정보').주소 = value;
+    if (label === '연락처') {
+        // 피해노인정보가 이미 있으면 거기에, 아니면 신고자정보에
+        if (currentReport.피해노인정보) {
+            currentReport.피해노인정보.연락처 = value;
+        } else {
+            ensure(currentReport, '신고자정보').연락처 = value;
+        }
+    }
+
     // 행위자정보
-    if (label === '특성') currentReport.행위자정보.특성 = value;
-    
+    if (label === '특성') ensure(currentReport, '행위자정보').특성 = value;
+
     // 학대내용
-    if (label === '학대 유형') currentReport.학대내용.학대유형 = value;
-    if (label === '발생 시기') currentReport.학대내용.발생시기 = value;
-    if (label === '발생 장소') currentReport.학대내용.발생장소 = value;
-    if (label === '구체적 행위 (5W1H)') currentReport.학대내용.구체적행위 = value;
-    if (label === '심각성 정도') currentReport.학대내용.심각성 = value;
-    if (label === '학대 증거') currentReport.학대내용.증거 = value;
-    
+    if (label === '학대 유형') ensure(currentReport, '학대내용').학대유형 = value;
+    if (label === '발생 시기') ensure(currentReport, '학대내용').발생시기 = value;
+    if (label === '발생 장소') ensure(currentReport, '학대내용').발생장소 = value;
+    if (label === '구체적 행위 (5W1H)') ensure(currentReport, '학대내용').구체적행위 = value;
+    if (label === '심각성 정도') ensure(currentReport, '학대내용').심각성 = value;
+    if (label === '학대 증거') ensure(currentReport, '학대내용').증거 = value;
+
     // 현재상태
-    if (label === '신체 상태') currentReport.현재상태.신체상태 = value;
-    if (label === '정서 상태') currentReport.현재상태.정서상태 = value;
-    if (label === '생활 환경') currentReport.현재상태.생활환경 = value;
-    if (label === '위험도') currentReport.현재상태.위험도 = value;
-    
+    if (label === '신체 상태') ensure(currentReport, '현재상태').신체상태 = value;
+    if (label === '정서 상태') ensure(currentReport, '현재상태').정서상태 = value;
+    if (label === '생활 환경') ensure(currentReport, '현재상태').생활환경 = value;
+    if (label === '위험도') ensure(currentReport, '현재상태').위험도 = value;
+
     // 향후계획
-    if (label === '단기 계획') currentReport.향후계획.단기계획 = value;
-    if (label === '장기 계획') currentReport.향후계획.장기계획 = value;
-    if (label === '모니터링 계획') currentReport.향후계획.모니터링 = value;
-    if (label === '연계 기관') currentReport.향후계획.연계기관 = value;
-    
+    if (label === '단기 계획') ensure(currentReport, '향후계획').단기계획 = value;
+    if (label === '장기 계획') ensure(currentReport, '향후계획').장기계획 = value;
+    if (label === '모니터링 계획') ensure(currentReport, '향후계획').모니터링 = value;
+    if (label === '연계 기관') ensure(currentReport, '향후계획').연계기관 = value;
+
     // 상담원의견 및 특이사항
     if (label === '상담원 종합 의견') currentReport.상담원의견 = value;
     if (label === '특이사항') currentReport.특이사항 = value;
@@ -1134,7 +1149,7 @@ downloadBtn.addEventListener('click', function() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `상담일지_${currentReport.기본정보.접수번호}_${currentReport.기본정보.상담일자}.txt`;
+        a.download = `상담일지_${currentReport.기본정보?.접수번호 || '미정'}_${currentReport.기본정보?.상담일자 || new Date().toISOString().slice(0, 10)}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1174,10 +1189,10 @@ function convertReportToTxt(report) {
     
     // 1. 기본정보
     txt += '■ 1. 기본정보\n\n';
-    txt += `상담일자: ${report.기본정보.상담일자}\n`;
-    txt += `상담유형: ${consultationTypeText[report.기본정보.상담유형] || report.기본정보.상담유형}\n`;
-    txt += `접수번호: ${report.기본정보.접수번호}\n`;
-    txt += `상담원: ${report.기본정보.상담원 || '미입력'}\n\n`;
+    txt += `상담일자: ${report.기본정보?.상담일자 || '미입력'}\n`;
+    txt += `상담유형: ${consultationTypeText[report.기본정보?.상담유형] || report.기본정보?.상담유형 || '미입력'}\n`;
+    txt += `접수번호: ${report.기본정보?.접수번호 || '미입력'}\n`;
+    txt += `상담원: ${report.기본정보?.상담원 || '미입력'}\n\n`;
     
     txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
     

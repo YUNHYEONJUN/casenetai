@@ -1,13 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const multer = require('multer');
 const fs = require('fs');
-const fsPromises = require('fs').promises;
 const path = require('path');
 const { Document, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, WidthType, BorderStyle, HeadingLevel } = require('docx');
 const { Packer } = require('docx');
 const os = require('os');
 const { authenticateToken } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
+const { success } = require('../lib/response');
+const { ValidationError } = require('../lib/errors');
+const { logger } = require('../lib/logger');
 const OpenAI = require('openai');
 
 // OpenAI 클라이언트 초기화
@@ -31,7 +35,6 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
-    // 파일명 보안 검증
     const basename = path.basename(file.originalname);
     if (basename.includes('..') || basename.includes('/') || basename.includes('\\')) {
       return cb(new Error('잘못된 파일명입니다.'));
@@ -56,65 +59,58 @@ const upload = multer({
 // 음성 파일 → STT 변환
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/transcribe', authenticateToken, (req, res, next) => {
-  // Content-Type에 따라 multer 적용 결정 (JSON = 청크 조립 파일 경로)
   if (req.headers['content-type']?.includes('application/json')) {
     next();
   } else {
     upload.single('audio')(req, res, next);
   }
-}, async (req, res) => {
+}, async (req, res, next) => {
   let audioFilePath = null;
   let isChunkedFile = false;
 
   try {
-    // 파일 소스 결정 (우선순위: 청크조립파일 > 직접업로드)
     if (req.body.serverFilePath) {
       const resolvedPath = path.resolve(req.body.serverFilePath);
-      const tmpDir = os.tmpdir();
-      if (!resolvedPath.startsWith(tmpDir + path.sep) && resolvedPath !== tmpDir) {
-        return res.status(400).json({ success: false, error: '잘못된 파일 경로입니다.' });
+      const tmpDir = path.resolve(os.tmpdir());
+      const relative = path.relative(tmpDir, resolvedPath);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new ValidationError('잘못된 파일 경로입니다.');
       }
       if (!fs.existsSync(resolvedPath)) {
-        return res.status(400).json({ success: false, error: '업로드된 파일을 찾을 수 없습니다.' });
+        throw new ValidationError('업로드된 파일을 찾을 수 없습니다.');
       }
       audioFilePath = resolvedPath;
       isChunkedFile = true;
     } else if (req.file) {
       audioFilePath = req.file.path;
     } else {
-      return res.status(400).json({
-        success: false,
-        error: '음성 파일이 업로드되지 않았습니다.'
-      });
+      throw new ValidationError('음성 파일이 업로드되지 않았습니다.');
     }
 
-    console.log('🎤 사실확인서 STT 변환 시작:', isChunkedFile ? '청크 조립 파일' : req.file.filename);
+    logger.info('사실확인서 STT 변환 시작', { type: isChunkedFile ? 'chunked' : 'direct' });
 
-    // OpenAI Whisper API 호출
+    const audioStream = fs.createReadStream(audioFilePath);
+    audioStream.on('error', (streamErr) => {
+      logger.error('오디오 스트림 오류', { error: streamErr.message });
+    });
+
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(audioFilePath),
+      file: audioStream,
       model: 'whisper-1',
       language: 'ko',
       response_format: 'verbose_json'
     });
 
-    console.log('✅ STT 변환 완료:', transcription.text.substring(0, 100) + '...');
+    logger.info('STT 변환 완료', { length: transcription.text.length });
 
-    res.json({
-      success: true,
+    success(res, {
       transcript: transcription.text,
       duration: transcription.duration
     });
 
-  } catch (error) {
-    console.error('❌ STT 변환 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: 'STT 변환 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   } finally {
-    // 임시 파일 정리
     if (audioFilePath) {
       try { fs.unlinkSync(audioFilePath); } catch (e) { /* ignore */ }
     }
@@ -125,20 +121,29 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
 // POST /api/fact-confirmation/generate
 // STT 텍스트 → AI 사실확인서 구조화
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/generate', authenticateToken, async (req, res) => {
+
+const generateSchema = z.object({
+  body: z.object({
+    transcript: z.string().min(1, '녹취록 텍스트가 필요합니다'),
+    personalInfo: z.object({
+      caseTitle: z.string().optional(),
+      subjectName: z.string().optional(),
+      birthDate: z.string().optional(),
+      organization: z.string().optional(),
+      position: z.string().optional(),
+      contact: z.string().optional(),
+      investigationDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+  }),
+});
+
+router.post('/generate', authenticateToken, validate(generateSchema), async (req, res, next) => {
   try {
     const { transcript, personalInfo } = req.body;
 
-    if (!transcript || !personalInfo) {
-      return res.status(400).json({
-        success: false,
-        error: '필수 정보가 누락되었습니다.'
-      });
-    }
+    logger.info('사실확인서 구조화 시작');
 
-    console.log('🤖 사실확인서 구조화 시작');
-
-    // GPT-4로 사실확인서 구조화
     const prompt = `
 당신은 노인보호전문기관의 전문 상담원입니다.
 아래 녹취록을 읽고, 표준화된 "사실확인서(진술서)" 형식으로 구조화해주세요.
@@ -185,8 +190,7 @@ JSON 형태로 아래와 같이 구조화하세요:
     });
 
     const responseText = completion.choices[0].message.content.trim();
-    
-    // JSON 추출 (마크다운 코드 블록 제거)
+
     let jsonText = responseText;
     if (jsonText.startsWith('```json')) {
       jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
@@ -194,29 +198,26 @@ JSON 형태로 아래와 같이 구조화하세요:
       jsonText = jsonText.replace(/```\n?/g, '');
     }
 
-    const parsedContent = JSON.parse(jsonText);
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(jsonText);
+    } catch (parseError) {
+      logger.error('JSON 파싱 오류', { error: parseError.message });
+      throw new ValidationError('AI 응답을 파싱할 수 없습니다.');
+    }
 
-    // 문서 구조 생성
     const document = {
       title: personalInfo.caseTitle || '사실확인서 (진술서)',
-      personalInfo: personalInfo,
+      personalInfo,
       sections: parsedContent.sections
     };
 
-    console.log('✅ 사실확인서 구조화 완료:', document.sections.length, '개 섹션');
+    logger.info('사실확인서 구조화 완료', { sections: document.sections.length });
 
-    res.json({
-      success: true,
-      document: document
-    });
+    success(res, { document });
 
-  } catch (error) {
-    console.error('❌ 문서 구조화 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '문서 구조화 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -224,39 +225,50 @@ JSON 형태로 아래와 같이 구조화하세요:
 // POST /api/fact-confirmation/download
 // 사실확인서 → Word 파일 생성 및 다운로드
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/download', authenticateToken, async (req, res) => {
+
+const downloadSchema = z.object({
+  body: z.object({
+    document: z.object({
+      title: z.string().optional(),
+      personalInfo: z.object({
+        subjectName: z.string().optional().default(''),
+        birthDate: z.string().optional(),
+        organization: z.string().optional(),
+        position: z.string().optional(),
+        contact: z.string().optional(),
+        investigationDate: z.string().optional(),
+        notes: z.string().optional(),
+      }),
+      sections: z.array(z.object({
+        title: z.string(),
+        items: z.array(z.object({
+          question: z.string(),
+          answer: z.string(),
+        })),
+      })),
+    }),
+  }),
+});
+
+router.post('/download', authenticateToken, validate(downloadSchema), async (req, res, next) => {
   try {
     const { document: docData } = req.body;
 
-    if (!docData) {
-      return res.status(400).json({
-        success: false,
-        error: '문서 데이터가 누락되었습니다.'
-      });
-    }
+    logger.info('Word 문서 생성 시작');
 
-    console.log('📄 Word 문서 생성 시작');
-
-    // Word 문서 생성
     const doc = createWordDocument(docData);
-
-    // Buffer로 변환
     const buffer = await Packer.toBuffer(doc);
 
-    console.log('✅ Word 문서 생성 완료');
+    logger.info('Word 문서 생성 완료');
 
-    // 파일 다운로드
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="사실확인서_${docData.personalInfo.subjectName}_${new Date().toISOString().split('T')[0]}.docx"`);
+    const safeName = (docData.personalInfo.subjectName || '').replace(/[\r\n"\\]/g, '').substring(0, 50);
+    const dateStr = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(`사실확인서_${safeName}_${dateStr}.docx`)}`);
     res.send(buffer);
 
-  } catch (error) {
-    console.error('❌ Word 생성 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Word 문서 생성 중 오류가 발생했습니다.',
-      details: error.message
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -267,7 +279,6 @@ router.post('/download', authenticateToken, async (req, res) => {
 function createWordDocument(docData) {
   const children = [];
 
-  // 제목
   children.push(
     new Paragraph({
       text: docData.title,
@@ -277,7 +288,6 @@ function createWordDocument(docData) {
     })
   );
 
-  // 개인정보 테이블
   const tableRows = [
     new TableRow({
       children: [
@@ -319,67 +329,39 @@ function createWordDocument(docData) {
   children.push(
     new Table({
       rows: tableRows,
-      width: {
-        size: 100,
-        type: WidthType.PERCENTAGE
-      },
-      margins: {
-        top: 100,
-        bottom: 100,
-        left: 100,
-        right: 100
-      }
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      margins: { top: 100, bottom: 100, left: 100, right: 100 }
     })
   );
 
   children.push(new Paragraph({ text: '', spacing: { after: 400 } }));
 
-  // 섹션별 내용
-  docData.sections.forEach((section, sectionIndex) => {
-    // 섹션 제목
+  docData.sections.forEach((section) => {
     children.push(
       new Paragraph({
         children: [
-          new TextRun({
-            text: `■ ${section.title}`,
-            bold: true,
-            size: 28
-          })
+          new TextRun({ text: `■ ${section.title}`, bold: true, size: 28 })
         ],
         spacing: { before: 300, after: 200 }
       })
     );
 
-    // 문답 항목
     section.items.forEach((item, itemIndex) => {
-      // 질문
       children.push(
         new Paragraph({
           children: [
-            new TextRun({
-              text: `문${itemIndex + 1}. `,
-              bold: true,
-              color: '1e40af'
-            }),
-            new TextRun({
-              text: item.question
-            })
+            new TextRun({ text: `문${itemIndex + 1}. `, bold: true, color: '1e40af' }),
+            new TextRun({ text: item.question })
           ],
           spacing: { before: 200, after: 100 }
         })
       );
 
-      // 답변
       children.push(
         new Paragraph({
           children: [
-            new TextRun({
-              text: `답${itemIndex + 1}. `,
-              bold: true
-            }),
-            new TextRun({
-              text: item.answer
-            })
+            new TextRun({ text: `답${itemIndex + 1}. `, bold: true }),
+            new TextRun({ text: item.answer })
           ],
           spacing: { after: 200 }
         })
@@ -387,14 +369,7 @@ function createWordDocument(docData) {
     });
   });
 
-  // 하단 확인 문구
-  children.push(
-    new Paragraph({
-      text: '',
-      spacing: { before: 600 }
-    })
-  );
-
+  children.push(new Paragraph({ text: '', spacing: { before: 600 } }));
   children.push(
     new Paragraph({
       text: '위 진술은 사실과 다름이 없음을 확인합니다.',
@@ -403,7 +378,6 @@ function createWordDocument(docData) {
       bold: true
     })
   );
-
   children.push(
     new Paragraph({
       text: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -411,7 +385,6 @@ function createWordDocument(docData) {
       spacing: { after: 600 }
     })
   );
-
   children.push(
     new Paragraph({
       text: `진술자: ${docData.personalInfo.subjectName} (서명 또는 인)`,
@@ -419,7 +392,6 @@ function createWordDocument(docData) {
       spacing: { after: 200 }
     })
   );
-
   children.push(
     new Paragraph({
       text: '조사자: __________________ (서명 또는 인)',
@@ -431,47 +403,27 @@ function createWordDocument(docData) {
     sections: [{
       properties: {
         page: {
-          margin: {
-            top: 1440,    // 1인치 = 1440 twips
-            right: 1440,
-            bottom: 1440,
-            left: 1440
-          }
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
         }
       },
-      children: children
+      children
     }]
   });
 }
 
-// 테이블 셀 생성 헬퍼 함수
 function createTableCell(text, isHeader = false, colSpan = 1) {
   return new TableCell({
     children: [
       new Paragraph({
         children: [
-          new TextRun({
-            text: text,
-            bold: isHeader,
-            size: 22
-          })
+          new TextRun({ text: text, bold: isHeader, size: 22 })
         ]
       })
     ],
     columnSpan: colSpan,
-    shading: isHeader ? {
-      fill: 'F3F4F6'
-    } : undefined,
-    width: {
-      size: 25,
-      type: WidthType.PERCENTAGE
-    },
-    margins: {
-      top: 100,
-      bottom: 100,
-      left: 100,
-      right: 100
-    }
+    shading: isHeader ? { fill: 'F3F4F6' } : undefined,
+    width: { size: 25, type: WidthType.PERCENTAGE },
+    margins: { top: 100, bottom: 100, left: 100, right: 100 }
   });
 }
 

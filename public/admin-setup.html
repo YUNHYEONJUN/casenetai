@@ -217,15 +217,31 @@
     <script src="/js/security-utils.js"></script>
     <script>
         const esc = SecurityUtils.escapeHtml;
-        function verifyMasterPassword() {
+        async function verifyMasterPassword() {
             const input = document.getElementById('masterPassword').value;
 
-            if (input && input.length >= 8) {
-                document.getElementById('masterPasswordSection').classList.add('hide');
-                document.getElementById('setupForm').classList.remove('hide');
-                showAlert('마스터 비밀번호 인증 성공!', 'success');
-            } else {
-                showAlert('마스터 비밀번호가 올바르지 않습니다.', 'error');
+            if (!input || input.length < 8) {
+                showAlert('마스터 비밀번호를 입력해주세요. (8자 이상)', 'error');
+                return;
+            }
+
+            try {
+                // 서버사이드 검증 (POST로 전송 — URL 노출 방지)
+                const response = await fetch('/api/setup-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: input })
+                });
+                if (response.ok || response.status === 200) {
+                    document.getElementById('masterPasswordSection').classList.add('hide');
+                    document.getElementById('setupForm').classList.remove('hide');
+                    showAlert('마스터 비밀번호 인증 성공!', 'success');
+                } else {
+                    const data = await response.json().catch(() => ({}));
+                    showAlert(data.error || '마스터 비밀번호가 올바르지 않습니다.', 'error');
+                }
+            } catch (error) {
+                showAlert('서버 연결 오류가 발생했습니다.', 'error');
             }
         }
 
@@ -284,13 +300,10 @@
                     <strong>생성 완료!</strong><br>
                     <br>
                     <strong>이메일:</strong> ${esc(email)}<br>
-                    <strong>비밀번호:</strong> ${esc(password)}<br>
                     <strong>이름:</strong> ${esc(name)}<br>
                     ${phone ? `<strong>전화번호:</strong> ${esc(phone)}<br>` : ''}
                     <strong>권한:</strong> ${esc(role)}<br>
                     <strong>크레딧:</strong> ${credits.toLocaleString()}원<br>
-                    <br>
-                    <strong>이 정보를 안전하게 보관하세요!</strong><br>
                     <br>
                     <a href="/login.html" style="color: #1e40af; text-decoration: underline;">로그인 페이지로 이동</a>
                 `;

@@ -207,7 +207,8 @@
 
             if (response.status === 401 || response.status === 403) {
                 // 토큰 만료
-                localStorage.clear();
+                localStorage.removeItem('token');
+                localStorage.removeItem('authProvider');
                 window.location.href = '/login.html';
                 return;
             }
@@ -218,7 +219,9 @@
         // 로그아웃
         function logout() {
             if (confirm('로그아웃 하시겠습니까?')) {
-                localStorage.clear();
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('authProvider');
                 window.location.href = '/';
             }
         }

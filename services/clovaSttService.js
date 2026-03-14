@@ -1,6 +1,7 @@
 const fs = require('fs');
 const FormData = require('form-data');
 const https = require('https');
+const { logger } = require('../lib/logger');
 
 /**
  * STT 결과에서 연속 반복되는 단어 제거
@@ -12,7 +13,7 @@ const https = require('https');
 function removeConsecutiveDuplicates(text) {
   if (!text) return text;
   
-  console.log('[STT 후처리] 연속 반복 단어 제거 시작');
+  logger.info('[STT 후처리] 연속 반복 단어 제거 시작');
   const originalLength = text.length;
   
   // 1. 단어 단위로 분할 (공백 기준)
@@ -31,7 +32,7 @@ function removeConsecutiveDuplicates(text) {
     
     // 3회 이상 반복되면 1개만 유지, 아니면 원본 유지
     if (repeatCount >= 3) {
-      console.log(`[STT 후처리] "${currentWord}" ${repeatCount}회 반복 → 1회로 축소`);
+      logger.info('[STT 후처리] 반복 단어 축소', { word: currentWord, repeatCount });
       result.push(currentWord);
       i += repeatCount;
     } else {
@@ -47,9 +48,9 @@ function removeConsecutiveDuplicates(text) {
   const reducedLength = cleanedText.length;
   
   if (originalLength !== reducedLength) {
-    console.log(`[STT 후처리] 완료: ${originalLength}자 → ${reducedLength}자 (${((1 - reducedLength / originalLength) * 100).toFixed(1)}% 축소)`);
+    logger.info('[STT 후처리] 완료', { originalLength, reducedLength, reductionPercent: ((1 - reducedLength / originalLength) * 100).toFixed(1) });
   } else {
-    console.log('[STT 후처리] 반복 단어 없음');
+    logger.info('[STT 후처리] 반복 단어 없음');
   }
   
   return cleanedText;
@@ -65,7 +66,7 @@ function removeConsecutiveDuplicates(text) {
 async function transcribeWithClova(audioFilePath) {
   return new Promise((resolve, reject) => {
     try {
-      console.log(`[Clova STT] 음성 파일 변환 시작: ${audioFilePath}`);
+      logger.info('[Clova STT] 음성 파일 변환 시작', { audioFilePath });
       
       const clientId = process.env.CLOVA_CLIENT_ID;
       const clientSecret = process.env.CLOVA_CLIENT_SECRET;
@@ -74,7 +75,7 @@ async function transcribeWithClova(audioFilePath) {
       if (!clientId || !clientSecret || 
           clientId === 'your-clova-client-id-here' || 
           clientSecret === 'your-clova-client-secret-here') {
-        console.warn('[Clova STT] API 키가 설정되지 않았습니다.');
+        logger.warn('[Clova STT] API 키가 설정되지 않았습니다.');
         reject(new Error('클로바 API 키가 설정되지 않았습니다. .env 파일에서 CLOVA_CLIENT_ID와 CLOVA_CLIENT_SECRET을 설정해주세요.'));
         return;
       }
@@ -82,7 +83,7 @@ async function transcribeWithClova(audioFilePath) {
       const fileStream = fs.createReadStream(audioFilePath);
       const fileStats = fs.statSync(audioFilePath);
       
-      console.log(`[Clova STT] 파일 크기: ${(fileStats.size / 1024 / 1024).toFixed(2)}MB`);
+      logger.info('[Clova STT] 파일 크기', { sizeMB: (fileStats.size / 1024 / 1024).toFixed(2) });
       
       const options = {
         hostname: 'naveropenapi.apigw.ntruss.com',
@@ -98,7 +99,7 @@ async function transcribeWithClova(audioFilePath) {
       };
       
       const req = https.request(options, (res) => {
-        console.log(`[Clova STT] 응답 상태: ${res.statusCode}`);
+        logger.info('[Clova STT] 응답 상태', { statusCode: res.statusCode });
         
         let data = '';
         
@@ -112,34 +113,34 @@ async function transcribeWithClova(audioFilePath) {
               const result = JSON.parse(data);
               
               if (result.text) {
-                console.log(`[Clova STT] 변환 완료. 원본 텍스트 길이: ${result.text.length}자`);
+                logger.info('[Clova STT] 변환 완료', { textLength: result.text.length });
                 
                 // 연속 반복 단어 제거 후처리 적용
                 const cleanedText = removeConsecutiveDuplicates(result.text);
                 
                 resolve(cleanedText);
               } else {
-                console.error('[Clova STT] 응답에 텍스트가 없습니다:', result);
+                logger.error('[Clova STT] 응답에 텍스트가 없습니다', { result });
                 reject(new Error('음성 인식 결과가 없습니다.'));
               }
             } else {
-              console.error('[Clova STT] API 오류:', data);
+              logger.error('[Clova STT] API 오류', { statusCode: res.statusCode, data });
               reject(new Error(`클로바 API 오류 (${res.statusCode}): ${data}`));
             }
           } catch (error) {
-            console.error('[Clova STT] 응답 파싱 오류:', error);
+            logger.error('[Clova STT] 응답 파싱 오류', { error: error.message });
             reject(new Error(`응답 파싱 실패: ${error.message}`));
           }
         });
       });
       
       req.on('error', (error) => {
-        console.error('[Clova STT] 요청 오류:', error);
+        logger.error('[Clova STT] 요청 오류', { error: error.message });
         reject(new Error(`클로바 API 요청 실패: ${error.message}`));
       });
       
       req.on('timeout', () => {
-        console.error('[Clova STT] 타임아웃 발생');
+        logger.error('[Clova STT] 타임아웃 발생');
         req.destroy();
         reject(new Error('요청 타임아웃'));
       });
@@ -147,11 +148,11 @@ async function transcribeWithClova(audioFilePath) {
       // 타임아웃 설정 (10분)
       req.setTimeout(10 * 60 * 1000);
       
-      console.log('[Clova STT] 파일 전송 시작...');
+      logger.info('[Clova STT] 파일 전송 시작');
       fileStream.pipe(req);
       
     } catch (error) {
-      console.error('[Clova STT] 오류:', error);
+      logger.error('[Clova STT] 오류', { error: error.message });
       reject(error);
     }
   });

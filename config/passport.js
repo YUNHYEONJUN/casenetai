@@ -8,6 +8,7 @@ const KakaoStrategy = require('passport-kakao').Strategy;
 const NaverStrategy = require('passport-naver-v2').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { getDB } = require('../database/db-postgres');
+const { logger } = require('../lib/logger');
 
 // 환경 변수에서 OAuth 키 로드
 const KAKAO_CLIENT_ID = process.env.KAKAO_CLIENT_ID || 'YOUR_KAKAO_CLIENT_ID';
@@ -33,7 +34,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const db = getDB();
-    const user = await db.get('SELECT * FROM users WHERE id = $1', [id]);
+    const user = await db.get('SELECT id, oauth_email, oauth_nickname, name, role, organization_id, service_type, is_approved, created_at FROM users WHERE id = $1', [id]);
     done(null, user);
   } catch (error) {
     done(error);
@@ -66,12 +67,12 @@ passport.use(new KakaoStrategy({
           [user.id]
         );
         
-        console.log('✅ 카카오 로그인 성공:', user.oauth_email || user.oauth_nickname);
+        logger.info('카카오 로그인 성공', { userId: user.id });
         return done(null, user);
       }
       
       // 신규 사용자 - 회원가입
-      console.log('📝 카카오 신규 회원가입:', profile.displayName);
+      logger.info('카카오 신규 회원가입');
 
       const userId = await db.transaction(async (client) => {
         // 사용자 생성 (기본 role = 'user', is_approved = false)
@@ -109,7 +110,7 @@ passport.use(new KakaoStrategy({
       // 생성된 사용자 조회
       user = await db.get('SELECT * FROM users WHERE id = $1', [userId]);
 
-      console.log('✅ 카카오 회원가입 완료 (승인 대기):', user.oauth_nickname);
+      logger.info('카카오 회원가입 완료 (승인 대기)', { userId: user.id });
       return done(null, user);
       
     } catch (error) {
@@ -145,12 +146,12 @@ passport.use(new NaverStrategy({
           [user.id]
         );
         
-        console.log('✅ 네이버 로그인 성공:', user.oauth_email || user.oauth_nickname);
+        logger.info('네이버 로그인 성공', { userId: user.id });
         return done(null, user);
       }
       
       // 신규 사용자 - 회원가입
-      console.log('📝 네이버 신규 회원가입:', profile.displayName);
+      logger.info('네이버 신규 회원가입');
 
       const userId = await db.transaction(async (client) => {
         // 사용자 생성 (기본 role = 'user', is_approved = false)
@@ -188,7 +189,7 @@ passport.use(new NaverStrategy({
       // 생성된 사용자 조회
       user = await db.get('SELECT * FROM users WHERE id = $1', [userId]);
 
-      console.log('✅ 네이버 회원가입 완료 (승인 대기):', user.oauth_nickname);
+      logger.info('네이버 회원가입 완료 (승인 대기)', { userId: user.id });
       return done(null, user);
       
     } catch (error) {
@@ -224,12 +225,12 @@ passport.use(new GoogleStrategy({
           [user.id]
         );
         
-        console.log('✅ 구글 로그인 성공:', user.oauth_email || user.oauth_nickname);
+        logger.info('구글 로그인 성공', { userId: user.id });
         return done(null, user);
       }
       
       // 신규 사용자 - 회원가입
-      console.log('📝 구글 신규 회원가입:', profile.displayName);
+      logger.info('구글 신규 회원가입');
 
       const userId = await db.transaction(async (client) => {
         // 사용자 생성 (기본 role = 'user', is_approved = false)
@@ -267,7 +268,7 @@ passport.use(new GoogleStrategy({
       // 생성된 사용자 조회
       user = await db.get('SELECT * FROM users WHERE id = $1', [userId]);
 
-      console.log('✅ 구글 회원가입 완료 (승인 대기):', user.oauth_nickname);
+      logger.info('구글 회원가입 완료 (승인 대기)', { userId: user.id });
       return done(null, user);
       
     } catch (error) {

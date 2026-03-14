@@ -5,9 +5,14 @@
 
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const { getDB } = require('../database/db-postgres');
 const { authenticateToken } = require('../middleware/auth');
 const { requireOrgAdmin, requireOwnOrgAdmin } = require('../middleware/roleAuth');
+const { validate } = require('../middleware/validate');
+const { success, paginated } = require('../lib/response');
+const { NotFoundError, ForbiddenError, ValidationError } = require('../lib/errors');
+const { logger } = require('../lib/logger');
 
 // 모든 라우트에 인증 + Org Admin 권한 필요
 router.use(authenticateToken, requireOrgAdmin);
@@ -16,32 +21,34 @@ router.use(authenticateToken, requireOrgAdmin);
 // 직원 관리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/**
- * GET /api/org-admin/employees
- * 소속 직원 목록 조회
- */
-router.get('/employees', async (req, res) => {
+const employeesListSchema = z.object({
+  query: z.object({
+    status: z.string().optional(),
+    search: z.string().optional(),
+    organization_id: z.coerce.number().int().positive().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  }),
+});
+
+router.get('/employees', validate(employeesListSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const { status, search, page, limit } = req.query;
     const offset = (page - 1) * limit;
-    
-    // System Admin: 모든 기관 조회 가능, Org Admin: 자기 기관만
+
     let organizationId;
     if (req.user.role === 'system_admin') {
       organizationId = req.query.organization_id || req.user.organizationId;
     } else {
       organizationId = req.user.organizationId;
     }
-    
+
     if (!organizationId) {
-      return res.status(400).json({
-        success: false,
-        error: '기관 ID가 필요합니다'
-      });
+      throw new ValidationError('기관 ID가 필요합니다');
     }
-    
+
     let where = ['u.organization_id = $1'];
     let params = [organizationId];
     let paramIndex = 2;
@@ -52,15 +59,15 @@ router.get('/employees', async (req, res) => {
     }
 
     if (search) {
-      where.push(`(u.name LIKE $${paramIndex} OR u.oauth_email LIKE $${paramIndex + 1})`);
+      where.push(`(u.name ILIKE $${paramIndex} OR u.oauth_email ILIKE $${paramIndex + 1})`);
       params.push(`%${search}%`, `%${search}%`);
       paramIndex += 2;
     }
-    
+
     const whereClause = 'WHERE ' + where.join(' AND ');
-    
+
     const employees = await db.query(`
-      SELECT 
+      SELECT
         u.id, u.oauth_provider, u.oauth_email, u.oauth_nickname,
         u.name, u.phone, u.role, u.status, u.is_approved,
         u.created_at, u.last_login_at,
@@ -70,141 +77,118 @@ router.get('/employees', async (req, res) => {
       ${whereClause}
       ORDER BY u.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `, [...params, parseInt(limit), parseInt(offset)]);
-    
+    `, [...params, limit, offset]);
+
     const totalResult = await db.get(`
       SELECT COUNT(*) as count FROM users u ${whereClause}
     `, params);
-    
-    // 기관 정보도 함께 조회
+
     const organization = await db.get(
       'SELECT * FROM organizations WHERE id = $1',
       [organizationId]
     );
-    
-    res.json({
-      success: true,
+
+    const total = parseInt(totalResult.count) || 0;
+
+    success(res, {
       organization,
       employees,
       pagination: {
-        total: totalResult.count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(totalResult.count / limit)
-      }
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-    
-  } catch (error) {
-    console.error('❌ 직원 목록 조회 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '직원 목록 조회에 실패했습니다'
-    });
+
+  } catch (err) {
+    next(err);
   }
 });
 
-/**
- * GET /api/org-admin/employees/:id
- * 특정 직원 상세 조회
- */
-router.get('/employees/:id', async (req, res) => {
+const employeeIdSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+router.get('/employees/:id', validate(employeeIdSchema), async (req, res, next) => {
   const db = getDB();
-  const employeeId = parseInt(req.params.id);
-  
+  const employeeId = req.params.id;
+
   try {
     const employee = await db.get(`
-      SELECT 
+      SELECT
         u.*,
         c.balance, c.total_purchased, c.total_used, c.free_trial_count,
         o.name as organization_name
       FROM users u
       LEFT JOIN credits c ON c.user_id = u.id
       LEFT JOIN organizations o ON o.id = u.organization_id
-      WHERE u.id = ?
+      WHERE u.id = $1
     `, [employeeId]);
-    
+
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: '직원을 찾을 수 없습니다'
-      });
+      throw new NotFoundError('직원');
     }
-    
-    // 권한 확인: Org Admin은 자기 기관 직원만
+
     if (req.user.role === 'org_admin' && employee.organization_id !== req.user.organizationId) {
-      return res.status(403).json({
-        success: false,
-        error: '다른 기관의 직원 정보에 접근할 수 없습니다'
-      });
+      throw new ForbiddenError('다른 기관의 직원 정보에 접근할 수 없습니다');
     }
-    
-    // 최근 사용 내역
+
     const recentUsage = await db.query(`
       SELECT * FROM usage_logs
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT 10
     `, [employeeId]);
-    
-    res.json({
-      success: true,
-      employee,
-      recentUsage
-    });
-    
-  } catch (error) {
-    console.error('❌ 직원 조회 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '직원 조회에 실패했습니다'
-    });
+
+    success(res, { employee, recentUsage });
+
+  } catch (err) {
+    next(err);
   }
 });
 
-/**
- * PUT /api/org-admin/employees/:id
- * 직원 정보 수정
- */
-router.put('/employees/:id', async (req, res) => {
+const updateEmployeeSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+  body: z.object({
+    name: z.string().max(100).optional(),
+    phone: z.string().max(20).optional(),
+    role: z.string().max(50).optional(),
+    status: z.string().max(50).optional(),
+  }),
+});
+
+router.put('/employees/:id', validate(updateEmployeeSchema), async (req, res, next) => {
   const db = getDB();
-  const employeeId = parseInt(req.params.id);
-  
+  const employeeId = req.params.id;
+
   try {
     const { name, phone, role, status } = req.body;
-    
-    // 직원 확인
+
     const employee = await db.get(
       'SELECT * FROM users WHERE id = $1',
       [employeeId]
     );
-    
+
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: '직원을 찾을 수 없습니다'
-      });
+      throw new NotFoundError('직원');
     }
-    
-    // 권한 확인: Org Admin은 자기 기관 직원만
+
     if (req.user.role === 'org_admin') {
       if (employee.organization_id !== req.user.organizationId) {
-        return res.status(403).json({
-          success: false,
-          error: '다른 기관의 직원을 수정할 수 없습니다'
-        });
+        throw new ForbiddenError('다른 기관의 직원을 수정할 수 없습니다');
       }
-      
-      // Org Admin은 system_admin이나 다른 org_admin으로 승격 불가
+
       if (role && ['system_admin', 'org_admin'].includes(role)) {
-        return res.status(403).json({
-          success: false,
-          error: '관리자 권한을 부여할 수 없습니다'
-        });
+        throw new ForbiddenError('관리자 권한을 부여할 수 없습니다');
       }
     }
-    
+
     await db.transaction(async (client) => {
-      // 직원 정보 업데이트
       await client.query(`
         UPDATE users
         SET name = COALESCE($1, name),
@@ -215,77 +199,47 @@ router.put('/employees/:id', async (req, res) => {
         WHERE id = $5
       `, [name, phone, role, status, employeeId]);
 
-      // 감사 로그
       await client.query(`
         INSERT INTO audit_logs (
           user_id, user_role, action, resource_type, resource_id,
           description, ip_address, user_agent
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        req.user.userId,
-        req.user.role,
-        'update',
-        'user',
-        employeeId,
-        `직원 정보 수정: ${employee.name}`,
-        req.ip,
-        req.get('user-agent')
+        req.user.userId, req.user.role, 'update', 'user', employeeId,
+        `직원 정보 수정: ${employee.name}`, req.ip, req.get('user-agent')
       ]);
     });
 
-    res.json({
-      success: true,
-      message: '직원 정보가 수정되었습니다'
-    });
-    
-  } catch (error) {
-    console.error('❌ 직원 수정 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '직원 수정에 실패했습니다'
-    });
+    success(res, { message: '직원 정보가 수정되었습니다' });
+
+  } catch (err) {
+    next(err);
   }
 });
 
-/**
- * DELETE /api/org-admin/employees/:id
- * 직원 제거 (기관에서 제외)
- */
-router.delete('/employees/:id', async (req, res) => {
+router.delete('/employees/:id', validate(employeeIdSchema), async (req, res, next) => {
   const db = getDB();
-  const employeeId = parseInt(req.params.id);
-  
+  const employeeId = req.params.id;
+
   try {
     const employee = await db.get(
       'SELECT * FROM users WHERE id = $1',
       [employeeId]
     );
-    
+
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: '직원을 찾을 수 없습니다'
-      });
+      throw new NotFoundError('직원');
     }
-    
-    // 권한 확인
+
     if (req.user.role === 'org_admin' && employee.organization_id !== req.user.organizationId) {
-      return res.status(403).json({
-        success: false,
-        error: '다른 기관의 직원을 제거할 수 없습니다'
-      });
+      throw new ForbiddenError('다른 기관의 직원을 제거할 수 없습니다');
     }
-    
-    // 본인은 제거 불가
+
     if (employeeId === req.user.userId) {
-      return res.status(400).json({
-        success: false,
-        error: '본인은 제거할 수 없습니다'
-      });
+      throw new ValidationError('본인은 제거할 수 없습니다');
     }
-    
+
     await db.transaction(async (client) => {
-      // 기관에서 제외 (organization_id를 NULL로, role을 user로)
       await client.query(`
         UPDATE users
         SET organization_id = NULL,
@@ -295,35 +249,21 @@ router.delete('/employees/:id', async (req, res) => {
         WHERE id = $1
       `, [employeeId]);
 
-      // 감사 로그
       await client.query(`
         INSERT INTO audit_logs (
           user_id, user_role, action, resource_type, resource_id,
           description, ip_address, user_agent
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        req.user.userId,
-        req.user.role,
-        'delete',
-        'user',
-        employeeId,
-        `직원 제거: ${employee.name}`,
-        req.ip,
-        req.get('user-agent')
+        req.user.userId, req.user.role, 'delete', 'user', employeeId,
+        `직원 제거: ${employee.name}`, req.ip, req.get('user-agent')
       ]);
     });
 
-    res.json({
-      success: true,
-      message: '직원이 기관에서 제거되었습니다'
-    });
-    
-  } catch (error) {
-    console.error('❌ 직원 제거 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '직원 제거에 실패했습니다'
-    });
+    success(res, { message: '직원이 기관에서 제거되었습니다' });
+
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -331,34 +271,35 @@ router.delete('/employees/:id', async (req, res) => {
 // 가입 요청 관리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/**
- * GET /api/org-admin/join-requests
- * 기관 가입 요청 목록
- */
-router.get('/join-requests', async (req, res) => {
+const joinRequestsSchema = z.object({
+  query: z.object({
+    status: z.string().default('pending'),
+    organization_id: z.coerce.number().int().positive().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  }),
+});
+
+router.get('/join-requests', validate(joinRequestsSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
-    const { status = 'pending', page = 1, limit = 20 } = req.query;
+    const { status, page, limit } = req.query;
     const offset = (page - 1) * limit;
-    
-    // System Admin: 모든 요청, Org Admin: 자기 기관만
+
     let organizationId;
     if (req.user.role === 'system_admin') {
       organizationId = req.query.organization_id;
     } else {
       organizationId = req.user.organizationId;
     }
-    
+
     if (!organizationId) {
-      return res.status(400).json({
-        success: false,
-        error: '기관 ID가 필요합니다'
-      });
+      throw new ValidationError('기관 ID가 필요합니다');
     }
-    
+
     const requests = await db.query(`
-      SELECT 
+      SELECT
         r.*,
         u.name as user_name,
         u.oauth_email as user_email,
@@ -368,78 +309,68 @@ router.get('/join-requests', async (req, res) => {
       FROM organization_join_requests r
       JOIN users u ON u.id = r.user_id
       LEFT JOIN users reviewer ON reviewer.id = r.reviewed_by
-      WHERE r.organization_id = ? AND r.status = ?
+      WHERE r.organization_id = $1 AND r.status = $2
       ORDER BY r.created_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT $3 OFFSET $4
     `, [organizationId, status, limit, offset]);
-    
+
     const totalResult = await db.get(`
-      SELECT COUNT(*) as count 
+      SELECT COUNT(*) as count
       FROM organization_join_requests
-      WHERE organization_id = ? AND status = ?
+      WHERE organization_id = $1 AND status = $2
     `, [organizationId, status]);
-    
-    res.json({
-      success: true,
+
+    const total = parseInt(totalResult.count) || 0;
+
+    success(res, {
       requests,
       pagination: {
-        total: totalResult.count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(totalResult.count / limit)
-      }
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-    
-  } catch (error) {
-    console.error('❌ 가입 요청 목록 조회 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '가입 요청 목록 조회에 실패했습니다'
-    });
+
+  } catch (err) {
+    next(err);
   }
 });
 
-/**
- * PUT /api/org-admin/join-requests/:id/approve
- * 가입 요청 승인
- */
-router.put('/join-requests/:id/approve', async (req, res) => {
+const joinRequestIdSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+  body: z.object({
+    review_message: z.string().max(1000).optional(),
+  }),
+});
+
+router.put('/join-requests/:id/approve', validate(joinRequestIdSchema), async (req, res, next) => {
   const db = getDB();
-  const requestId = parseInt(req.params.id);
-  
+  const requestId = req.params.id;
+
   try {
     const { review_message } = req.body;
-    
-    // 요청 확인
+
     const request = await db.get(
       'SELECT * FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
-    
+
     if (!request) {
-      return res.status(404).json({
-        success: false,
-        error: '가입 요청을 찾을 수 없습니다'
-      });
+      throw new NotFoundError('가입 요청');
     }
-    
-    // 권한 확인
+
     if (req.user.role === 'org_admin' && request.organization_id !== req.user.organizationId) {
-      return res.status(403).json({
-        success: false,
-        error: '다른 기관의 가입 요청을 처리할 수 없습니다'
-      });
+      throw new ForbiddenError('다른 기관의 가입 요청을 처리할 수 없습니다');
     }
-    
+
     if (request.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        error: '이미 처리된 요청입니다'
-      });
+      throw new ValidationError('이미 처리된 요청입니다');
     }
-    
+
     await db.transaction(async (client) => {
-      // 1. 요청 승인 처리
       await client.query(`
         UPDATE organization_join_requests
         SET status = 'approved',
@@ -449,7 +380,6 @@ router.put('/join-requests/:id/approve', async (req, res) => {
         WHERE id = $3
       `, [req.user.userId, review_message || '승인되었습니다', requestId]);
 
-      // 2. 사용자를 기관에 추가
       await client.query(`
         UPDATE users
         SET organization_id = $1,
@@ -458,80 +388,51 @@ router.put('/join-requests/:id/approve', async (req, res) => {
         WHERE id = $2
       `, [request.organization_id, request.user_id]);
 
-      // 3. 감사 로그
       await client.query(`
         INSERT INTO audit_logs (
           user_id, user_role, action, resource_type, resource_id,
           description, ip_address, user_agent
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        req.user.userId,
-        req.user.role,
-        'approve',
-        'join_request',
-        requestId,
-        `가입 요청 승인: user_id=${request.user_id}`,
-        req.ip,
-        req.get('user-agent')
+        req.user.userId, req.user.role, 'approve', 'join_request', requestId,
+        `가입 요청 승인: user_id=${request.user_id}`, req.ip, req.get('user-agent')
       ]);
     });
 
-    console.log(`✅ 가입 요청 승인: request_id=${requestId}, user_id=${request.user_id}`);
+    logger.info('가입 요청 승인', { requestId, userId: request.user_id });
 
-    res.json({
-      success: true,
-      message: '가입 요청이 승인되었습니다'
-    });
-    
-  } catch (error) {
-    console.error('❌ 가입 승인 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '가입 승인에 실패했습니다'
-    });
+    success(res, { message: '가입 요청이 승인되었습니다' });
+
+  } catch (err) {
+    next(err);
   }
 });
 
-/**
- * PUT /api/org-admin/join-requests/:id/reject
- * 가입 요청 거절
- */
-router.put('/join-requests/:id/reject', async (req, res) => {
+router.put('/join-requests/:id/reject', validate(joinRequestIdSchema), async (req, res, next) => {
   const db = getDB();
-  const requestId = parseInt(req.params.id);
-  
+  const requestId = req.params.id;
+
   try {
     const { review_message } = req.body;
-    
+
     const request = await db.get(
       'SELECT * FROM organization_join_requests WHERE id = $1',
       [requestId]
     );
-    
+
     if (!request) {
-      return res.status(404).json({
-        success: false,
-        error: '가입 요청을 찾을 수 없습니다'
-      });
+      throw new NotFoundError('가입 요청');
     }
-    
-    // 권한 확인
+
     if (req.user.role === 'org_admin' && request.organization_id !== req.user.organizationId) {
-      return res.status(403).json({
-        success: false,
-        error: '다른 기관의 가입 요청을 처리할 수 없습니다'
-      });
+      throw new ForbiddenError('다른 기관의 가입 요청을 처리할 수 없습니다');
     }
-    
+
     if (request.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        error: '이미 처리된 요청입니다'
-      });
+      throw new ValidationError('이미 처리된 요청입니다');
     }
-    
+
     await db.transaction(async (client) => {
-      // 요청 거절 처리
       await client.query(`
         UPDATE organization_join_requests
         SET status = 'rejected',
@@ -541,35 +442,21 @@ router.put('/join-requests/:id/reject', async (req, res) => {
         WHERE id = $3
       `, [req.user.userId, review_message || '요청이 거절되었습니다', requestId]);
 
-      // 감사 로그
       await client.query(`
         INSERT INTO audit_logs (
           user_id, user_role, action, resource_type, resource_id,
           description, ip_address, user_agent
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        req.user.userId,
-        req.user.role,
-        'reject',
-        'join_request',
-        requestId,
-        `가입 요청 거절: user_id=${request.user_id}`,
-        req.ip,
-        req.get('user-agent')
+        req.user.userId, req.user.role, 'reject', 'join_request', requestId,
+        `가입 요청 거절: user_id=${request.user_id}`, req.ip, req.get('user-agent')
       ]);
     });
 
-    res.json({
-      success: true,
-      message: '가입 요청이 거절되었습니다'
-    });
-    
-  } catch (error) {
-    console.error('❌ 가입 거절 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '가입 거절에 실패했습니다'
-    });
+    success(res, { message: '가입 요청이 거절되었습니다' });
+
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -577,70 +464,60 @@ router.put('/join-requests/:id/reject', async (req, res) => {
 // 기관 통계
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/**
- * GET /api/org-admin/statistics
- * 기관 통계 (직원 수, 사용량 등)
- */
-router.get('/statistics', async (req, res) => {
+const statisticsSchema = z.object({
+  query: z.object({
+    organization_id: z.coerce.number().int().positive().optional(),
+  }),
+});
+
+router.get('/statistics', validate(statisticsSchema), async (req, res, next) => {
   const db = getDB();
-  
+
   try {
-    // Org Admin: 자기 기관만
-    const organizationId = req.user.role === 'system_admin' 
-      ? req.query.organization_id 
+    const organizationId = req.user.role === 'system_admin'
+      ? req.query.organization_id
       : req.user.organizationId;
-    
+
     if (!organizationId) {
-      return res.status(400).json({
-        success: false,
-        error: '기관 ID가 필요합니다'
-      });
+      throw new ValidationError('기관 ID가 필요합니다');
     }
-    
-    // 직원 통계
+
     const employeeStats = await db.get(`
-      SELECT 
+      SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
         SUM(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as approved
       FROM users
-      WHERE organization_id = ?
+      WHERE organization_id = $1
     `, [organizationId]);
-    
-    // 사용량 통계 (최근 30일)
+
     const usageStats = await db.get(`
-      SELECT 
+      SELECT
         COUNT(*) as total_count,
         SUM(total_cost) as total_cost,
         AVG(total_cost) as avg_cost
       FROM usage_logs u
       JOIN users usr ON usr.id = u.user_id
-      WHERE usr.organization_id = ?
+      WHERE usr.organization_id = $1
         AND u.created_at >= CURRENT_TIMESTAMP + INTERVAL '-30 days'
     `, [organizationId]);
-    
-    // 대기 중인 가입 요청
+
     const pendingRequests = await db.get(`
       SELECT COUNT(*) as count
       FROM organization_join_requests
-      WHERE organization_id = ? AND status = 'pending'
+      WHERE organization_id = $1 AND status = 'pending'
     `, [organizationId]);
-    
-    res.json({
-      success: true,
+
+    success(res, {
       statistics: {
         employees: employeeStats,
         usage: usageStats,
-        pendingRequests: pendingRequests.count
-      }
+        pendingRequests: pendingRequests.count,
+      },
     });
-    
-  } catch (error) {
-    console.error('❌ 통계 조회 실패:', error.message);
-    res.status(500).json({
-      success: false,
-      error: '통계 조회에 실패했습니다'
-    });
+
+  } catch (err) {
+    next(err);
   }
 });
 

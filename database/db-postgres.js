@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Supabase는 SSL 필요, 프로덕션에서는 true 권장
+    rejectUnauthorized: process.env.NODE_ENV === 'production' // 프로덕션에서는 인증서 검증
   },
   // 연결 풀 설정 (Vercel serverless 환경 최적화)
   max: process.env.NODE_ENV === 'production' ? 5 : 20, // 프로덕션: 5, 개발: 20
@@ -27,9 +27,21 @@ const pool = new Pool({
   idle_in_transaction_session_timeout: 30000
 });
 
-// 연결 풀 오류 핸들링
+// 연결 풀 이벤트 핸들링
 pool.on('error', (err) => {
   console.error('❌ PostgreSQL 풀 오류:', err);
+});
+
+pool.on('connect', () => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`📊 DB Pool: 연결 생성 (total: ${pool.totalCount}, idle: ${pool.idleCount}, waiting: ${pool.waitingCount})`);
+  }
+});
+
+pool.on('remove', () => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`📊 DB Pool: 연결 제거 (total: ${pool.totalCount}, idle: ${pool.idleCount})`);
+  }
 });
 
 class Database {
@@ -44,6 +56,8 @@ class Database {
    * @returns {string} - 변환된 SQL
    */
   convertPlaceholders(sql) {
+    // 이미 $N 파라미터가 있으면 변환하지 않음 (혼용 방지)
+    if (/\$\d+/.test(sql)) return sql;
     let index = 0;
     return sql.replace(/\?/g, () => `$${++index}`);
   }
@@ -64,7 +78,10 @@ class Database {
     } catch (error) {
       console.error('❌ Query 오류:', error.message);
       console.error('   SQL:', sql);
-      console.error('   Params:', params);
+      // 파라미터는 민감정보 포함 가능 - 프로덕션에서는 로깅하지 않음
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('   Params:', params);
+      }
       throw error;
     } finally {
       client.release();
@@ -103,7 +120,9 @@ class Database {
     } catch (error) {
       console.error('❌ Run 오류:', error.message);
       console.error('   SQL:', sql);
-      console.error('   Params:', params);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('   Params:', params);
+      }
       throw error;
     } finally {
       client.release();
@@ -142,36 +161,6 @@ class Database {
   }
 
   /**
-   * 트랜잭션 시작 (레거시 호환)
-   */
-  async beginTransaction() {
-    // PostgreSQL에서는 transaction() 메서드 사용 권장
-    const client = await this.pool.connect();
-    await client.query('BEGIN');
-    return client;
-  }
-
-  /**
-   * 트랜잭션 커밋 (레거시 호환)
-   */
-  async commit(client) {
-    if (client) {
-      await client.query('COMMIT');
-      client.release();
-    }
-  }
-
-  /**
-   * 트랜잭션 롤백 (레거시 호환)
-   */
-  async rollback(client) {
-    if (client) {
-      await client.query('ROLLBACK');
-      client.release();
-    }
-  }
-
-  /**
    * 연결 풀 종료
    */
   async close() {
@@ -190,6 +179,17 @@ class Database {
       console.error('❌ 헬스 체크 실패:', error.message);
       return false;
     }
+  }
+
+  /**
+   * 커넥션 풀 상태
+   */
+  getPoolStatus() {
+    return {
+      totalCount: this.pool.totalCount,
+      idleCount: this.pool.idleCount,
+      waitingCount: this.pool.waitingCount
+    };
   }
 }
 

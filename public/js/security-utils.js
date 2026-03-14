@@ -7,7 +7,8 @@
  * HTML 이스케이프 (XSS 방어)
  */
 function escapeHtml(text) {
-  if (typeof text !== 'string') return text;
+  if (text === null || text === undefined) return '';
+  if (typeof text !== 'string') return String(text);
   
   const map = {
     '&': '&amp;',
@@ -34,16 +35,23 @@ function setTextSafely(element, text) {
  */
 function setHtmlSafely(element, html) {
   if (!element) return;
-  
-  // 허용할 태그 목록
-  const allowedTags = ['b', 'i', 'u', 'strong', 'em', 'br', 'p', 'span'];
-  
-  // 위험한 태그 제거
-  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  sanitized = sanitized.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
-  sanitized = sanitized.replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // 이벤트 핸들러 제거
-  sanitized = sanitized.replace(/on\w+\s*=\s*[^\s>]*/gi, '');
-  
+
+  // 허용할 태그만 유지하는 화이트리스트 방식
+  const allowedTags = ['b', 'i', 'u', 'strong', 'em', 'br', 'p', 'span', 'div', 'ul', 'ol', 'li'];
+  const allowedTagPattern = allowedTags.join('|');
+
+  // 모든 태그를 제거하되, 허용 태그만 복원
+  let sanitized = html
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')  // 이벤트 핸들러 제거
+    .replace(/on\w+\s*=\s*[^\s>]*/gi, '')
+    .replace(/javascript\s*:/gi, '')                // javascript: URI 제거
+    .replace(/data\s*:/gi, 'blocked:');             // data: URI 차단
+
+  // 허용되지 않은 태그 제거
+  sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/gi, (match, tag) => {
+    return allowedTags.includes(tag.toLowerCase()) ? match.replace(/\s+(on\w+|style|class|id)\s*=\s*["'][^"']*["']/gi, '') : '';
+  });
+
   element.innerHTML = sanitized;
 }
 
@@ -52,11 +60,13 @@ function setHtmlSafely(element, html) {
  */
 function isSafeUrl(url) {
   if (!url) return false;
-  
+
   try {
+    // 상대경로 허용 (/, /dashboard.html 등)
+    if (url.startsWith('/') && !url.startsWith('//')) return true;
     const urlObj = new URL(url, window.location.origin);
-    // 같은 origin만 허용하거나, https만 허용
-    return urlObj.protocol === 'https:' || urlObj.protocol === 'http:';
+    // 같은 origin만 허용
+    return urlObj.origin === window.location.origin;
   } catch {
     return false;
   }
