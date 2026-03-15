@@ -7,8 +7,8 @@ const { getDB } = require('../database/db-postgres');
 const creditService = require('./creditService');
 const { logger } = require('../lib/logger');
 
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_YOUR_SECRET_KEY';
-const TOSS_CLIENT_KEY = process.env.TOSS_CLIENT_KEY || 'test_ck_YOUR_CLIENT_KEY';
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
+const TOSS_CLIENT_KEY = process.env.TOSS_CLIENT_KEY || '';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 // 보너스 정책
@@ -38,6 +38,10 @@ class PaymentService {
    * 결제 요청 준비 (Order ID 생성)
    */
   async preparePayment(userId, amount) {
+    if (!TOSS_CLIENT_KEY || !TOSS_SECRET_KEY) {
+      throw new Error('결제 서비스가 설정되지 않았습니다. 관리자에게 문의하세요.');
+    }
+
     const db = getDB();
 
     amount = parseInt(amount, 10);
@@ -145,7 +149,7 @@ class PaymentService {
         logger.error('토스페이먼츠 API 오류', { error: apiError.response?.data || apiError.message });
 
         // Mock 모드 (테스트 키 + 비프로덕션 환경에서만 허용)
-        if (TOSS_SECRET_KEY.startsWith('test_') && process.env.NODE_ENV !== 'production') {
+        if (TOSS_SECRET_KEY && TOSS_SECRET_KEY.startsWith('test_') && process.env.NODE_ENV !== 'production') {
           logger.warn('테스트 모드: 결제 승인 스킵');
           tossResponse = {
             data: {
@@ -300,7 +304,7 @@ class PaymentService {
         }
       );
     } catch (apiError) {
-      if (TOSS_SECRET_KEY.startsWith('test_')) {
+      if (TOSS_SECRET_KEY && TOSS_SECRET_KEY.startsWith('test_')) {
         logger.warn('테스트 모드: 결제 취소 스킵');
         tossResponse = {
           data: {

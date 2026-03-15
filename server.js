@@ -53,6 +53,15 @@ app.use(
       },
     },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    permissionsPolicy: {
+      features: {
+        camera: [],
+        geolocation: [],
+        microphone: ["'self'"],
+      },
+    },
   })
 );
 
@@ -66,7 +75,7 @@ const apiLimiter = rateLimit({
   message: { success: false, error: { code: 'RATE_LIMIT', message: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.' } },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/api/status' || req.path === '/api/anonymization/health',
+  skip: (req) => req.path === '/api/status' || req.path === '/api/health' || req.path === '/api/anonymization/health',
 });
 
 const anonymizationLimiter = rateLimit({
@@ -229,6 +238,22 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
   }
 });
 
+// 헬스체크 엔드포인트 (모니터링용)
+app.get('/api/health', async (req, res) => {
+  const health = { status: 'ok', timestamp: new Date().toISOString() };
+  try {
+    const { getDB } = require('./database/db-postgres');
+    const db = getDB();
+    const result = await db.get('SELECT 1 as check');
+    health.database = result ? 'connected' : 'error';
+  } catch (e) {
+    health.status = 'degraded';
+    health.database = 'disconnected';
+  }
+  const statusCode = health.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
 // 프론트엔드 에러 로그 수신
 app.post('/api/error-log', (req, res) => {
   const { errors } = req.body;
@@ -262,11 +287,17 @@ if (require.main === module) {
     // API 키 확인
     const { checkApiKey } = require('./routes/audio');
     await checkApiKey();
+
+    // 만료 세션 자동 정리 시작
+    const { startSessionCleanup } = require('./lib/sessionCleanup');
+    startSessionCleanup();
   });
 
   // Graceful Shutdown
   function gracefulShutdown(signal) {
     logger.info(`${signal} 수신 - 서버 종료 시작`);
+    const { stopSessionCleanup } = require('./lib/sessionCleanup');
+    stopSessionCleanup();
     server.close(async () => {
       try {
         const { getDB } = require('./database/db-postgres');

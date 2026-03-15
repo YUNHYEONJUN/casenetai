@@ -3,6 +3,8 @@
  */
 
 process.env.JWT_SECRET = 'test-secret-key-for-jest';
+process.env.TOSS_CLIENT_KEY = 'test_ck_jest';
+process.env.TOSS_SECRET_KEY = 'test_sk_jest';
 
 const mockDb = {
   query: jest.fn(async () => []),

@@ -36,11 +36,16 @@ router.post('/upload-blob', authenticateToken, audioUpload.single('audioFile'), 
       contentType: req.file.mimetype,
     });
 
-    fs.unlink(filePath, (err) => {
-      if (err) logger.warn('임시 파일 삭제 실패', { filePath, error: err.message });
+    fs.unlink(filePath, (unlinkErr) => {
+      if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+        logger.warn('임시 파일 삭제 실패', { filePath, error: unlinkErr.message });
+      }
     });
     res.json({ url: blob.url, pathname: blob.pathname });
   } catch (error) {
+    if (req.file && req.file.path) {
+      try { fs.unlinkSync(req.file.path); } catch (_) { /* ignore */ }
+    }
     logger.error('Server blob upload error', { error: error.message });
     res.status(500).json({ error: '파일 업로드 중 오류가 발생했습니다.' });
   }
