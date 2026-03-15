@@ -238,6 +238,22 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
   }
 });
 
+// 서버 시작 시 필수 DB 스키마 보정 (oauth_provider에 'local' 허용)
+(async () => {
+  try {
+    const { getDB } = require('./database/db-postgres');
+    const db = getDB();
+    await db.run("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
+    await db.run("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
+    require('./lib/logger').logger.info('DB 스키마 보정 완료 (oauth_provider local 허용)');
+  } catch (e) {
+    // 이미 적용되어 있거나 DB 연결 전이면 무시 (서버 시작 차단 방지)
+    if (!e.message.includes('already exists')) {
+      console.warn('DB 스키마 보정 실패 (비치명적):', e.message);
+    }
+  }
+})();
+
 // 헬스체크 엔드포인트 (모니터링용)
 app.get('/api/health', async (req, res) => {
   const health = { status: 'ok', timestamp: new Date().toISOString() };

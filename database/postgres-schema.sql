@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     
     -- OAuth 정보 (필수)
-    oauth_provider VARCHAR(50) NOT NULL CHECK (oauth_provider IN ('kakao', 'naver', 'google')),
+    oauth_provider VARCHAR(50) NOT NULL CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local')),
     oauth_id VARCHAR(255) NOT NULL,
     oauth_email VARCHAR(255),
     oauth_nickname VARCHAR(255),
