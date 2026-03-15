@@ -1,20 +1,26 @@
 /**
  * 관리자 계정 설정 스크립트
- * Vercel에서 실행: /api/setup-admin?key=MASTER_PASSWORD 로 호출
+ * Vercel에서 실행: POST /api/setup-admin (body에 key + email)
  * 로컬에서 실행: DATABASE_URL 환경변수 설정 후 node scripts/setup-admin.js
  */
 
 require('dotenv').config();
 
 const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
-const ADMIN_EMAIL = 'yoonhj79@gmail.com';
-const ADMIN_PASSWORD = 'CaseNet2026!@#';
-const ADMIN_NAME = 'System Admin';
+const DEFAULT_ADMIN_EMAIL = 'admin@casenetai.kr';
+const DEFAULT_ADMIN_PASSWORD = 'CaseNet2026!@#';
+const DEFAULT_ADMIN_NAME = 'System Admin';
 const SALT_ROUNDS = 12;
 
-async function setupAdmin(pool) {
+/**
+ * 관리자 계정 설정
+ * @param {Object} poolOrDb - pg Pool 또는 Database 래퍼 객체
+ */
+async function setupAdmin(poolOrDb) {
+  // Database 래퍼 객체인 경우 내부 pool 사용
+  const pool = poolOrDb.pool || poolOrDb;
   const client = await pool.connect();
 
   try {
@@ -63,13 +69,13 @@ async function setupAdmin(pool) {
     }
 
     console.log('4. 새 관리자 계정 생성...');
-    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, SALT_ROUNDS);
 
     const result = await client.query(
       `INSERT INTO users (oauth_email, name, oauth_provider, oauth_id, role, is_approved, password_hash, service_type)
        VALUES ($1, $2, 'local', $3, 'system_admin', true, $4, 'elderly_protection')
        RETURNING id`,
-      [ADMIN_EMAIL, ADMIN_NAME, 'admin_' + Date.now(), passwordHash]
+      [DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_NAME, 'admin_' + Date.now(), passwordHash]
     );
 
     const userId = result.rows[0].id;
@@ -82,7 +88,7 @@ async function setupAdmin(pool) {
     );
 
     console.log('완료!');
-    return { success: true, email: ADMIN_EMAIL, userId };
+    return { success: true, email: DEFAULT_ADMIN_EMAIL, userId };
 
   } finally {
     client.release();
@@ -99,7 +105,7 @@ if (require.main === module) {
   setupAdmin(pool)
     .then(result => {
       console.log('\n관리자 계정:', result.email);
-      console.log('비밀번호: CaseNet2026!@#');
+      console.log('비밀번호:', DEFAULT_ADMIN_PASSWORD);
       process.exit(0);
     })
     .catch(err => {
