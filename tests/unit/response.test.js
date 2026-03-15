@@ -25,7 +25,8 @@ describe('Response 헬퍼', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res._json).toEqual({
         success: true,
-        data: { id: 1, name: '테스트' },
+        id: 1,
+        name: '테스트',
       });
     });
 
@@ -43,7 +44,7 @@ describe('Response 헬퍼', () => {
       created(res, { id: 42 });
 
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res._json.data.id).toBe(42);
+      expect(res._json.id).toBe(42);
     });
   });
 

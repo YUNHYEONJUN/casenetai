@@ -395,7 +395,7 @@ test('31. success() 응답 포맷', () => {
   successFn(res, { id: 1 });
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.body.success, true);
-  assert.deepStrictEqual(res.body.data, { id: 1 });
+  assert.strictEqual(res.body.id, 1);
 });
 
 test('32. created() 응답 포맷 (201)', () => {

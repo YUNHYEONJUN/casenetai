@@ -71,7 +71,7 @@ describe('Payment Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.balance).toBe(5000);
+      expect(res.body.balance).toBe(5000);
     });
   });
 
@@ -107,7 +107,7 @@ describe('Payment Routes', () => {
         .send({ amount: 5000 });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.orderId).toBe('order-123');
+      expect(res.body.orderId).toBe('order-123');
     });
 
     it('1000원 미만은 거부한다', async () => {
@@ -163,9 +163,9 @@ describe('Payment Routes', () => {
       const res = await request(app).get('/api/payment/bonus/5000');
 
       expect(res.status).toBe(200);
-      expect(res.body.data.amount).toBe(5000);
-      expect(res.body.data.bonusAmount).toBe(500);
-      expect(res.body.data.totalCredit).toBe(5500);
+      expect(res.body.amount).toBe(5000);
+      expect(res.body.bonusAmount).toBe(500);
+      expect(res.body.totalCredit).toBe(5500);
     });
 
     it('음수 금액은 거부한다', async () => {

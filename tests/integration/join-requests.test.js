@@ -83,7 +83,7 @@ describe('Join-Requests Routes', () => {
         .send({ organization_id: 1, message: '가입 희망' });
 
       expect(res.status).toBe(201);
-      expect(res.body.data.requestId).toBe(1);
+      expect(res.body.requestId).toBe(1);
     });
 
     it('organization_id 누락 시 400 반환', async () => {
@@ -130,7 +130,7 @@ describe('Join-Requests Routes', () => {
       const res = await request(app).get('/api/join-requests/my');
 
       expect(res.status).toBe(200);
-      expect(res.body.data.requests).toHaveLength(1);
+      expect(res.body.requests).toHaveLength(1);
     });
   });
 
