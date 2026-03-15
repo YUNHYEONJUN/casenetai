@@ -3,7 +3,7 @@
  * - 회원가입, 로그인, JWT 토큰 관리
  */
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDB } = require('../database/db-postgres');
 const { logger } = require('../lib/logger');
