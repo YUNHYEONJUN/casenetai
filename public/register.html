@@ -528,7 +528,8 @@
                     }, 1500);
 
                 } else {
-                    showAlert(data.error || '회원가입에 실패했습니다.', 'error');
+                    const errMsg = (typeof data.error === 'object' && data.error !== null) ? data.error.message : data.error;
+                    showAlert(errMsg || '회원가입에 실패했습니다.', 'error');
                     registerBtn.disabled = false;
                     registerBtn.innerHTML = '회원가입';
                 }

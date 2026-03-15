@@ -296,7 +296,8 @@ async function uploadAndConvert() {
         const data = await response.json();
 
         if (!data.success) {
-            throw new Error(data.error || 'STT 변환 실패');
+            const errMsg = (typeof data.error === 'object' && data.error !== null) ? data.error.message : data.error;
+            throw new Error(errMsg || 'STT 변환 실패');
         }
 
         // 변환된 텍스트 저장 및 표시

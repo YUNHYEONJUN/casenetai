@@ -239,7 +239,8 @@
                     showAlert('마스터 비밀번호 인증 성공!', 'success');
                 } else {
                     const data = await response.json().catch(() => ({}));
-                    showAlert(data.error || '마스터 비밀번호가 올바르지 않습니다.', 'error');
+                    const errMsg = (typeof data.error === 'object' && data.error !== null) ? data.error.message : data.error;
+                    showAlert(errMsg || '마스터 비밀번호가 올바르지 않습니다.', 'error');
                 }
             } catch (error) {
                 showAlert('서버 연결 오류가 발생했습니다.', 'error');
@@ -290,7 +291,8 @@
                 const registerData = await registerResponse.json();
 
                 if (!registerResponse.ok) {
-                    throw new Error(registerData.error || '계정 생성 실패');
+                    const regErr = (typeof registerData.error === 'object' && registerData.error !== null) ? registerData.error.message : registerData.error;
+                    throw new Error(regErr || '계정 생성 실패');
                 }
 
                 showAlert(`✅ 계정이 성공적으로 생성되었습니다!`, 'success');

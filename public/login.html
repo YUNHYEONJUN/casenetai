@@ -421,7 +421,8 @@
                         window.location.href = redirectUrl;
                     }
                 } else {
-                    showAlert(data.error || '로그인에 실패했습니다.', 'error');
+                    const errMsg = (typeof data.error === 'object' && data.error !== null) ? data.error.message : data.error;
+                    showAlert(errMsg || '로그인에 실패했습니다.', 'error');
                 }
             } catch (err) {
                 console.error('[Login] Error:', err);
