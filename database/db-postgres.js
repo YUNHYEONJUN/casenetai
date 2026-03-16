@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: process.env.NODE_ENV === 'production' // 프로덕션에서는 인증서 검증
+    rejectUnauthorized: false // Supabase는 자체 서명 인증서 사용
   },
   // 연결 풀 설정 (Vercel serverless 환경 최적화)
   max: process.env.NODE_ENV === 'production' ? 5 : 20, // 프로덕션: 5, 개발: 20
