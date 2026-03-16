@@ -176,7 +176,7 @@ router.post('/register', loginLimiter, async (req, res) => {
     // 사용자 입력 관련 에러만 전달, 나머지는 제네릭 메시지
     const safeErrors = ['이미 사용 중인 이메일', '비밀번호는 최소', '비밀번호는 영문'];
     const isSafe = safeErrors.some(e => error.message.includes(e));
-    res.status(isSafe ? 400 : 500).json({ success: false, error: isSafe ? error.message : '계정 생성 중 오류가 발생했습니다.' });
+    res.status(isSafe ? 400 : 500).json({ success: false, error: isSafe ? error.message : '계정 생성 중 오류: ' + error.message });
   }
 });
 
