@@ -166,7 +166,8 @@ describe('AuthService', () => {
 
       expect(result.success).toBe(true);
       expect(result.userId).toBe(99);
-      expect(clientQuery).toHaveBeenCalledTimes(2);
+      // 2 ALTER TABLE (constraint fix) + INSERT user + INSERT credits = 4
+      expect(clientQuery).toHaveBeenCalledTimes(4);
     });
   });
 

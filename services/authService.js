@@ -53,6 +53,10 @@ class AuthService {
 
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const result = await db.transaction(async (client) => {
+        // oauth_provider에 'local' 허용 (최초 1회만 실질적 효과)
+        await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
+        await client.query("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
+
         // 사용자 생성
         const userResult = await client.query(
           `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, password_hash)
@@ -108,22 +112,26 @@ class AuthService {
       
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const userId = await db.transaction(async (client) => {
+        // oauth_provider에 'local' 허용 (최초 1회만 실질적 효과)
+        await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
+        await client.query("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
+
         // 사용자 생성 (관리자 권한 포함)
         const userResult = await client.query(
           `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved, password_hash)
            VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, true, $8) RETURNING id`,
           [email, name, phone, organizationId, serviceType, 'admin_' + Date.now(), role, passwordHash]
         );
-        
+
         const newUserId = userResult.rows[0].id;
-        
+
         // 크레딧 초기화 (관리자 지정 금액)
         await client.query(
           `INSERT INTO credits (user_id, balance, free_trial_count)
            VALUES ($1, $2, 0)`,
           [newUserId, credits]
         );
-        
+
         return newUserId;
       });
       
