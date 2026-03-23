@@ -3,8 +3,7 @@ const e = (val) => typeof val === 'string' ? escapeHtml(val) : (val ?? '');
 
 // 로그인 필수 체크
 (function checkAuth() {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!document.cookie.includes('is_logged_in=1')) {
         alert('로그인이 필요한 서비스입니다.');
         window.location.href = '/login.html';
         return;
@@ -341,7 +340,6 @@ function analyzeCost(file) {
 
 // 대용량 파일 청크 업로드 (Vercel 4.5MB 제한 우회)
 async function uploadLargeFile(file, onProgress) {
-    const authToken = localStorage.getItem('token');
     const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per chunk
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const uploadId = Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -362,9 +360,7 @@ async function uploadLargeFile(file, onProgress) {
 
         const res = await fetch('/api/upload-chunk', {
             method: 'POST',
-            headers: {
-                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-            },
+            credentials: 'include',
             body: formData
         });
 
@@ -381,9 +377,9 @@ async function uploadLargeFile(file, onProgress) {
     const completeRes = await fetch('/api/upload-chunk-complete', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+            'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ uploadId, fileName: file.name })
     });
 
@@ -446,7 +442,6 @@ uploadBtn.addEventListener('click', async function() {
         progressText.textContent = '파일 업로드 준비 중...';
 
         const DIRECT_UPLOAD_LIMIT = 3.5 * 1024 * 1024; // 3.5MB (Vercel 4.5MB 한도 여유분)
-        const token = localStorage.getItem('token');
         let serverFilePath = null;
 
         // Step 1: 파일 업로드 (소형: 직접 / 대형: 청크 분할)
@@ -465,7 +460,7 @@ uploadBtn.addEventListener('click', async function() {
         const result = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/upload-audio-stream');
-            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.withCredentials = true;
 
             let sseBuffer = '';
             let finalResult = null;
@@ -1307,14 +1302,13 @@ function submitFeedback(rating) {
 
 function sendFeedbackComment() {
     const comment = document.getElementById('feedbackText')?.value || '';
-    const token = localStorage.getItem('token');
     // 서버로 비동기 전송 (실패해도 무시)
     fetch('/api/feedback', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
             rating: currentFeedbackRating,
             comment: comment,

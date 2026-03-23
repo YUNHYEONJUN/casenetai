@@ -25,11 +25,14 @@ class AuthService {
    */
   async register({ email, password, name, phone, organizationId = null, serviceType = 'elderly_protection' }) {
     const db = getDB();
-    
+
     try {
+      // 이메일 정규화 (대소문자 무시)
+      email = email.toLowerCase().trim();
+
       // 이메일 중복 체크
       const existingUser = await db.get(
-        'SELECT id FROM users WHERE oauth_email = $1',
+        'SELECT id FROM users WHERE LOWER(oauth_email) = $1',
         [email]
       );
       
@@ -41,9 +44,15 @@ class AuthService {
       if (!password || password.length < 8) {
         throw new Error('비밀번호는 최소 8자 이상이어야 합니다');
       }
+      if (password.length > 72) {
+        throw new Error('비밀번호는 최대 72자까지 가능합니다');
+      }
+      if (password.includes('\0')) {
+        throw new Error('비밀번호에 허용되지 않는 문자가 포함되어 있습니다');
+      }
       const hasLetter = /[a-zA-Z]/.test(password);
       const hasNumber = /[0-9]/.test(password);
-      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+      const hasSpecial = /[^a-zA-Z0-9\s]/.test(password);
       if ([hasLetter, hasNumber, hasSpecial].filter(Boolean).length < 2) {
         throw new Error('비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다');
       }
@@ -53,10 +62,6 @@ class AuthService {
 
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const result = await db.transaction(async (client) => {
-        // oauth_provider에 'local' 허용 (최초 1회만 실질적 효과)
-        await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
-        await client.query("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
-
         // 사용자 생성
         const userResult = await client.query(
           `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, password_hash)
@@ -95,27 +100,43 @@ class AuthService {
    */
   async registerWithRole({ email, password, name, phone, organizationId = null, role = 'user', credits = 0, serviceType = 'elderly_protection' }) {
     const db = getDB();
-    
+
     try {
+      // 이메일 정규화 (대소문자 무시)
+      email = email.toLowerCase().trim();
+
       // 이메일 중복 체크
       const existingUser = await db.get(
-        'SELECT id FROM users WHERE oauth_email = $1',
+        'SELECT id FROM users WHERE LOWER(oauth_email) = $1',
         [email]
       );
       
       if (existingUser) {
         throw new Error('이미 사용 중인 이메일입니다');
       }
-      
+
+      // 비밀번호 강도 검증
+      if (!password || password.length < 8) {
+        throw new Error('비밀번호는 최소 8자 이상이어야 합니다');
+      }
+      if (password.length > 72) {
+        throw new Error('비밀번호는 최대 72자까지 가능합니다');
+      }
+      if (password.includes('\0')) {
+        throw new Error('비밀번호에 허용되지 않는 문자가 포함되어 있습니다');
+      }
+      const hasLetter = /[a-zA-Z]/.test(password);
+      const hasNumber = /[0-9]/.test(password);
+      const hasSpecial = /[^a-zA-Z0-9\s]/.test(password);
+      if ([hasLetter, hasNumber, hasSpecial].filter(Boolean).length < 2) {
+        throw new Error('비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다');
+      }
+
       // 비밀번호 해시
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-      
+
       // 트랜잭션으로 사용자 생성 및 크레딧 초기화
       const userId = await db.transaction(async (client) => {
-        // oauth_provider에 'local' 허용 (최초 1회만 실질적 효과)
-        await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
-        await client.query("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
-
         // 사용자 생성 (관리자 권한 포함)
         const userResult = await client.query(
           `INSERT INTO users (oauth_email, name, phone, organization_id, service_type, oauth_provider, oauth_id, role, is_approved, password_hash)
@@ -156,16 +177,21 @@ class AuthService {
    */
   async login({ email, password, ipAddress, userAgent }) {
     const db = getDB();
-    
+
     try {
+      // 이메일 정규화 (대소문자 무시)
+      email = email.toLowerCase().trim();
+
       // 사용자 조회
       const user = await db.get(
-        `SELECT id, oauth_email as email, name, role, organization_id, service_type, password_hash
-         FROM users WHERE oauth_email = $1`,
+        `SELECT id, oauth_email as email, name, role, organization_id, service_type, password_hash, status
+         FROM users WHERE LOWER(oauth_email) = $1`,
         [email]
       );
-      
+
       if (!user) {
+        // 타이밍 공격 방지: 사용자가 없어도 bcrypt 연산 수행
+        await bcrypt.compare(password, '$2a$12$000000000000000000000uGECOD8VaQUOgyP9LrdFEjpAyMiMnS2');
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
       }
 
@@ -176,9 +202,14 @@ class AuthService {
 
       // 비밀번호 확인
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
-      
+
       if (!isValidPassword) {
         throw new Error('이메일 또는 비밀번호가 올바르지 않습니다');
+      }
+
+      // 계정 상태 확인 (정지/삭제된 계정 차단)
+      if (user.status && user.status !== 'active') {
+        throw new Error(user.status === 'suspended' ? '정지된 계정입니다. 관리자에게 문의하세요.' : '삭제된 계정입니다.');
       }
       
       // JWT 토큰 생성
@@ -195,15 +226,26 @@ class AuthService {
       
       // Refresh Token 생성
       const refreshToken = jwt.sign(
-        { userId: user.id },
+        { userId: user.id, type: 'refresh' },
         JWT_SECRET,
         { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
       );
       
+      // 사용자당 최대 10개 세션 유지 (오래된 세션 자동 정리)
+      const MAX_SESSIONS = 10;
+      await db.run(
+        `DELETE FROM sessions WHERE id IN (
+          SELECT id FROM sessions WHERE user_id = $1
+          ORDER BY expires_at DESC
+          OFFSET $2
+        )`,
+        [user.id, MAX_SESSIONS - 1]
+      );
+
       // 세션 저장 (Refresh Token 만료 시간에 맞춤)
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7일 (리프레시 토큰 수명과 일치)
-      
+
       await db.run(
         `INSERT INTO sessions (user_id, token, refresh_token, ip_address, user_agent, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -291,26 +333,43 @@ class AuthService {
       }
 
       // 세션 확인 (리프레시 토큰으로)
-      const session = await db.get(
+      let session = await db.get(
         'SELECT id, user_id FROM sessions WHERE refresh_token = $1 AND expires_at > CURRENT_TIMESTAMP',
         [refreshToken]
       );
 
       if (!session) {
-        // 이미 로테이션된(사용된) 리프레시 토큰으로 접근 → 토큰 탈취 가능성
-        // 해당 사용자의 모든 세션 무효화
-        logger.warn('리프레시 토큰 재사용 감지 (토큰 탈취 의심)', { userId: decoded.userId });
-        await db.run('DELETE FROM sessions WHERE user_id = $1', [decoded.userId]);
-        throw new Error('보안 위험 감지: 모든 세션이 종료되었습니다. 다시 로그인하세요.');
+        // 유예 기간 확인: 이전 리프레시 토큰이 30초 이내에 로테이션된 경우 허용
+        // (동시 요청으로 인한 race condition 방지)
+        session = await db.get(
+          `SELECT id, user_id FROM sessions
+           WHERE previous_refresh_token = $1
+             AND refresh_rotated_at > CURRENT_TIMESTAMP - INTERVAL '30 seconds'
+             AND expires_at > CURRENT_TIMESTAMP`,
+          [refreshToken]
+        );
+
+        if (!session) {
+          // 유예 기간도 지난 토큰 재사용 → 토큰 탈취 가능성
+          logger.warn('리프레시 토큰 재사용 감지 (토큰 탈취 의심)', { userId: decoded.userId });
+          await db.run('DELETE FROM sessions WHERE user_id = $1', [decoded.userId]);
+          throw new Error('보안 위험 감지: 모든 세션이 종료되었습니다. 다시 로그인하세요.');
+        }
       }
 
       const user = await db.get(
-        'SELECT id, oauth_email as email, role, organization_id FROM users WHERE id = $1',
+        'SELECT id, oauth_email as email, role, organization_id, status FROM users WHERE id = $1',
         [decoded.userId]
       );
 
       if (!user) {
         throw new Error('사용자를 찾을 수 없습니다');
+      }
+
+      // 정지/삭제된 사용자는 토큰 갱신 차단
+      if (user.status && user.status !== 'active') {
+        await db.run('DELETE FROM sessions WHERE user_id = $1', [decoded.userId]);
+        throw new Error('비활성화된 계정입니다. 관리자에게 문의하세요.');
       }
 
       // 새 액세스 토큰
@@ -333,10 +392,13 @@ class AuthService {
       );
 
       // 세션 업데이트: 기존 리프레시 토큰 무효화 + 새 토큰 설정
+      // previous_refresh_token: race condition 유예 기간용 (30초)
       await db.run(
         `UPDATE sessions
          SET token = $1,
+             previous_refresh_token = refresh_token,
              refresh_token = $2,
+             refresh_rotated_at = CURRENT_TIMESTAMP,
              expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
          WHERE id = $3`,
         [newToken, newRefreshToken, session.id]
@@ -381,6 +443,80 @@ class AuthService {
     }
   }
   
+  /**
+   * 비밀번호 변경
+   */
+  async changePassword({ userId, currentPassword, newPassword }) {
+    const db = getDB();
+    const tokenBlacklist = require('../lib/tokenBlacklist');
+
+    try {
+      const user = await db.get(
+        'SELECT id, password_hash, oauth_provider FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (!user) {
+        throw new Error('사용자를 찾을 수 없습니다');
+      }
+
+      if (user.oauth_provider !== 'local' || !user.password_hash) {
+        throw new Error('소셜 로그인 계정은 비밀번호를 변경할 수 없습니다');
+      }
+
+      // 현재 비밀번호 확인
+      const isValid = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isValid) {
+        throw new Error('현재 비밀번호가 올바르지 않습니다');
+      }
+
+      // 새 비밀번호 검증
+      if (!newPassword || newPassword.length < 8) {
+        throw new Error('비밀번호는 최소 8자 이상이어야 합니다');
+      }
+      if (newPassword.length > 72) {
+        throw new Error('비밀번호는 최대 72자까지 가능합니다');
+      }
+      if (newPassword.includes('\0')) {
+        throw new Error('비밀번호에 허용되지 않는 문자가 포함되어 있습니다');
+      }
+      const hasLetter = /[a-zA-Z]/.test(newPassword);
+      const hasNumber = /[0-9]/.test(newPassword);
+      const hasSpecial = /[^a-zA-Z0-9\s]/.test(newPassword);
+      if ([hasLetter, hasNumber, hasSpecial].filter(Boolean).length < 2) {
+        throw new Error('비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다');
+      }
+
+      // 비밀번호 해시 및 업데이트
+      const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await db.run(
+        'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [newHash, userId]
+      );
+
+      // 기존 세션 모두 삭제 (비밀번호 변경 시 강제 로그아웃)
+      const sessions = await db.query(
+        'SELECT token FROM sessions WHERE user_id = $1',
+        [userId]
+      );
+      for (const sess of sessions) {
+        tokenBlacklist.add(sess.token);
+      }
+      await db.run('DELETE FROM sessions WHERE user_id = $1', [userId]);
+
+      logger.info('비밀번호 변경 성공', { userId });
+
+      return {
+        success: true,
+        message: '비밀번호가 변경되었습니다. 다시 로그인해주세요.'
+      };
+
+    } catch (error) {
+      logger.error('비밀번호 변경 실패', { error: error.message });
+      throw error;
+    }
+  }
+
   /**
    * 사용자 정보 조회
    */

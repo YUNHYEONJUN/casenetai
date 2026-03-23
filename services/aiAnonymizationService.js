@@ -150,7 +150,7 @@ ${text}
    * GPT-4o-mini 가격 (2024년 12월 기준)
    */
   calculateCost(usage) {
-    if (!usage) return 0;
+    if (!usage) return { usd: 0, krw: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0 };
     
     // $0.150/1M input tokens, $0.600/1M output tokens
     const inputCost = (usage.prompt_tokens / 1000000) * 0.15;

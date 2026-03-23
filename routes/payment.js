@@ -150,7 +150,7 @@ const bonusSchema = z.object({
   }),
 });
 
-router.get('/bonus/:amount', validate(bonusSchema), (req, res, next) => {
+router.get('/bonus/:amount', authenticateToken, validate(bonusSchema), (req, res, next) => {
   try {
     const { amount } = req.params;
     const bonusAmount = paymentService.calculateBonus(amount);

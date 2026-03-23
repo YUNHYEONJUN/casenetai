@@ -311,20 +311,32 @@ class UsageTrackingService {
     const db = getDB();
 
     const now = new Date();
-    const trends = [];
+    // 시작 연/월 계산
+    const startDate = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+    const startYear = startDate.getFullYear();
+    const startMonth = startDate.getMonth() + 1;
 
-    for (let i = 0; i < months; i++) {
+    // 단일 쿼리로 전체 기간 조회
+    const quotas = await db.query(
+      `SELECT * FROM organization_usage_quotas
+       WHERE organization_id = $1 AND (year > $2 OR (year = $2 AND month >= $3))
+       ORDER BY year ASC, month ASC`,
+      [organizationId, startYear, startMonth]
+    );
+
+    const quotaMap = new Map();
+    for (const q of quotas) {
+      quotaMap.set(`${q.year}-${q.month}`, q);
+    }
+
+    const trends = [];
+    for (let i = months - 1; i >= 0; i--) {
       const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = targetDate.getFullYear();
       const month = targetDate.getMonth() + 1;
+      const quota = quotaMap.get(`${year}-${month}`);
 
-      const quota = await db.get(
-        `SELECT * FROM organization_usage_quotas
-         WHERE organization_id = $1 AND year = $2 AND month = $3`,
-        [organizationId, year, month]
-      );
-
-      trends.unshift({
+      trends.push({
         year,
         month,
         quotaHours: quota ? quota.quota_hours : 10.0,

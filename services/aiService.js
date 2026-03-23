@@ -18,6 +18,15 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 // Whisper API 파일 크기 제한 (15MB로 낮춤 - 타임아웃 방지)
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB in bytes (압축 강제)
 
+// Keep-Alive 에이전트 (모듈 레벨에서 1개만 생성하여 재사용)
+const https = require('https');
+const whisperAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 60000,
+  maxSockets: 2,
+  timeout: 15 * 60 * 1000
+});
+
 /**
  * STT 결과에서 연속 반복되는 단어 제거
  * 예: "네 네 네 네 네..." → "네"
@@ -233,16 +242,7 @@ async function transcribeWithWhisper(audioFilePath) {
     
     // FormData를 사용한 직접 HTTP 요청 (더 안정적)
     const FormData = require('form-data');
-    const https = require('https');
     const http = require('http');
-    
-    // Keep-Alive 에이전트 생성 (연결 재사용)
-    const agent = new https.Agent({
-      keepAlive: true,
-      keepAliveMsecs: 60000,
-      maxSockets: 1,
-      timeout: 15 * 60 * 1000 // 15분
-    });
     
     const form = new FormData();
     form.append('file', fs.createReadStream(processFilePath));
@@ -260,7 +260,7 @@ async function transcribeWithWhisper(audioFilePath) {
           ...form.getHeaders(),
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
         },
-        agent: agent,
+        agent: whisperAgent,
         timeout: 15 * 60 * 1000 // 15분 타임아웃
       };
       

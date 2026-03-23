@@ -53,9 +53,9 @@ router.get('/organizations', validate(orgsListSchema), async (req, res, next) =>
     }
 
     if (search) {
-      where.push(`(o.name ILIKE $${paramIndex} OR o.business_registration_number ILIKE $${paramIndex + 1})`);
-      params.push(`%${search}%`, `%${search}%`);
-      paramIndex += 2;
+      where.push(`(o.name ILIKE $${paramIndex} OR o.business_registration_number ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
     }
 
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
@@ -355,9 +355,9 @@ router.get('/users', validate(usersListSchema), async (req, res, next) => {
     }
 
     if (search) {
-      where.push(`(u.name ILIKE $${paramIndex} OR u.oauth_email ILIKE $${paramIndex + 1} OR u.oauth_nickname ILIKE $${paramIndex + 2})`);
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-      paramIndex += 3;
+      where.push(`(u.name ILIKE $${paramIndex} OR u.oauth_email ILIKE $${paramIndex} OR u.oauth_nickname ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
     }
 
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';

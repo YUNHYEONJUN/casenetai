@@ -618,10 +618,10 @@
   </div>
 
   <script src="/js/security-utils.js"></script>
+  <script src="/js/auth.js"></script>
   <script>
     const esc = SecurityUtils.escapeHtml;
     const API_BASE = window.location.origin;
-    let token = localStorage.getItem('token');
     let currentUser = null;
     let allOrganizations = [];
     let allUsers = [];
@@ -629,7 +629,7 @@
 
     // Initialize
     async function init() {
-      if (!token) {
+      if (!document.cookie.includes('is_logged_in=1')) {
         alert('로그인이 필요합니다');
         window.location.href = '/login.html';
         return;
@@ -638,7 +638,7 @@
       try {
         // Get current user info
         const userRes = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
         
         if (!userRes.ok) throw new Error('인증 실패');
@@ -673,10 +673,10 @@
       try {
         const [orgsRes, usersRes] = await Promise.all([
           fetch(`${API_BASE}/api/system-admin/organizations`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }),
           fetch(`${API_BASE}/api/system-admin/users`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           })
         ]);
 
@@ -702,7 +702,7 @@
     async function loadOrganizations() {
       try {
         const res = await fetch(`${API_BASE}/api/system-admin/organizations`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
         
         const data = await res.json();
@@ -771,7 +771,7 @@
     async function loadUsers() {
       try {
         const res = await fetch(`${API_BASE}/api/system-admin/users?limit=1000`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
         
         const data = await res.json();
@@ -934,7 +934,7 @@
     async function loadAuditLogs() {
       try {
         const res = await fetch(`${API_BASE}/api/system-admin/audit-logs?limit=100`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
         
         const data = await res.json();
@@ -1078,9 +1078,9 @@
         const res = await fetch(`${API_BASE}/api/system-admin/organizations`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
+          credentials: 'include',
           body: JSON.stringify(data)
         });
         
@@ -1101,7 +1101,7 @@
       try {
         const res = await fetch(`${API_BASE}/api/system-admin/organizations/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
         
         if (!res.ok) throw new Error('기관 삭제 실패');
@@ -1154,9 +1154,9 @@
         const res = await fetch(`${API_BASE}/api/system-admin/users/${userId}/role`, {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
+          credentials: 'include',
           body: JSON.stringify({
             role: role,
             organization_id: orgId || null
@@ -1178,8 +1178,10 @@
     // Logout
     function logout() {
       if (confirm('로그아웃 하시겠습니까?')) {
-        localStorage.removeItem('token');
-        window.location.href = '/login.html';
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(function() {
+          document.cookie = 'is_logged_in=; path=/; max-age=0';
+          window.location.href = '/login.html';
+        });
       }
     }
 

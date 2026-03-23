@@ -47,12 +47,16 @@ passport.use(new KakaoStrategy({
       );
       
       if (user) {
+        // 정지/삭제된 계정 차단
+        if (user.status && user.status !== 'active') {
+          return done(null, false, { message: '비활성화된 계정입니다.' });
+        }
         // 기존 사용자 - 로그인 시간 업데이트
         await db.run(
           'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
           [user.id]
         );
-        
+
         logger.info('카카오 로그인 성공', { userId: user.id });
         return done(null, user);
       }
@@ -71,8 +75,8 @@ passport.use(new KakaoStrategy({
           [
             'kakao',
             profile.id,
-            profile.displayName || profile.username,
-            profile.displayName || profile.username,
+            profile.displayName || profile.username || '사용자',
+            profile.displayName || profile.username || '사용자',
             profile._json?.kakao_account?.email || null,
             profile._json?.kakao_account?.profile?.profile_image_url || null,
             'elderly_protection',
@@ -132,12 +136,16 @@ passport.use(new NaverStrategy({
       );
       
       if (user) {
+        // 정지/삭제된 계정 차단
+        if (user.status && user.status !== 'active') {
+          return done(null, false, { message: '비활성화된 계정입니다.' });
+        }
         // 기존 사용자 - 로그인 시간 업데이트
         await db.run(
           'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
           [user.id]
         );
-        
+
         logger.info('네이버 로그인 성공', { userId: user.id });
         return done(null, user);
       }
@@ -156,8 +164,8 @@ passport.use(new NaverStrategy({
           [
             'naver',
             profile.id,
-            profile.displayName || profile.name,
-            profile.displayName || profile.name,
+            profile.displayName || profile.name || '사용자',
+            profile.displayName || profile.name || '사용자',
             profile.email || null,
             profile.profileImage || null,
             'elderly_protection',
@@ -217,12 +225,16 @@ passport.use(new GoogleStrategy({
       );
       
       if (user) {
+        // 정지/삭제된 계정 차단
+        if (user.status && user.status !== 'active') {
+          return done(null, false, { message: '비활성화된 계정입니다.' });
+        }
         // 기존 사용자 - 로그인 시간 업데이트
         await db.run(
           'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
           [user.id]
         );
-        
+
         logger.info('구글 로그인 성공', { userId: user.id });
         return done(null, user);
       }
@@ -241,8 +253,8 @@ passport.use(new GoogleStrategy({
           [
             'google',
             profile.id,
-            profile.displayName || profile.name?.givenName,
-            profile.displayName || profile.name?.givenName,
+            profile.displayName || profile.name?.givenName || '사용자',
+            profile.displayName || profile.name?.givenName || '사용자',
             profile.emails?.[0]?.value || null,
             profile.photos?.[0]?.value || null,
             'elderly_protection',

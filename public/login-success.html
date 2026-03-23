@@ -56,25 +56,16 @@
     </div>
 
     <script>
-        // 쿠키에서 access_token 읽기 (httpOnly가 아니므로 JS에서 접근 가능)
-        function getCookie(name) {
-            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-            return match ? decodeURIComponent(match[2]) : null;
-        }
-
         const urlParams = new URLSearchParams(window.location.search);
         const provider = urlParams.get('provider');
         const role = urlParams.get('role');
         const serviceType = urlParams.get('service') || 'elderly_protection';
 
-        // 쿠키에서 토큰 읽기 (URL 파라미터에서는 절대 읽지 않음 — 브라우저 히스토리 노출 방지)
-        const token = getCookie('access_token');
-        // refresh_token은 httpOnly 쿠키이므로 JS에서 읽을 수 없음 → 브라우저가 자동 전송
+        // httpOnly 쿠키는 서버가 설정 → JS에서 접근 불가, 브라우저가 자동 전송
+        // is_logged_in 쿠키로 로그인 상태 확인
+        const isLoggedIn = document.cookie.includes('is_logged_in=1');
 
-        if (token) {
-            // localStorage에 access_token 저장 (기존 프론트엔드 호환성)
-            localStorage.setItem('token', token);
-            localStorage.setItem('authProvider', provider || 'oauth');
+        if (isLoggedIn) {
 
             // 로그인 전 요청했던 페이지가 있으면 그곳으로 이동
             const savedRedirect = localStorage.getItem('loginRedirect');

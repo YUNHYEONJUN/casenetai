@@ -6,6 +6,7 @@
 
 const authService = require('../services/authService');
 const tokenBlacklist = require('../lib/tokenBlacklist');
+const { getDB } = require('../database/db-postgres');
 
 /**
  * 요청에서 JWT 토큰 추출 (헤더 > 쿠키 우선순위)
@@ -28,7 +29,7 @@ function extractToken(req) {
 /**
  * JWT 토큰 검증 미들웨어
  */
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const token = extractToken(req);
 
   if (!token) {
@@ -38,6 +39,7 @@ function authenticateToken(req, res, next) {
     });
   }
 
+  // 인메모리 블랙리스트 (같은 인스턴스 내 즉시 차단)
   if (tokenBlacklist.has(token)) {
     return res.status(401).json({
       success: false,
@@ -52,6 +54,23 @@ function authenticateToken(req, res, next) {
       success: false,
       error: '유효하지 않은 토큰입니다'
     });
+  }
+
+  // DB 세션 검증 (서버리스 환경에서 인메모리 블랙리스트 보완)
+  try {
+    const db = getDB();
+    const session = await db.get(
+      'SELECT id FROM sessions WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
+      [token]
+    );
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: '세션이 만료되었거나 로그아웃되었습니다'
+      });
+    }
+  } catch (dbErr) {
+    // DB 오류 시 JWT 검증만으로 통과 (가용성 우선)
   }
 
   req.user = {
@@ -109,47 +128,17 @@ function requireAdmin(req, res, next) {
 /**
  * 관리자 전용 미들웨어 (인증 + 권한 확인)
  */
-function isAdmin(req, res, next) {
-  const token = extractToken(req);
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      error: '인증 토큰이 필요합니다'
-    });
-  }
-
-  if (tokenBlacklist.has(token)) {
-    return res.status(401).json({
-      success: false,
-      error: '로그아웃된 토큰입니다'
-    });
-  }
-
-  const result = authService.verifyToken(token);
-
-  if (!result.valid) {
-    return res.status(403).json({
-      success: false,
-      error: '유효하지 않은 토큰입니다'
-    });
-  }
-
-  req.user = {
-    userId: result.userId,
-    email: result.email,
-    role: result.role,
-    organizationId: result.organizationId
-  };
-
-  if (req.user.role !== 'system_admin' && req.user.role !== 'org_admin') {
-    return res.status(403).json({
-      success: false,
-      error: '관리자 권한이 필요합니다'
-    });
-  }
-
-  next();
+async function isAdmin(req, res, next) {
+  // authenticateToken + 관리자 권한 확인
+  await authenticateToken(req, res, () => {
+    if (!req.user || (req.user.role !== 'system_admin' && req.user.role !== 'org_admin')) {
+      return res.status(403).json({
+        success: false,
+        error: '관리자 권한이 필요합니다'
+      });
+    }
+    next();
+  });
 }
 
 module.exports = {

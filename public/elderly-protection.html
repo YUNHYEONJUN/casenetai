@@ -2,720 +2,219 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>노인보호전문기관 - CaseNetAI</title>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        @media print {
-            /* Hide everything except report */
-            body * {
-                visibility: hidden;
-            }
-            #resultContainer, #resultContainer * {
-                visibility: visible;
-            }
-            #resultContainer {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-            /* Hide action buttons in print */
-            .result-actions {
-                display: none !important;
-            }
-            /* Print header */
-            #resultContainer::before {
-                content: "CaseNetAI 상담일지";
-                display: block;
-                font-size: 24pt;
-                font-weight: bold;
-                text-align: center;
-                margin-bottom: 20pt;
-                padding-bottom: 10pt;
-                border-bottom: 2px solid #333;
-                font-family: 'Malgun Gothic', sans-serif;
-            }
-            /* Report content styling */
-            .report-content {
-                font-family: 'Malgun Gothic', sans-serif;
-                font-size: 11pt;
-                line-height: 1.6;
-                color: #000;
-            }
-            .report-field-label {
-                font-weight: bold;
-                page-break-after: avoid;
-            }
-            .report-field-value {
-                page-break-inside: avoid;
-            }
-            .report-section {
-                page-break-inside: avoid;
-                margin-bottom: 10pt;
-            }
-            /* Page setup */
-            @page {
-                margin: 20mm;
-                size: A4;
-            }
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#e11d48">
+    <title>상담일지 자동작성 - CaseNetAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <script src="js/auth.js"></script>
     <script>
-        // 즉시 실행 인증 체크 (페이지 로드 전)
+        // Auth check
         (function() {
-            const token = localStorage.getItem('token');
-            if (!token) {
+            if (!document.cookie.includes('is_logged_in=1')) {
                 alert('로그인이 필요한 서비스입니다.');
                 window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
             }
         })();
+        tailwind.config={theme:{extend:{colors:{primary:'#e11d48',accent:'#fb7185'}}}};
     </script>
+    <style>
+      :root{--font-scale:1}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;font-size:calc(16px*var(--font-scale))}
+      body.dark{background:#111827!important;color:#f3f4f6}
+      body.dark .bg-white,body.dark .bg-gray-50{background:#1f2937!important}
+      body.dark .text-gray-800,body.dark .text-gray-700,body.dark .text-gray-600{color:#e5e7eb!important}
+      body.dark .border-gray-200,body.dark .border-gray-300{border-color:#374151!important}
+      body.dark input,body.dark select,body.dark textarea{background:#374151!important;color:#f3f4f6!important;border-color:#4b5563!important}
+      body.dark .shadow-md,body.dark .shadow-lg{box-shadow:0 4px 6px rgba(0,0,0,0.4)!important}
+      body.dark .drop-zone{border-color:#4b5563;background:#1f2937}
+      body.dark .drop-zone:hover,body.dark .drop-zone.drag-over{border-color:#e11d48;background:#2d1b2e}
+      body.dark .result-box{background:#1f2937!important;border-color:#374151!important}
+      body.dark .modal-overlay{background:rgba(0,0,0,0.7)!important}
+      body.dark .modal-content{background:#1f2937!important}
+      .drop-zone{border:2px dashed #fecdd3;transition:all .3s;background:linear-gradient(135deg,#fff1f2,#ffe4e6);border-radius:16px;cursor:pointer}
+      .drop-zone:hover,.drop-zone.drag-over{border-color:#e11d48;background:linear-gradient(135deg,#ffe4e6,#fecdd3)}
+      .step-card{background:white;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+      .step-num{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+      .step-active .step-num{background:#e11d48;color:white}
+      .step-done .step-num{background:#16a34a;color:white}
+      .step-pending .step-num{background:#e5e7eb;color:#9ca3af}
+      .result-box{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;font-family:'Noto Sans KR',sans-serif;max-height:60vh;overflow-y:auto}
+      .copy-btn{position:sticky;top:0;z-index:5}
+      .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+      .modal-content{background:white;border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+      @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.3}}
+      .streaming-dot{animation:pulse-dot 1.2s ease-in-out infinite}
+      @supports (padding: env(safe-area-inset-top)) {
+        header { padding-top: env(safe-area-inset-top); }
+      }
+    </style>
 </head>
-<body>
-    <!-- 헤더 -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1><a href="/" style="color: inherit; text-decoration: none;">CaseNetAI</a></h1>
-                    <p class="tagline">노인보호전문기관</p>
+<body class="bg-gradient-to-br from-rose-50 to-pink-50 min-h-screen">
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <a href="/" class="flex items-center space-x-2">
+                    <i class="fas fa-headset text-primary text-xl"></i>
+                    <span class="text-lg font-bold text-gray-800">상담일지 자동작성</span>
+                </a>
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100" title="다크모드"><i class="fas fa-moon text-gray-600"></i></button>
+                    <button onclick="changeFontSize()" class="p-2 rounded-lg hover:bg-gray-100" title="글자크기"><i class="fas fa-text-height text-gray-600"></i></button>
+                    <a href="/login.html" class="text-sm text-gray-500 hover:text-primary ml-1" id="loginLink"><i class="fas fa-sign-in-alt"></i> 로그인</a>
+                    <a href="#" class="text-sm text-gray-500 hover:text-primary ml-1" id="logoutLink" style="display:none;" onclick="logout(); return false;"><i class="fas fa-sign-out-alt"></i> 로그아웃</a>
+                    <a href="/" class="text-sm text-gray-500 hover:text-primary ml-1"><i class="fas fa-home"></i></a>
                 </div>
-                <nav class="nav">
-                    <a href="/" class="nav-link">홈</a>
-                    <a href="#about" class="nav-link">서비스 소개</a>
-                    <a href="#features" class="nav-link">주요 기능</a>
-                    <a href="#upload" class="nav-link">상담일지 생성</a>
-                    <a href="#anonymization" class="nav-link">문서 익명화</a>
-                    <a href="/dashboard.html" class="nav-link" id="dashboardLink" style="display:none;">대시보드</a>
-                    <a href="/login.html" class="nav-link" id="loginLink">로그인</a>
-                    <a href="/register.html" class="nav-link" id="registerLink" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 6px;">무료 시작</a>
-                    <a href="#" class="nav-link" id="logoutLink" style="display:none;" onclick="logout(); return false;">로그아웃</a>
-                </nav>
             </div>
         </div>
     </header>
 
-    <!-- 히어로 섹션 -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <h2 class="hero-title">상담 녹음을 자동으로 상담일지로</h2>
-                <p class="hero-subtitle">AI 기술로 노인보호전문기관의 상담일지 작성을 자동화합니다</p>
-                <a href="#upload" class="btn btn-primary btn-large">지금 시작하기</a>
+    <main class="container mx-auto px-2 md:px-4 py-4 max-w-2xl">
+        <!-- 사용량 표시 -->
+        <div id="usageBar" class="bg-white rounded-xl p-3 mb-3 shadow-sm border flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-clock text-rose-400"></i>
+                <span class="text-sm text-gray-700">이번 달 잔여:</span>
+                <span id="usageRemaining" class="text-sm font-bold text-primary">확인 중...</span>
+            </div>
+            <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div id="usageProgress" class="h-full bg-primary rounded-full transition-all" style="width:0%"></div>
             </div>
         </div>
-    </section>
 
-    <!-- 서비스 소개 -->
-    <section id="about" class="section about">
-        <div class="container">
-            <h2 class="section-title">서비스 소개</h2>
-            <div class="about-content">
-                <div class="about-card">
-                    <div class="about-icon">✓</div>
-                    <h3>정확한 기록</h3>
-                    <p>노인보호전문기관 업무수행지침에 따른 정확한 상담일지 양식</p>
+        <!-- 안내 -->
+        <div class="bg-rose-100 border border-rose-200 rounded-xl p-3 mb-4 text-sm text-rose-800">
+            <i class="fas fa-info-circle mr-1"></i>전화 녹음 파일을 업로드하면 AI가 녹취록을 분석하여 상담일지를 자동 작성합니다.
+            <div class="text-xs mt-1 text-rose-600"><i class="fas fa-shield-alt mr-1"></i>음성 파일은 서버에 저장되지 않으며, 처리 후 즉시 삭제됩니다.</div>
+        </div>
+
+        <!-- STEP 1: 음성 파일 업로드 -->
+        <div id="step1" class="step-card step-active">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">1</span>
+                <span class="font-bold text-gray-800">음성 파일 업로드</span>
+            </div>
+            <div id="dropZone" class="drop-zone p-8 text-center" onclick="document.getElementById('audioInput').click()">
+                <i class="fas fa-microphone text-rose-300 text-4xl mb-3"></i>
+                <p class="text-sm text-gray-600 font-semibold">녹음 파일을 여기에 드래그하거나 클릭하세요</p>
+                <p class="text-xs text-gray-400 mt-1">MP3, WAV, M4A, OGG, WebM (최대 100MB)</p>
+            </div>
+            <input type="file" id="audioInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.aac,.flac,.wma" style="display:none">
+            <div id="fileInfo" class="hidden mt-3 flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-file-audio text-rose-500"></i>
+                    <span id="fileName" class="text-sm font-semibold text-gray-700"></span>
+                    <span id="fileSize" class="text-xs text-gray-400"></span>
                 </div>
-                <div class="about-card">
-                    <div class="about-icon">⏱</div>
-                    <h3>시간 절약</h3>
-                    <p>수작업 기록 시간을 90% 이상 단축</p>
-                </div>
-                <div class="about-card">
-                    <div class="about-icon">⬢</div>
-                    <h3>안전한 보안</h3>
-                    <p>개인정보 보호를 위한 철저한 보안 시스템</p>
-                </div>
+                <button onclick="clearFile()" class="text-xs text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <button id="transcribeBtn" onclick="startTranscribe()" class="hidden w-full mt-3 py-3 bg-primary hover:bg-rose-700 text-white font-bold rounded-lg">
+                <i class="fas fa-play mr-2"></i>음성 인식 시작
+            </button>
+            <div id="transcribeProgress" class="hidden mt-3 text-center py-4">
+                <i class="fas fa-spinner fa-spin text-primary text-2xl mb-2"></i>
+                <p id="transcribeProgressText" class="text-sm text-gray-600">음성을 텍스트로 변환 중... (1~2분 소요)</p>
             </div>
         </div>
-    </section>
 
-    <!-- 주요 기능 -->
-    <section id="features" class="section features">
-        <div class="container">
-            <h2 class="section-title">주요 기능</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-number">01</div>
-                    <h3>음성 파일 업로드</h3>
-                    <p>전화상담, 방문상담, 내방상담의 녹음 파일을 업로드합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">02</div>
-                    <h3>자동 텍스트 변환</h3>
-                    <p>AI 음성인식 기술로 녹음 내용을 정확하게 텍스트로 변환합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">03</div>
-                    <h3>상담일지 자동 생성</h3>
-                    <p>변환된 텍스트를 분석하여 표준 양식의 상담일지를 자동으로 생성합니다</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-number">04</div>
-                    <h3>검토 및 수정</h3>
-                    <p>생성된 상담일지를 검토하고 필요한 부분을 수정할 수 있습니다</p>
-                </div>
+        <!-- STEP 2: 녹취록 (숨김 - 내부 처리용) -->
+        <div id="step2" style="display:none">
+            <div id="step2Content">
+                <textarea id="transcriptText" style="display:none"></textarea>
+            </div>
+            <div id="summarizeProgress" class="hidden"></div>
+        </div>
+
+        <!-- STEP 2 (표시): 상담일지 생성 중 -->
+        <div id="step2Visual" class="step-card step-pending">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num" id="step2VisualNum">2</span>
+                <span class="font-bold text-gray-800">상담일지 생성</span>
+            </div>
+            <div id="step2VisualProgress" class="hidden text-center py-4">
+                <i class="fas fa-spinner fa-spin text-primary text-2xl mb-2"></i>
+                <p id="summarizeProgressText" class="text-sm text-gray-600">AI가 상담일지를 작성 중...</p>
             </div>
         </div>
-    </section>
 
-    <!-- 업로드 섹션 -->
-    <section id="upload" class="section upload-section">
-        <div class="container">
-            <h2 class="section-title">상담일지 자동 생성</h2>
-            <div class="upload-container">
-                <div class="upload-form">
-                    <div class="form-group">
-                        <label for="templateSelect">저장된 템플릿</label>
-                        <div style="display:flex;gap:8px;">
-                            <select id="templateSelect" class="form-control" style="flex:1;">
-                                <option value="">저장된 템플릿 불러오기</option>
-                            </select>
-                            <button type="button" onclick="const v=document.getElementById('templateSelect').value;if(v)loadTemplate(Number(v));" class="btn btn-secondary" style="white-space:nowrap;">불러오기</button>
-                            <button type="button" onclick="const v=document.getElementById('templateSelect').value;if(v)deleteTemplate(Number(v));" class="btn btn-secondary" style="white-space:nowrap;background:#ef4444;color:#fff;border-color:#ef4444;">삭제</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="consultationType">상담 방식</label>
-                        <select id="consultationType" class="form-control">
-                            <option value="">선택해주세요</option>
-                            <option value="phone">전화상담</option>
-                            <option value="visit">방문상담</option>
-                            <option value="office">내방상담</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="consultationStage">상담 단계</label>
-                        <select id="consultationStage" class="form-control">
-                            <option value="">선택해주세요</option>
-                            <option value="intake">접수상담 (초기 정보 수집)</option>
-                            <option value="ongoing">진행상담 (기존 사례 추가 상담)</option>
-                            <option value="closure">종결상담 (사례 종료 관련)</option>
-                            <option value="simple">단순문의 (간단한 전화 상담)</option>
-                        </select>
-                        <small style="color: #6c757d; display: block; margin-top: 0.5rem;">
-                            💡 <strong>접수상담</strong>: 모든 정보 입력 | <strong>진행상담</strong>: 새로운 내용만 입력 | <strong>종결상담</strong>: 마무리 정보 | <strong>단순문의</strong>: 간단한 기록
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>브라우저 녹음</label>
-                        <div id="browserRecorder" style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;">
-                            <button type="button" id="startRecordingBtn" class="btn btn-primary" style="margin-right:8px;">녹음 시작</button>
-                            <button type="button" id="stopRecordingBtn" class="btn btn-secondary" style="display:none;">녹음 중지</button>
-                            <span id="recTimer" style="display:none;margin-left:12px;font-weight:600;color:#ef4444;font-size:1.1em;">00:00</span>
-                            <div id="recStatus" style="margin-top:8px;font-size:0.9em;color:#64748b;">마이크 녹음으로 파일 업로드 없이 바로 처리할 수 있습니다</div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="audioFile">또는 파일 업로드</label>
-                        <div class="file-upload-wrapper">
-                            <input type="file" id="audioFile" accept="audio/*,video/mp4" class="file-input">
-                            <label for="audioFile" class="file-label">
-                                <span class="file-icon">📁</span>
-                                <span class="file-text">파일을 선택하거나 드래그하세요</span>
-                                <span class="file-info">지원 형식: MP3, WAV, M4A, OGG, WebM, MP4 (최대 100MB)</span>
-                            </label>
-                        </div>
-                        <div id="fileName" class="file-name"></div>
-                    </div>
-
-                    <div id="statusMessage" class="status-message" style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border-radius: 0.5rem; display: none;">
-                        <strong>⚠️ 버튼을 활성화하려면:</strong><br>
-                        1️⃣ 상담 방식을 선택하세요<br>
-                        2️⃣ 상담 단계를 선택하세요<br>
-                        3️⃣ 음성 파일을 업로드하세요
-                    </div>
-                    
-                    <button id="uploadBtn" class="btn btn-primary btn-large" disabled>
-                        상담일지 생성하기
+        <!-- STEP 3 (표시: 2단계 결과): 상담일지 결과 -->
+        <div id="step3" class="step-card step-pending">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">3</span>
+                <span class="font-bold text-gray-800">상담일지 결과</span>
+            </div>
+            <div id="step3Content" class="hidden">
+                <!-- 스트리밍 진행 표시 -->
+                <div id="streamingIndicator" class="hidden flex items-center gap-2 mb-2 text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-lg">
+                    <span class="streaming-dot">&#9679;</span>
+                    <span>AI 작성 중... <span id="streamCharCount">0자</span> 생성됨</span>
+                </div>
+                <div class="copy-btn flex gap-2 mb-2 flex-wrap">
+                    <button id="copyBtn" onclick="copyResult()" class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-sm">
+                        <i class="fas fa-copy mr-1"></i>클립보드에 복사
                     </button>
-
-                    <!-- 비용 확인 정보 표시 -->
-                    <div id="costInfoContainer" class="cost-info-container" style="display: none; margin-top: 1rem; padding: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem; color: white; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                            <h4 style="margin: 0; font-size: 1.2rem; display: flex; align-items: center;">
-                                <span style="margin-right: 0.5rem;">💰</span>
-                                <span>예상 비용</span>
-                            </h4>
-                            <div id="analyzingBadge" style="display: none; background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.85rem;">
-                                <span class="spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
-                                <span style="margin-left: 0.5rem;">분석 중...</span>
-                            </div>
-                        </div>
-                        
-                        <div id="costDetails" style="background: rgba(255,255,255,0.15); padding: 1.2rem; border-radius: 0.5rem; backdrop-filter: blur(10px);">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                <div>
-                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.3rem;">📏 파일 크기</div>
-                                    <div id="fileSize" style="font-size: 1.1rem; font-weight: 600;">-</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.3rem;">⏱️ 녹음 길이</div>
-                                    <div id="audioDuration" style="font-size: 1.1rem; font-weight: 600;">-</div>
-                                </div>
-                            </div>
-                            
-                            <div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1rem; margin-top: 1rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
-                                    <span style="font-size: 0.95rem; opacity: 0.9;">음성 인식 (STT)</span>
-                                    <span id="sttCost" style="font-size: 1.05rem; font-weight: 600;">-</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.8rem;">
-                                    <span style="font-size: 0.95rem; opacity: 0.9;">AI 분석</span>
-                                    <span id="aiCost" style="font-size: 1.05rem; font-weight: 600;">무료 ~ 12원</span>
-                                </div>
-                                <div style="border-top: 2px solid rgba(255,255,255,0.3); padding-top: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 1.1rem; font-weight: 700;">총 예상 비용</span>
-                                    <span id="totalCost" style="font-size: 1.5rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">-</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem; font-size: 0.9rem; line-height: 1.5;">
-                            <div style="display: flex; align-items: flex-start;">
-                                <span style="margin-right: 0.5rem;">ℹ️</span>
-                                <div>
-                                    <div>• OpenAI Whisper STT 사용 (1순위)</div>
-                                    <div>• Google Gemini AI 분석 무료 (1순위)</div>
-                                    <div>• 실제 비용은 처리 완료 후 확인 가능</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="progressContainer" class="progress-container" style="display: none;">
-                        <div class="progress-bar">
-                            <div id="progressBar" class="progress-fill"></div>
-                        </div>
-                        <p id="progressText" class="progress-text">파일 업로드 중...</p>
-                    </div>
-                </div>
-
-                <!-- 결과 표시 영역 -->
-                <div id="resultContainer" class="result-container" style="display: none;">
-                    <div class="result-header">
-                        <h3>생성된 상담일지</h3>
-                        <div class="result-actions">
-                            <button id="editBtn" class="btn btn-secondary">수정</button>
-                            <button id="downloadBtn" class="btn btn-primary">TXT 다운로드</button>
-                            <button id="pdfBtn" class="btn btn-primary">PDF 다운로드</button>
-                            <button onclick="saveAsTemplate()" class="btn btn-secondary">템플릿 저장</button>
-                            <button onclick="sendToStatement()" class="btn btn-secondary">진술서 연계</button>
-                            <button onclick="sendToFactConfirmation()" class="btn btn-secondary">사실확인서 연계</button>
-                        </div>
-                    </div>
-                    <div id="reportContent" class="report-content">
-                        <!-- 상담일지 내용이 여기에 표시됩니다 -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 문서 익명화 섹션 -->
-    <section id="anonymization" class="section" style="background: #f8f9fa;">
-        <div class="container">
-            <div class="section-header">
-                <h2>문서 익명화</h2>
-                <p>개인정보가 포함된 문서를 안전하게 익명화하세요 (AI API 불필요)</p>
-            </div>
-
-            <div class="upload-container">
-                <div class="upload-box" id="docUploadArea" style="border: 3px dashed #667eea; padding: 40px; text-align: center; background: white; border-radius: 15px; cursor: pointer; transition: all 0.3s;">
-                    <div style="font-size: 40px; color: #667eea; margin-bottom: 20px; font-weight: bold;">문서</div>
-                    <h3>문서를 드래그하거나 클릭하여 업로드</h3>
-                    <p style="color: #6c757d; margin-top: 10px;">지원 형식: DOCX, PDF, TXT (최대 10MB)</p>
-                    <input type="file" id="documentInput" accept=".docx,.pdf,.txt" style="display: none;">
-                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="event.stopPropagation(); document.getElementById('documentInput').click()">
-                        파일 선택
+                    <button id="saveBtn" onclick="saveResult()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm">
+                        <i class="fas fa-download mr-1"></i>다운로드
+                    </button>
+                    <button onclick="resetAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">
+                        <i class="fas fa-redo mr-1"></i>새로 작성
                     </button>
                 </div>
-
-                <div id="docFileInfo" style="display: none; margin-top: 20px; padding: 15px; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
-                    <p style="margin: 0;"><strong>선택된 파일:</strong> <span id="docFileName"></span> <span id="docFileSize" style="color: #667eea;"></span></p>
-                    <button class="btn btn-success" style="margin-top: 15px; width: 100%;" onclick="processAnonymization()">
-                        익명화 시작
-                    </button>
-                </div>
-            </div>
-
-            <!-- 익명화 결과 -->
-            <div id="anonymizationResult" style="display: none; margin-top: 40px;">
-                <!-- 통계 카드 -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; opacity: 0.9;">이름</div>
-                        <div id="statNames" style="font-size: 32px; font-weight: bold; margin-top: 5px;">0</div>
-                    </div>
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; opacity: 0.9;">시설</div>
-                        <div id="statFacilities" style="font-size: 32px; font-weight: bold; margin-top: 5px;">0</div>
-                    </div>
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; opacity: 0.9;">연락처</div>
-                        <div id="statPhones" style="font-size: 32px; font-weight: bold; margin-top: 5px;">0</div>
-                    </div>
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; opacity: 0.9;">주소</div>
-                        <div id="statAddresses" style="font-size: 32px; font-weight: bold; margin-top: 5px;">0</div>
-                    </div>
-                </div>
-
-                <!-- 익명화된 텍스트 -->
-                <div style="background: white; border-radius: 15px; padding: 30px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0;">익명화된 문서</h3>
-                        <div>
-                            <button class="btn btn-secondary" onclick="copyAnonymizedText()" style="margin-right: 10px;">
-                                복사
-                            </button>
-                            <button class="btn btn-primary" onclick="downloadAnonymizedDoc()">
-                                TXT 다운로드
-                            </button>
-                        </div>
-                    </div>
-                    <div id="anonymizedText" style="background: #f8f9fa; padding: 20px; border-radius: 10px; max-height: 500px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; white-space: pre-wrap; border: 1px solid #dee2e6;"></div>
-                </div>
-
-                <!-- 매핑 테이블 -->
-                <div style="background: white; border-radius: 15px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0;">익명화 매핑 테이블</h3>
-                        <button class="btn btn-primary" onclick="downloadMappingTable()">
-                            CSV 다운로드
-                        </button>
-                    </div>
-                    <div id="mappingTableContainer"></div>
-                </div>
+                <div id="resultBox" class="result-box"></div>
             </div>
         </div>
-    </section>
 
-    <!-- 푸터 -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-info">
-                    <h3>CaseNetAI</h3>
-                    <p>Powered by <a href="https://wellpartners.kr" target="_blank">WellPartners</a></p>
-                </div>
-                <div class="footer-links">
-                    <a href="#">이용약관</a>
-                    <a href="#">개인정보처리방침</a>
-                    <a href="#">고객센터</a>
-                </div>
-                <div class="footer-copyright">
-                    <p>&copy; 2025 WellPartners. All rights reserved.</p>
-                </div>
+        <!-- 직접 입력 모드 -->
+        <div id="directInputArea" class="hidden step-card">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num" style="background:#e11d48;color:white">1</span>
+                <span class="font-bold text-gray-800">녹취록 직접 입력</span>
+            </div>
+            <p class="text-xs text-gray-500 mb-2"><i class="fas fa-edit mr-1"></i>녹취록 텍스트를 붙여넣기하세요.</p>
+            <textarea id="directTranscriptText" rows="10" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm leading-relaxed focus:outline-none focus:border-primary" placeholder="녹취록 텍스트를 여기에 붙여넣기..."></textarea>
+            <div class="flex gap-2 mt-2">
+                <button onclick="startDirectSummarize()" class="flex-1 py-3 bg-primary hover:bg-rose-700 text-white font-bold rounded-lg">
+                    <i class="fas fa-magic mr-2"></i>상담일지 생성
+                </button>
+                <button onclick="cancelDirectInput()" class="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">
+                    <i class="fas fa-times mr-1"></i>취소
+                </button>
             </div>
         </div>
-    </footer>
 
-    <script src="/js/auth.js"></script>
-    <script src="/js/security-utils.js"></script>
-    <script src="/js/main.js?v=20260306c"></script>
+        <div id="directInputToggle" class="text-center mt-2 mb-4">
+            <button onclick="toggleDirectInput()" class="text-xs text-gray-400 hover:text-primary">
+                <i class="fas fa-keyboard mr-1"></i>녹취록을 직접 붙여넣기하려면 클릭
+            </button>
+        </div>
+    </main>
+
     <script>
         // 로그아웃 함수
-        async function logout() {
+        function logout() {
             try {
-                const token = localStorage.getItem('token');
-                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+                fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
             } catch(e) {}
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            document.cookie = 'is_logged_in=; path=/; max-age=0';
             alert('로그아웃되었습니다.');
             window.location.href = '/';
         }
 
-        // 로그인 상태 확인 및 UI 업데이트
-        function updateAuthUI() {
-            const token = localStorage.getItem('token');
-            const loginLink = document.getElementById('loginLink');
-            const registerLink = document.getElementById('registerLink');
-            const logoutLink = document.getElementById('logoutLink');
-            const dashboardLink = document.getElementById('dashboardLink');
-
-            if (token) {
-                // 로그인 상태
-                loginLink.style.display = 'none';
-                registerLink.style.display = 'none';
-                logoutLink.style.display = 'inline-block';
-                dashboardLink.style.display = 'inline-block';
+        // 로그인 상태에 따라 로그인/로그아웃 링크 표시
+        (function() {
+            var isLoggedIn = document.cookie.includes('is_logged_in=1');
+            var loginLink = document.getElementById('loginLink');
+            var logoutLink = document.getElementById('logoutLink');
+            if (isLoggedIn) {
+                if (loginLink) loginLink.style.display = 'none';
+                if (logoutLink) logoutLink.style.display = '';
             } else {
-                // 로그아웃 상태
-                loginLink.style.display = 'inline-block';
-                registerLink.style.display = 'inline-block';
-                logoutLink.style.display = 'none';
-                dashboardLink.style.display = 'none';
+                if (loginLink) loginLink.style.display = '';
+                if (logoutLink) logoutLink.style.display = 'none';
             }
-        }
-
-        // 페이지 로드시 인증 UI 업데이트
-        window.addEventListener('DOMContentLoaded', updateAuthUI);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 문서 익명화 기능
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        let currentDocFile = null;
-        let anonymizedData = null;
-
-        // 파일 업로드 UI 설정
-        const docUploadArea = document.getElementById('docUploadArea');
-        const documentInput = document.getElementById('documentInput');
-
-        docUploadArea.addEventListener('click', () => documentInput.click());
-
-        documentInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) handleDocFile(file);
-        });
-
-        // 드래그 앤 드롭
-        docUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            docUploadArea.style.borderColor = '#764ba2';
-            docUploadArea.style.background = '#f0f0f0';
-        });
-
-        docUploadArea.addEventListener('dragleave', () => {
-            docUploadArea.style.borderColor = '#667eea';
-            docUploadArea.style.background = 'white';
-        });
-
-        docUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            docUploadArea.style.borderColor = '#667eea';
-            docUploadArea.style.background = 'white';
-            const file = e.dataTransfer.files[0];
-            if (file) handleDocFile(file);
-        });
-
-        function handleDocFile(file) {
-            // 파일 크기 확인 (10MB)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('파일 크기는 10MB를 초과할 수 없습니다.');
-                return;
-            }
-
-            // 파일 형식 확인
-            const allowedTypes = ['.docx', '.pdf', '.txt'];
-            const ext = '.' + file.name.split('.').pop().toLowerCase();
-            if (!allowedTypes.includes(ext)) {
-                alert('지원하지 않는 파일 형식입니다. (DOCX, PDF, TXT만 가능)');
-                return;
-            }
-
-            currentDocFile = file;
-
-            // 파일 정보 표시
-            document.getElementById('docFileName').textContent = file.name;
-            document.getElementById('docFileSize').textContent = formatFileSize(file.size);
-            document.getElementById('docFileInfo').style.display = 'block';
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-        }
-
-        async function processAnonymization() {
-            if (!currentDocFile) {
-                alert('파일을 먼저 선택해주세요.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('document', currentDocFile);
-
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('/api/anonymize-document', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || '익명화 처리 중 오류가 발생했습니다.');
-                }
-
-                const data = await response.json();
-                anonymizedData = data;
-
-                // 결과 표시
-                displayAnonymizationResults(data);
-
-            } catch (error) {
-                console.error('익명화 오류:', error);
-                alert('오류: ' + error.message);
-            }
-        }
-
-        function displayAnonymizationResults(data) {
-            // 결과 섹션 표시
-            document.getElementById('anonymizationResult').style.display = 'block';
-
-            // 익명화된 텍스트 표시
-            document.getElementById('anonymizedText').textContent = data.anonymizedText;
-
-            // 통계 업데이트
-            const mappings = data.mappings;
-            document.getElementById('statNames').textContent = mappings.names?.length || 0;
-            document.getElementById('statFacilities').textContent = mappings.facilities?.length || 0;
-            document.getElementById('statPhones').textContent = mappings.phones?.length || 0;
-            document.getElementById('statAddresses').textContent = mappings.addresses?.length || 0;
-
-            // 매핑 테이블 생성
-            createMappingTable(mappings);
-
-            // 결과 섹션으로 스크롤
-            document.getElementById('anonymizationResult').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function createMappingTable(mappings) {
-            const container = document.getElementById('mappingTableContainer');
-            let html = '';
-
-            const categories = [
-                { key: 'names', label: '이름', icon: '', color: '#667eea' },
-                { key: 'facilities', label: '시설', icon: '', color: '#10b981' },
-                { key: 'phones', label: '연락처', icon: '', color: '#3b82f6' },
-                { key: 'addresses', label: '주소', icon: '', color: '#f59e0b' },
-                { key: 'emails', label: '이메일', icon: '', color: '#6b7280' },
-                { key: 'residentIds', label: '주민번호', icon: '', color: '#ef4444' }
-            ];
-
-            categories.forEach(cat => {
-                const items = mappings[cat.key];
-                if (items && items.length > 0) {
-                    html += `
-                        <div style="margin-bottom: 30px;">
-                            <h4 style="color: ${cat.color}; margin-bottom: 15px;">
-                                ${cat.icon} ${cat.label} (${items.length}개)
-                            </h4>
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                                        <th style="padding: 12px; text-align: left; width: 50px;">#</th>
-                                        <th style="padding: 12px; text-align: left;">원본</th>
-                                        <th style="padding: 12px; text-align: left;">익명화</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-
-                    items.forEach((item, index) => {
-                        html += `
-                            <tr style="border-bottom: 1px solid #dee2e6;">
-                                <td style="padding: 12px;">${index + 1}</td>
-                                <td style="padding: 12px;"><code style="background: #f8f9fa; padding: 4px 8px; border-radius: 4px;">${escapeHtml(item.original)}</code></td>
-                                <td style="padding: 12px;"><strong style="color: ${cat.color};">${escapeHtml(item.anonymized)}</strong></td>
-                            </tr>
-                        `;
-                    });
-
-                    html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-            });
-
-            if (html === '') {
-                html = '<div style="text-align: center; padding: 40px; color: #6c757d;">익명화된 항목이 없습니다.</div>';
-            }
-
-            container.innerHTML = html;
-        }
-
-        // security-utils.js의 SecurityUtils.escapeHtml 사용
-        const escapeHtml = (typeof SecurityUtils !== 'undefined' && SecurityUtils.escapeHtml)
-            ? SecurityUtils.escapeHtml
-            : function(text) { if (text == null) return ''; return String(text).replace(/[&<>"'/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;','/':'&#x2F;'}[c])); };
-
-        // CSV Injection 방어
-        function csvSafe(value) {
-            if (value == null) return '';
-            let str = String(value).replace(/"/g, '""');
-            if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
-            return '"' + str + '"';
-        }
-
-        function copyAnonymizedText() {
-            const text = document.getElementById('anonymizedText').textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                alert('익명화된 텍스트가 클립보드에 복사되었습니다.');
-            }).catch(err => {
-                console.error('복사 실패:', err);
-                alert('복사에 실패했습니다.');
-            });
-        }
-
-        function downloadAnonymizedDoc() {
-            if (!anonymizedData) return;
-
-            const text = anonymizedData.anonymizedText;
-            const blob = new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
-            const url = window.URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `익명화_${currentDocFile.name.split('.')[0]}_${getDateString()}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }
-
-        function downloadMappingTable() {
-            if (!anonymizedData) return;
-
-            let csv = '\ufeff구분,원본,익명화\n';
-
-            const mappings = anonymizedData.mappings;
-            const categories = {
-                'names': '이름',
-                'facilities': '시설',
-                'phones': '연락처',
-                'addresses': '주소',
-                'emails': '이메일',
-                'residentIds': '주민번호'
-            };
-
-            Object.keys(categories).forEach(key => {
-                const items = mappings[key];
-                if (items && items.length > 0) {
-                    items.forEach(item => {
-                        csv += `${csvSafe(categories[key])},${csvSafe(item.original)},${csvSafe(item.anonymized)}\n`;
-                    });
-                }
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-            const url = window.URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `매핑테이블_${getDateString()}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }
-
-        function getDateString() {
-            const now = new Date();
-            return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-        }
+        })();
     </script>
+    <script src="js/counsel-log.js"></script>
 </body>
 </html>

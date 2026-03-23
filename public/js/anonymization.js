@@ -15,8 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * 인증 확인
  */
 function checkAuth() {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!document.cookie.includes('is_logged_in=1')) {
         alert('로그인이 필요합니다.');
         window.location.href = '/login.html';
     }
@@ -119,12 +118,9 @@ async function processDocument() {
     document.getElementById('loadingOverlay').style.display = 'flex';
 
     try {
-        const token = localStorage.getItem('token');
         const response = await fetch('/api/anonymize-document', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
+            credentials: 'include',
             body: formData
         });
 

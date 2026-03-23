@@ -46,7 +46,7 @@ const upload = multer({
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedMimes.includes(file.mimetype);
 
-    if (mimetype && extname) {
+    if (mimetype || extname) {
       return cb(null, true);
     } else {
       cb(new Error('지원하지 않는 파일 형식입니다. (wav, mp3, m4a, mp4, ogg, webm만 가능)'));

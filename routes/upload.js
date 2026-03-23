@@ -220,8 +220,9 @@ router.post('/upload-chunk-complete', authenticateToken, async (req, res) => {
 
     const fileSize = (fs.statSync(assembledPath).size / 1024 / 1024).toFixed(2);
     logger.info('Chunks assembled', { chunks: chunkFiles.length, sizeMB: fileSize });
-    // 파일 경로 반환 (audio route에서 path traversal 검증됨)
-    res.json({ success: true, filePath: assembledPath });
+    // 파일 식별자만 반환 (서버 경로 노출 방지)
+    const fileId = `assembled-${safeUploadId}${ext}`;
+    res.json({ success: true, fileId: fileId });
   } catch (error) {
     logger.error('Chunk complete error', { error: error.message });
     res.status(500).json({ error: '파일 조립 중 오류가 발생했습니다.' });

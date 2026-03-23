@@ -2,634 +2,325 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>진술서 작성 - CaseNetAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>AI 진술서 자동 변환 - CaseNetAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <script src="js/auth.js"></script>
     <script>
-        // 즉시 실행 인증 체크 (페이지 로드 전)
-        (function() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('로그인이 필요한 서비스입니다.');
-                window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
-            }
-        })();
+    (function() {
+        if (!document.cookie.includes('is_logged_in=1')) {
+            alert('로그인이 필요한 서비스입니다.');
+            window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+    })();
     </script>
-    <link rel="stylesheet" href="css/style.css">
+    <script>tailwind.config={theme:{extend:{colors:{primary:'#4f46e5',accent:'#818cf8'}}}}</script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <style>
-        .statement-container {
-            max-width: 1200px;
-            margin: 100px auto 50px;
-            padding: 20px;
-        }
-
-        .statement-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .statement-header h1 {
-            font-size: 2rem;
-            color: #1e40af;
-            margin-bottom: 10px;
-        }
-
-        .statement-header p {
-            color: #64748b;
-            font-size: 1rem;
-        }
-
-        .recording-section {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .recording-controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .record-btn {
-            padding: 15px 30px;
-            font-size: 1.1rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .record-btn.start {
-            background: #ef4444;
-            color: white;
-        }
-
-        .record-btn.start:hover {
-            background: #dc2626;
-        }
-
-        .record-btn.stop {
-            background: #6b7280;
-            color: white;
-        }
-
-        .record-btn.stop:hover {
-            background: #4b5563;
-        }
-
-        .record-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .recording-indicator {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            color: #ef4444;
-            font-weight: 600;
-        }
-
-        .recording-indicator.active {
-            display: flex;
-        }
-
-        .recording-dot {
-            width: 12px;
-            height: 12px;
-            background: #ef4444;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .recording-time {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #1e40af;
-        }
-
-        /* 입력 방식 탭 */
-        .input-mode-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .mode-tab {
-            padding: 15px 30px;
-            background: transparent;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            color: #64748b;
-            transition: all 0.3s;
-        }
-
-        .mode-tab:hover {
-            color: #3b82f6;
-            background: #f1f5f9;
-        }
-
-        .mode-tab.active {
-            color: #3b82f6;
-            border-bottom-color: #3b82f6;
-        }
-
-        /* 파일 업로드 섹션 */
-        .upload-section {
-            margin-bottom: 30px;
-        }
-
-        .upload-area {
-            text-align: center;
-        }
-
-        .upload-box {
-            border: 2px dashed #cbd5e1;
-            border-radius: 12px;
-            padding: 40px;
-            background: #f8fafc;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .upload-box:hover {
-            border-color: #3b82f6;
-            background: #eff6ff;
-        }
-
-        .upload-box.drag-over {
-            border-color: #3b82f6;
-            background: #dbeafe;
-        }
-
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-        }
-
-        .upload-text {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 10px;
-        }
-
-        .upload-hint {
-            font-size: 0.9rem;
-            color: #64748b;
-            margin-bottom: 20px;
-        }
-
-        .selected-file-info {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            border-radius: 8px;
-            padding: 15px 20px;
-            margin-top: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .selected-file-info span {
-            font-size: 0.95rem;
-            color: #1e40af;
-        }
-
-        .btn-remove {
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: all 0.3s;
-        }
-
-        .btn-remove:hover {
-            background: #dc2626;
-            transform: rotate(90deg);
-        }
-
-        .transcription-section {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-
-        .transcription-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .transcription-header h3 {
-            font-size: 1.2rem;
-            color: #1e40af;
-        }
-
-        .transcription-text {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            min-height: 150px;
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #e2e8f0;
-            line-height: 1.8;
-            color: #334155;
-        }
-
-        .statement-form {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .form-section {
-            margin-bottom: 30px;
-        }
-
-        .form-section h3 {
-            font-size: 1.1rem;
-            color: #1e40af;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            color: #475569;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
-        .form-group input {
-            padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        .qa-section {
-            margin-top: 20px;
-        }
-
-        .qa-pair {
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border-left: 4px solid #3b82f6;
-        }
-
-        .qa-pair.editing {
-            border-left-color: #eab308;
-        }
-
-        .qa-label {
-            font-weight: 600;
-            color: #1e40af;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .qa-content {
-            padding: 10px;
-            background: white;
-            border-radius: 4px;
-            min-height: 60px;
-            line-height: 1.6;
-            color: #334155;
-        }
-
-        .qa-content[contenteditable="true"] {
-            border: 2px solid #3b82f6;
-            outline: none;
-        }
-
-        .qa-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .qa-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s;
-        }
-
-        .qa-btn.edit {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .qa-btn.delete {
-            background: #ef4444;
-            color: white;
-        }
-
-        .qa-btn.add {
-            background: #10b981;
-            color: white;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 30px;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2563eb;
-        }
-
-        .btn-secondary {
-            background: #6b7280;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #4b5563;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid #f3f4f6;
-            border-top: 4px solid #3b82f6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .alert.active {
-            display: block;
-        }
-
-        .alert.error {
-            background: #fee2e2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-        }
-
-        .alert.success {
-            background: #d1fae5;
-            border: 1px solid #a7f3d0;
-            color: #065f46;
-        }
+      :root{--font-scale:1}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;font-size:calc(16px*var(--font-scale))}
+      body.dark{background:#111827!important;color:#f3f4f6}
+      body.dark .bg-white,body.dark .bg-gray-50{background:#1f2937!important}
+      body.dark .text-gray-800,body.dark .text-gray-700,body.dark .text-gray-600{color:#e5e7eb!important}
+      body.dark .border-gray-200,body.dark .border-gray-300{border-color:#374151!important}
+      body.dark input,body.dark select,body.dark textarea{background:#374151!important;color:#f3f4f6!important;border-color:#4b5563!important}
+      body.dark .shadow-md,body.dark .shadow-lg{box-shadow:0 4px 6px rgba(0,0,0,0.4)!important}
+      body.dark .drop-zone{border-color:#4b5563;background:#1f2937}
+      body.dark .drop-zone:hover,body.dark .drop-zone.drag-over{border-color:#4f46e5;background:#1e1b4b}
+      body.dark .result-box{background:#1f2937!important;border-color:#374151!important}
+      body.dark .modal-overlay{background:rgba(0,0,0,0.7)!important}
+      body.dark .modal-content{background:#1f2937!important}
+      .drop-zone{border:2px dashed #c7d2fe;transition:all .3s;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:16px;cursor:pointer}
+      .drop-zone:hover,.drop-zone.drag-over{border-color:#4f46e5;background:linear-gradient(135deg,#e0e7ff,#c7d2fe)}
+      .step-card{background:white;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+      .step-num{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+      .step-active .step-num{background:#4f46e5;color:white}
+      .step-done .step-num{background:#16a34a;color:white}
+      .step-pending .step-num{background:#e5e7eb;color:#9ca3af}
+      .result-box{background:#f5f3ff;border:1px solid #c7d2fe;border-radius:12px;padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;font-family:'Noto Sans KR',sans-serif;max-height:60vh;overflow-y:auto}
+      .copy-btn{position:sticky;top:0;z-index:5}
+      .info-input{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;transition:border-color .2s}
+      .info-input:focus{outline:none;border-color:#4f46e5}
+      .info-label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:block}
+      .progress-stage{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:#9ca3af}
+      .progress-stage.active{color:#4f46e5;font-weight:600}
+      .progress-stage.done{color:#16a34a}
+      @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.3}}
+      .streaming-dot{animation:pulse-dot 1.2s ease-in-out infinite}
+      @supports (padding: env(safe-area-inset-top)) {
+        header { padding-top: env(safe-area-inset-top); }
+      }
+      .sig-canvas-wrap{border:2px solid #d1d5db;border-radius:12px;background:#fff;position:relative;touch-action:none}
+      .sig-canvas-wrap canvas{width:100%;height:150px;display:block;border-radius:10px}
+      .sig-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+      .sig-modal{background:white;border-radius:16px;padding:24px;width:100%;max-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+      body.dark .sig-modal{background:#1f2937}
+      body.dark .sig-canvas-wrap{border-color:#4b5563;background:#374151}
+      .consent-item{display:flex;align-items:flex-start;gap:8px;padding:10px;background:#f9fafb;border-radius:10px;cursor:pointer;transition:background .2s}
+      .consent-item:hover{background:#eef2ff}
+      .consent-item input[type=checkbox]{margin-top:3px;accent-color:#4f46e5;width:18px;height:18px;flex-shrink:0}
+      body.dark .consent-item{background:#1f2937}
+      .result-box[contenteditable]{cursor:text}
+      .result-box[contenteditable]:focus{outline:2px solid #4f46e5;outline-offset:-2px}
+      .result-box[contenteditable]:hover{box-shadow:inset 0 0 0 1px #818cf8}
+      .edit-hint{font-size:11px;color:#9ca3af;margin-bottom:4px}
     </style>
 </head>
-<body>
-    <!-- 헤더 -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1><a href="/" style="color: inherit; text-decoration: none;">CaseNetAI</a></h1>
-                    <p class="tagline">노인보호전문기관</p>
+<body class="bg-gradient-to-br from-indigo-50 to-violet-50 min-h-screen">
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <a href="/" class="flex items-center space-x-2">
+                    <i class="fas fa-file-signature text-primary text-xl"></i>
+                    <span class="text-lg font-bold text-gray-800">AI 진술서 자동 변환</span>
+                </a>
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100" title="다크모드"><i class="fas fa-moon text-gray-600"></i></button>
+                    <button onclick="changeFontSize()" class="p-2 rounded-lg hover:bg-gray-100" title="글자크기"><i class="fas fa-text-height text-gray-600"></i></button>
+                    <a href="/" class="text-sm text-gray-500 hover:text-primary ml-1"><i class="fas fa-home"></i></a>
                 </div>
-                <nav class="nav">
-                    <a href="/" class="nav-link">홈</a>
-                    <a href="/elderly-protection.html" class="nav-link">상담일지</a>
-                    <a href="/statement-recording.html" class="nav-link" style="color: #3b82f6;">진술서 작성</a>
-                    <a href="/dashboard.html" class="nav-link" id="dashboardLink">대시보드</a>
-                    <a href="#" class="nav-link" id="logoutLink" onclick="logout(); return false;">로그아웃</a>
-                </nav>
             </div>
         </div>
     </header>
 
-    <div class="statement-container">
-        <div class="statement-header">
-            <h1>🎙️ 노인학대 조사 진술서 작성</h1>
-            <p>실시간 녹취로 진술서를 자동 생성합니다</p>
+    <main class="container mx-auto px-2 md:px-4 py-4 max-w-2xl">
+        <!-- 안내 -->
+        <div class="bg-indigo-100 border border-indigo-200 rounded-xl p-3 mb-4 text-sm text-indigo-800">
+            <i class="fas fa-info-circle mr-1"></i>현장조사 녹음 파일을 업로드하면 AI가 녹취록을 분석하여 진술서(사실확인서)를 자동 작성합니다.
+            <div class="text-xs mt-1 text-indigo-600"><i class="fas fa-shield-alt mr-1"></i>음성 파일은 서버에 저장되지 않으며, 처리 후 즉시 삭제됩니다.</div>
         </div>
 
-        <!-- 알림 -->
-        <div id="alert" class="alert"></div>
-
-        <!-- 입력 방식 선택 탭 -->
-        <div class="input-mode-tabs">
-            <button id="recordingModeBtn" class="mode-tab active">
-                🎤 실시간 녹음
-            </button>
-            <button id="uploadModeBtn" class="mode-tab">
-                📁 파일 업로드
-            </button>
-        </div>
-
-        <!-- 실시간 녹음 섹션 -->
-        <div id="recordingSection" class="recording-section">
-            <div class="recording-controls">
-                <button id="startRecordBtn" class="record-btn start">
-                    <span>🎤</span>
-                    녹음 시작
-                </button>
-                <button id="stopRecordBtn" class="record-btn stop" disabled>
-                    <span>⏹</span>
-                    녹음 중지
-                </button>
-                <div id="recordingIndicator" class="recording-indicator">
-                    <div class="recording-dot"></div>
-                    <span>녹음 중</span>
-                    <span id="recordingTime" class="recording-time">00:00</span>
+        <!-- STEP 1: 진술인 기본 정보 사전 입력 -->
+        <div id="step1" class="step-card step-active">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">1</span>
+                <span class="font-bold text-gray-800">진술인 기본 정보 (선택 입력)</span>
+            </div>
+            <p class="text-xs text-gray-500 mb-3"><i class="fas fa-edit mr-1"></i>녹취록에서 확인되지 않는 경우 직접 입력해 주세요. 입력하지 않아도 됩니다.</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="info-label">성명</label>
+                    <input type="text" id="infoName" class="info-input" placeholder="진술인 성명">
+                </div>
+                <div>
+                    <label class="info-label">소속</label>
+                    <input type="text" id="infoOrg" class="info-input" placeholder="소속 기관명">
+                </div>
+                <div>
+                    <label class="info-label">직위</label>
+                    <input type="text" id="infoPosition" class="info-input" placeholder="직위/직책">
+                </div>
+                <div>
+                    <label class="info-label">생년월일</label>
+                    <input type="text" id="infoBirthdate" class="info-input" placeholder="예: 1960-01-01">
+                </div>
+                <div>
+                    <label class="info-label">연락처</label>
+                    <input type="text" id="infoContact" class="info-input" placeholder="예: 010-0000-0000">
+                </div>
+                <div>
+                    <label class="info-label">조사자명</label>
+                    <input type="text" id="infoInvestigator" class="info-input" placeholder="조사자 성명">
                 </div>
             </div>
         </div>
 
-        <!-- 파일 업로드 섹션 -->
-        <div id="uploadSection" class="upload-section" style="display: none;">
-            <div class="upload-area">
-                <input type="file" id="audioFileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display: none;">
-                <div class="upload-box" id="uploadBox">
-                    <div class="upload-icon">📁</div>
-                    <p class="upload-text">음성 파일을 선택하거나 드래그하세요</p>
-                    <p class="upload-hint">지원 형식: MP3, WAV, M4A, OGG, WEBM (최대 100MB)</p>
-                    <button class="btn btn-primary" onclick="document.getElementById('audioFileInput').click()">
-                        파일 선택
+        <!-- 동의서 서명 (현장 서명용) -->
+        <div id="consentStep" class="step-card step-active">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-file-contract text-indigo-400 text-lg"></i>
+                <span class="font-bold text-gray-800">동의서 서명 (선택)</span>
+                <span class="text-xs text-gray-400 ml-auto">현장에서 직접 서명</span>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">진술 전 아래 동의서 항목을 확인하고 전자 서명해 주세요. 서명은 서버에 저장되지 않습니다.</p>
+            <div class="space-y-2 mb-3" id="consentItems">
+                <label class="consent-item">
+                    <input type="checkbox" id="consent1" onchange="onConsentCheck()">
+                    <div>
+                        <div class="text-sm font-semibold text-gray-700">[서식8] 진술 관련 권리 및 의무고지확인서</div>
+                        <div class="text-xs text-gray-500 mt-0.5">노인복지법 제39조의7에 따른 진술 권리·의무 고지 확인</div>
+                    </div>
+                </label>
+                <div class="consent-item flex-col" style="display:flex;flex-direction:column">
+                    <label class="flex items-start gap-2 w-full">
+                        <input type="checkbox" id="consent2" onchange="onConsentCheck()" style="margin-top:3px;accent-color:#4f46e5;width:18px;height:18px;flex-shrink:0">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-700">[서식8-1/8-2] 녹음·녹취 동의 또는 거부</div>
+                            <div class="text-xs text-gray-500 mt-0.5">진술의 녹음·녹취에 대한 동의 또는 거부를 선택합니다.</div>
+                        </div>
+                    </label>
+                    <div id="recordingChoice" class="hidden ml-7 mt-2 space-y-1">
+                        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"><input type="radio" name="recordingConsent" value="agree" checked class="accent-indigo-600"> 녹음·녹취 동의 (서식8-1)</label>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"><input type="radio" name="recordingConsent" value="refuse" class="accent-indigo-600"> 녹음·녹취 거부 (서식8-2)</label>
+                    </div>
+                </div>
+                <label class="consent-item">
+                    <input type="checkbox" id="consent3" onchange="onConsentCheck()">
+                    <div>
+                        <div class="text-sm font-semibold text-gray-700">개인정보 수집 및 이용 동의서</div>
+                        <div class="text-xs text-gray-500 mt-0.5">노인복지법 제39조의5에 의한 개인정보 수집·이용 동의</div>
+                    </div>
+                </label>
+            </div>
+            <div id="consentSignArea" class="hidden">
+                <div class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-pen-nib mr-1 text-indigo-500"></i>진술인 서명</div>
+                <div class="sig-canvas-wrap">
+                    <canvas id="consentSignCanvas"></canvas>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="clearConsentSign()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold"><i class="fas fa-eraser mr-1"></i>다시 쓰기</button>
+                    <button onclick="confirmConsentSign()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold"><i class="fas fa-check mr-1"></i>서명 완료</button>
+                </div>
+            </div>
+            <div id="consentSignDone" class="hidden bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                <i class="fas fa-check-circle text-green-600 mr-1"></i>
+                <span class="text-sm font-semibold text-green-700">동의서 서명 완료</span>
+                <div class="flex gap-2 mt-2 justify-center">
+                    <button onclick="downloadConsentDocs()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold"><i class="fas fa-download mr-1"></i>동의서 다운로드</button>
+                    <button onclick="resetConsentSign()" class="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-xs font-semibold"><i class="fas fa-redo mr-1"></i>다시 서명</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: 녹음 파일 업로드 -->
+        <div id="step2" class="step-card step-active">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">2</span>
+                <span class="font-bold text-gray-800">녹음 파일 업로드</span>
+            </div>
+            <div id="dropZone" class="drop-zone p-8 text-center" onclick="document.getElementById('audioInput').click()">
+                <i class="fas fa-microphone text-indigo-300 text-4xl mb-3"></i>
+                <p class="text-sm text-gray-600 font-semibold">녹음 파일을 여기에 드래그하거나 클릭하세요</p>
+                <p class="text-xs text-gray-400 mt-1">MP3, WAV, M4A, OGG, WebM (최대 100MB)</p>
+            </div>
+            <input type="file" id="audioInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.aac,.flac,.wma" style="display:none">
+            <div id="fileInfo" class="hidden mt-3 flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-file-audio text-indigo-500"></i>
+                    <span id="fileName" class="text-sm font-semibold text-gray-700"></span>
+                    <span id="fileSize" class="text-xs text-gray-400"></span>
+                </div>
+                <button onclick="clearFile()" class="text-xs text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <button id="convertBtn" onclick="startConversion()" class="hidden w-full mt-3 py-3 bg-primary hover:bg-indigo-700 text-white font-bold rounded-lg">
+                <i class="fas fa-magic mr-2"></i>진술서 변환 시작
+            </button>
+        </div>
+
+        <!-- STEP 3: 진행 상태 -->
+        <div id="step3" class="step-card step-pending">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">3</span>
+                <span class="font-bold text-gray-800">변환 진행</span>
+            </div>
+            <div id="step3Progress" class="hidden">
+                <div id="stage1" class="progress-stage">
+                    <i class="fas fa-circle-notch fa-spin hidden"></i>
+                    <i class="fas fa-check hidden"></i>
+                    <i class="fas fa-circle text-xs"></i>
+                    <span>음성 인식 중... (Whisper STT)</span>
+                </div>
+                <div id="stage2" class="progress-stage">
+                    <i class="fas fa-circle-notch fa-spin hidden"></i>
+                    <i class="fas fa-check hidden"></i>
+                    <i class="fas fa-circle text-xs"></i>
+                    <span>진술서 분석 중... (AI 처리)</span>
+                </div>
+                <div id="stage3" class="progress-stage">
+                    <i class="fas fa-circle-notch fa-spin hidden"></i>
+                    <i class="fas fa-check hidden"></i>
+                    <i class="fas fa-circle text-xs"></i>
+                    <span>Word 파일 생성 중...</span>
+                </div>
+                <div id="stage4" class="progress-stage">
+                    <i class="fas fa-circle-notch fa-spin hidden"></i>
+                    <i class="fas fa-check hidden"></i>
+                    <i class="fas fa-circle text-xs"></i>
+                    <span>완료!</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4: 결과 미리보기 및 다운로드 -->
+        <div id="step4" class="step-card step-pending">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="step-num">4</span>
+                <span class="font-bold text-gray-800">진술서 결과</span>
+            </div>
+            <div id="step4Content" class="hidden">
+                <!-- 스트리밍 진행 표시 -->
+                <div id="streamingIndicator" class="hidden flex items-center gap-2 mb-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg">
+                    <span class="streaming-dot">&#9679;</span>
+                    <span>AI 작성 중... <span id="streamCharCount">0자</span> 생성됨</span>
+                </div>
+                <div class="copy-btn flex gap-2 mb-2 flex-wrap">
+                    <button id="signPdfBtn" onclick="openStatementSign()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm">
+                        <i class="fas fa-pen-nib mr-1"></i>서명 후 PDF 다운로드
+                    </button>
+                    <button id="docxBtn" onclick="downloadDocx()" class="py-2 px-3 bg-gray-200 text-gray-700 rounded-lg text-sm" title="서명 없이 Word 다운로드">
+                        <i class="fas fa-file-word mr-1"></i>Word
+                    </button>
+                    <button id="copyBtn" onclick="copyResult()" class="py-2 px-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">
+                        <i class="fas fa-copy mr-1"></i>복사
+                    </button>
+                    <button onclick="regenerate()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm" title="다시 생성">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button onclick="resetAll()" class="px-3 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm" title="새로 작성">
+                        <i class="fas fa-plus"></i>
                     </button>
                 </div>
-                <div id="selectedFileInfo" class="selected-file-info" style="display: none;">
-                    <span id="fileName"></span>
-                    <span id="fileSize"></span>
-                    <button id="removeFileBtn" class="btn-remove">✕</button>
-                </div>
-                <button id="uploadAndConvertBtn" class="btn btn-primary" style="display: none; margin-top: 15px;">
-                    ⬆️ 업로드 및 변환
-                </button>
+                <div class="edit-hint"><i class="fas fa-edit mr-1"></i>아래 내용을 클릭하여 직접 수정할 수 있습니다.</div>
+                <div id="resultBox" class="result-box" contenteditable="true" spellcheck="false"></div>
             </div>
         </div>
 
-        <!-- 실시간 변환 텍스트 -->
-        <div class="transcription-section">
-            <div class="transcription-header">
-                <h3>📝 실시간 변환 텍스트</h3>
-                <button id="generateStatementBtn" class="btn btn-primary" style="display: none;">
-                    진술서 생성
-                </button>
-            </div>
-            <div id="transcriptionText" class="transcription-text">
-                녹음을 시작하면 실시간으로 변환된 텍스트가 여기에 표시됩니다...
-            </div>
+        <!-- 직접 입력 모드 -->
+        <div class="text-center mt-2 mb-4">
+            <button onclick="toggleDirectInput()" class="text-xs text-gray-400 hover:text-primary">
+                <i class="fas fa-keyboard mr-1"></i>녹취록을 직접 붙여넣기하려면 클릭
+            </button>
         </div>
 
-        <!-- 로딩 -->
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>AI가 진술서를 생성하고 있습니다...</p>
+        <!-- 직접 입력 영역 (숨김) -->
+        <div id="directInputArea" class="step-card hidden">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-keyboard text-indigo-400"></i>
+                <span class="font-bold text-gray-800">녹취록 직접 입력</span>
+            </div>
+            <textarea id="directTranscript" rows="10" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm leading-relaxed focus:outline-none focus:border-primary" placeholder="녹취록 텍스트를 여기에 붙여넣기하세요..."></textarea>
+            <button onclick="startFromTranscript()" class="w-full mt-2 py-3 bg-primary hover:bg-indigo-700 text-white font-bold rounded-lg">
+                <i class="fas fa-magic mr-2"></i>진술서 생성
+            </button>
         </div>
+    </main>
 
-        <!-- 진술서 양식 -->
-        <div id="statementForm" class="statement-form" style="display: none;">
-            <h2 style="text-align: center; color: #1e40af; margin-bottom: 30px;">노인학대 조사 진술서</h2>
-
-            <!-- 기본 정보 -->
-            <div class="form-section">
-                <h3>📋 기본 정보</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>조사일시</label>
-                        <input type="datetime-local" id="investigationDate" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>조사장소</label>
-                        <input type="text" id="investigationLocation" placeholder="예: ○○요양원 2층 사무실">
-                    </div>
-                    <div class="form-group">
-                        <label>조사기관</label>
-                        <input type="text" id="investigationOrg" placeholder="예: ○○노인보호전문기관">
-                    </div>
-                    <div class="form-group">
-                        <label>조사자</label>
-                        <input type="text" id="investigator" placeholder="조사자 성명">
-                    </div>
-                </div>
+    <!-- 진술서 서명 모달 -->
+    <div id="statementSignModal" class="sig-modal-overlay hidden">
+        <div class="sig-modal">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-pen-nib text-indigo-600 mr-2"></i>진술서 서명</h3>
+                <button onclick="closeStatementSign()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
             </div>
-
-            <!-- 피조사자 정보 -->
-            <div class="form-section">
-                <h3>👤 피조사자 정보</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>성명</label>
-                        <input type="text" id="subjectName" placeholder="피조사자 성명">
-                    </div>
-                    <div class="form-group">
-                        <label>생년월일</label>
-                        <input type="date" id="subjectBirth">
-                    </div>
-                    <div class="form-group">
-                        <label>소속</label>
-                        <input type="text" id="subjectOrg" placeholder="예: ○○요양원">
-                    </div>
-                    <div class="form-group">
-                        <label>직위</label>
-                        <input type="text" id="subjectPosition" placeholder="예: 요양보호사">
-                    </div>
-                    <div class="form-group">
-                        <label>연락처</label>
-                        <input type="text" id="subjectContact" placeholder="010-XXXX-XXXX">
-                    </div>
-                </div>
+            <p class="text-sm text-gray-600 mb-3">아래 영역에 서명해 주세요. 서명은 진술서 Word 문서에 삽입됩니다.</p>
+            <div class="sig-canvas-wrap">
+                <canvas id="statementSignCanvas"></canvas>
             </div>
-
-            <!-- 진술 내용 (문답 형식) -->
-            <div class="form-section">
-                <h3>💬 진술 내용</h3>
-                <div id="qaContainer" class="qa-section">
-                    <!-- 문답이 여기에 동적으로 추가됩니다 -->
-                </div>
-                <button id="addQaBtn" class="qa-btn add">+ 문답 추가</button>
-            </div>
-
-            <!-- 액션 버튼 -->
-            <div class="action-buttons">
-                <button id="copyToClipboardBtn" class="btn btn-secondary">📋 클립보드 복사</button>
-                <button id="saveDraftBtn" class="btn btn-secondary">💾 임시 저장</button>
-                <button id="exportPdfBtn" class="btn btn-primary">📄 텍스트 파일 저장</button>
+            <div class="flex gap-2 mt-3">
+                <button onclick="clearStatementSign()" class="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm"><i class="fas fa-eraser mr-1"></i>다시 쓰기</button>
+                <button onclick="confirmStatementSign()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm"><i class="fas fa-file-pdf mr-1"></i>서명 완료 및 PDF 다운로드</button>
             </div>
         </div>
     </div>
 
-    <script src="/js/auth.js"></script>
-    <script src="/js/security-utils.js"></script>
-    <script src="/js/statement-recording.js"></script>
+    <script src="js/statement-recording.js"></script>
 </body>
 </html>

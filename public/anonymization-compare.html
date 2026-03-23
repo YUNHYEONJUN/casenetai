@@ -350,6 +350,7 @@
   </div>
 
   <script src="/js/security-utils.js"></script>
+  <script src="/js/auth.js"></script>
   <script>
     const esc = SecurityUtils.escapeHtml;
     const uploadArea = document.getElementById('uploadArea');
@@ -417,8 +418,7 @@
           formData.append('document', selectedFile);
           formData.append('method', 'compare');
 
-          const token = localStorage.getItem('token');
-          if (!token) {
+          if (!document.cookie.includes('is_logged_in=1')) {
             alert('로그인이 필요합니다.');
             window.location.href = '/login.html';
             return;
@@ -426,9 +426,7 @@
 
           response = await fetch('/api/anonymize-document', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
+            credentials: 'include',
             body: formData
           });
         } else {

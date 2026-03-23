@@ -16,7 +16,6 @@ class ClovaAnonymizationService {
     
     // Naver Cloud Platform CLOVA Studio API
     this.apiUrl = 'https://clovastudio.stream.ntruss.com/testapp/v1/api-tools/chat-completions/HCX-DASH-001';
-    this.requestId = this.generateRequestId();
   }
 
   /**
@@ -100,7 +99,7 @@ class ClovaAnonymizationService {
           headers: {
             'X-NCP-CLOVASTUDIO-API-KEY': this.clientSecret,
             'X-NCP-APIGW-API-KEY': this.clientId,
-            'X-NCP-CLOVASTUDIO-REQUEST-ID': this.requestId,
+            'X-NCP-CLOVASTUDIO-REQUEST-ID': this.generateRequestId(),
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }
@@ -206,12 +205,18 @@ ${text}
       });
     }
 
-    // 한국어 이름 패턴 (2-4자, 한글)
-    const namePattern = /([가-힣]{2,4})\s*(씨|님|선생님|과장|팀장|사장)?/g;
-    const excludeNames = ['정보', '상황', '관계', '노인', '가족', '이웃', '친구', '부모', '자녀'];
+    // 한국어 이름 패턴 (호칭이 붙은 경우만 탐지 - 오탐 방지)
+    const namePattern = /([가-힣]{2,4})\s*(씨|님|선생님|과장|팀장|사장|부장|대리|차장|원장|소장|실장|주임|위원|교수|박사|기사)/g;
+    const excludeNames = new Set([
+      '정보', '상황', '관계', '노인', '가족', '이웃', '친구', '부모', '자녀',
+      '경우', '사이', '때문', '이후', '이전', '사실', '문제', '상태', '내용',
+      '학대', '폭력', '방임', '유기', '착취', '피해', '가해', '신고', '조사',
+      '상담', '접수', '처리', '결과', '보고', '지원', '보호', '서비스', '기관',
+      '담당', '사회', '복지', '현재', '당시', '최근', '연락', '확인', '조치'
+    ]);
     while ((match = namePattern.exec(text)) !== null) {
       const name = match[1];
-      if (!excludeNames.includes(name)) {
+      if (!excludeNames.has(name)) {
         entities.push({
           text: match[0],
           type: 'PERSON',

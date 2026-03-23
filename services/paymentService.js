@@ -304,7 +304,7 @@ class PaymentService {
         }
       );
     } catch (apiError) {
-      if (TOSS_SECRET_KEY && TOSS_SECRET_KEY.startsWith('test_')) {
+      if (process.env.NODE_ENV !== 'production' && TOSS_SECRET_KEY && TOSS_SECRET_KEY.startsWith('test_')) {
         logger.warn('테스트 모드: 결제 취소 스킵');
         tossResponse = {
           data: {
@@ -332,9 +332,12 @@ class PaymentService {
         [payment.user_id]
       );
 
+      const currentBalance = creditResult.rows[0]?.balance || 0;
+      const actualDeduction = Math.min(refundAmount, currentBalance);
+
       const updatedResult = await client.query(
-        `UPDATE credits SET balance = GREATEST(balance - $1, 0), updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 RETURNING balance`,
-        [refundAmount, payment.user_id]
+        `UPDATE credits SET balance = balance - $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 RETURNING balance`,
+        [actualDeduction, payment.user_id]
       );
 
       const newBalance = updatedResult.rows[0]?.balance || 0;
@@ -342,7 +345,7 @@ class PaymentService {
       await client.query(
         `INSERT INTO transactions (user_id, type, amount, balance_after, description, order_id)
          VALUES ($1, 'refund', $2, $3, $4, $5)`,
-        [payment.user_id, -refundAmount, newBalance, '결제 취소 환불', orderId]
+        [payment.user_id, -actualDeduction, newBalance, '결제 취소 환불', orderId]
       );
     });
 

@@ -128,7 +128,7 @@ function handleFileSelect() {
 /**
  * 대용량 파일 청크 업로드 (Vercel 4.5MB 제한 대응)
  */
-async function uploadLargeFileChunked(file, token) {
+async function uploadLargeFileChunked(file) {
     const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per chunk
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const uploadId = Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -147,7 +147,7 @@ async function uploadLargeFileChunked(file, token) {
 
         const res = await fetch('/api/upload-chunk', {
             method: 'POST',
-            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            credentials: 'include',
             body: formData
         });
 
@@ -161,9 +161,9 @@ async function uploadLargeFileChunked(file, token) {
     const completeRes = await fetch('/api/upload-chunk-complete', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ uploadId, fileName: file.name })
     });
 
@@ -185,19 +185,18 @@ async function transcribeAudio() {
     showProgress('음성 파일을 텍스트로 변환 중...', '잠시만 기다려주세요 (1-2분 소요)');
 
     try {
-        const token = localStorage.getItem('token');
         const DIRECT_UPLOAD_LIMIT = 3.5 * 1024 * 1024; // 3.5MB (Vercel 4.5MB 한도 여유분)
         let response;
 
         if (selectedFile.size > DIRECT_UPLOAD_LIMIT) {
             // 대용량: 청크 분할 업로드 후 서버 경로 전달
-            const serverFilePath = await uploadLargeFileChunked(selectedFile, token);
+            const serverFilePath = await uploadLargeFileChunked(selectedFile);
             response = await fetch('/api/fact-confirmation/transcribe', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ serverFilePath })
             });
         } else {
@@ -206,9 +205,7 @@ async function transcribeAudio() {
             formData.append('audio', selectedFile);
             response = await fetch('/api/fact-confirmation/transcribe', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
+                credentials: 'include',
                 body: formData
             });
         }
@@ -273,13 +270,12 @@ async function generateDocument() {
             notes: document.getElementById('notes').value
         };
 
-        const token = localStorage.getItem('token');
         const response = await fetch('/api/fact-confirmation/generate', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
                 transcript: transcribedText,
                 personalInfo: personalInfo
@@ -406,13 +402,12 @@ async function downloadWord() {
         // 편집된 내용 수집
         const editedDocument = collectEditedContent();
 
-        const token = localStorage.getItem('token');
         const response = await fetch('/api/fact-confirmation/download', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
                 document: editedDocument
             })
@@ -462,16 +457,17 @@ function collectEditedContent() {
     // 제목
     const title = previewEl.querySelector('.doc-title').textContent;
 
-    // 개인정보 테이블
+    // 개인정보 테이블 (인덱스 대신 행 수 기반 안전 접근)
     const tableRows = previewEl.querySelectorAll('.doc-table tr');
+    const rowCount = tableRows.length;
     const personalInfo = {
-        subjectName: tableRows[0].cells[1].textContent,
-        birthDate: tableRows[0].cells[3].textContent,
-        organization: tableRows[1].cells[1].textContent,
-        position: tableRows[1].cells[3].textContent,
-        contact: tableRows[2].cells[1].textContent,
-        investigationDate: tableRows[2].cells[3].textContent,
-        notes: tableRows[3] ? tableRows[3].cells[1].textContent : ''
+        subjectName: tableRows[0] ? tableRows[0].cells[1].textContent : '',
+        birthDate: tableRows[0] && tableRows[0].cells[3] ? tableRows[0].cells[3].textContent : '',
+        organization: tableRows[1] ? tableRows[1].cells[1].textContent : '',
+        position: tableRows[1] && tableRows[1].cells[3] ? tableRows[1].cells[3].textContent : '',
+        contact: tableRows[2] ? tableRows[2].cells[1].textContent : '',
+        investigationDate: tableRows[2] && tableRows[2].cells[3] ? tableRows[2].cells[3].textContent : '',
+        notes: rowCount > 3 && tableRows[3].cells.length > 1 ? tableRows[3].cells[1].textContent : ''
     };
 
     // 섹션별 내용
@@ -569,11 +565,9 @@ function formatDate(date) {
 async function logout() {
     if (!confirm('로그아웃 하시겠습니까?')) return;
     try {
-        const token = localStorage.getItem('token');
-        if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch(e) {}
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    document.cookie = 'is_logged_in=; path=/; max-age=0';
     localStorage.removeItem('authProvider');
     localStorage.removeItem('user');
     window.location.href = '/login.html';

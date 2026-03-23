@@ -410,16 +410,14 @@
     });
 
     // Login state
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (document.cookie.includes('is_logged_in=1')) {
         const btn = document.querySelector('.btn-login');
         if (btn) { btn.textContent = '대시보드'; btn.href = '/dashboard.html'; }
     }
 
     // Auth-gated navigation
     function requireLogin(url) {
-        const t = localStorage.getItem('token');
-        window.location.href = t ? url : '/login.html?redirect=' + encodeURIComponent(url);
+        window.location.href = document.cookie.includes('is_logged_in=1') ? url : '/login.html?redirect=' + encodeURIComponent(url);
     }
 
     document.querySelectorAll('[data-target]').forEach(el => {

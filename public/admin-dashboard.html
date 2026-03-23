@@ -325,40 +325,18 @@
   </div>
 
   <script src="/js/security-utils.js"></script>
+  <script src="/js/auth.js"></script>
   <script>
     const esc = SecurityUtils.escapeHtml;
     // API Base URL
     const API_BASE = '/api/system-admin-dashboard';
 
-    // Get token from localStorage
-    function getToken() {
-      return localStorage.getItem('token');
-    }
-
-    // API Call Helper
+    // API Call Helper (AuthUtils 자동 토큰 갱신 활용)
     async function apiCall(endpoint) {
-      const token = getToken();
-      if (!token) {
-        alert('로그인이 필요합니다');
-        window.location.href = '/login.html';
-        return null;
-      }
-
       try {
-        const response = await fetch(API_BASE + endpoint, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.status === 401) {
-          alert('인증이 만료되었습니다. 다시 로그인해주세요.');
-          window.location.href = '/login.html';
-          return null;
-        }
-
-        const data = await response.json();
-        return data;
+        var response = await AuthUtils.authenticatedFetch(API_BASE + endpoint);
+        if (!response) return null;
+        return response.json();
       } catch (error) {
         console.error('API Error:', error);
         return null;

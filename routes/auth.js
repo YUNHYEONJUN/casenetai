@@ -28,7 +28,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: IS_PRODUCTION,
-  sameSite: IS_PRODUCTION ? 'strict' : 'lax',
+  sameSite: 'lax', // OAuth 리다이렉트 호환 (strict는 외부 사이트→우리 사이트 네비게이션 시 쿠키 미전송)
   path: '/',
 };
 
@@ -36,10 +36,10 @@ const COOKIE_OPTIONS = {
  * 토큰 쿠키 설정 헬퍼
  */
 function setTokenCookies(res, token, refreshToken) {
-  // access_token: 1시간 (JS에서 읽을 수 있도록 httpOnly: false)
+  // access_token: 1시간 (httpOnly - JS 접근 불가)
   res.cookie('access_token', token, {
     ...COOKIE_OPTIONS,
-    httpOnly: false, // 프론트엔드에서 읽어야 하므로
+    httpOnly: true,
     maxAge: 60 * 60 * 1000, // 1시간
   });
 
@@ -49,6 +49,13 @@ function setTokenCookies(res, token, refreshToken) {
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
   });
+
+  // 프론트엔드 로그인 상태 확인용 (비민감, httpOnly: false)
+  res.cookie('is_logged_in', '1', {
+    ...COOKIE_OPTIONS,
+    httpOnly: false,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7일 (refresh_token과 동일)
+  });
 }
 
 /**
@@ -57,6 +64,7 @@ function setTokenCookies(res, token, refreshToken) {
 function clearTokenCookies(res) {
   res.clearCookie('access_token', { path: '/' });
   res.clearCookie('refresh_token', { path: '/' });
+  res.clearCookie('is_logged_in', { path: '/' });
 }
 
 /**
@@ -64,6 +72,11 @@ function clearTokenCookies(res) {
  */
 async function handleOAuthCallback(req, res, provider) {
   try {
+    // 정지/삭제된 계정 재확인 (passport 콜백에서 놓칠 수 있음)
+    if (req.user.status && req.user.status !== 'active') {
+      return res.redirect(`/login.html?error=account_disabled`);
+    }
+
     const token = jwt.sign(
       {
         userId: req.user.id,
@@ -121,6 +134,13 @@ const loginLimiter = rateLimit({
   message: { success: false, error: '로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요.' }
 });
 
+// 토큰 갱신 제한 (리프레시 DoS 방지)
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1분
+  max: 10,
+  message: { success: false, error: '토큰 갱신 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }
+});
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 회원가입 (관리자 전용)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -133,9 +153,10 @@ router.post('/register', loginLimiter, async (req, res) => {
     if (!MASTER_PASSWORD) {
       return res.status(500).json({ success: false, error: '서버 설정 오류가 발생했습니다.' });
     }
-    const mpBuf = Buffer.from(String(masterPassword || ''));
-    const correctBuf = Buffer.from(String(MASTER_PASSWORD));
-    if (mpBuf.length !== correctBuf.length || !crypto.timingSafeEqual(mpBuf, correctBuf)) {
+    // HMAC 해시 후 비교: 입력 길이와 무관하게 항상 같은 길이로 비교 (타이밍 공격 방지)
+    const mpHash = crypto.createHmac('sha256', JWT_SECRET).update(String(masterPassword || '')).digest();
+    const correctHash = crypto.createHmac('sha256', JWT_SECRET).update(String(MASTER_PASSWORD)).digest();
+    if (!crypto.timingSafeEqual(mpHash, correctHash)) {
       return res.status(403).json({ success: false, error: '인증에 실패했습니다.' });
     }
 
@@ -143,6 +164,9 @@ router.post('/register', loginLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: '필수 정보를 입력해주세요' });
     }
 
+    if (email.length > 254) {
+      return res.status(400).json({ success: false, error: '이메일이 너무 깁니다' });
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ success: false, error: '올바른 이메일 형식이 아닙니다' });
@@ -151,10 +175,13 @@ router.post('/register', loginLimiter, async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({ success: false, error: '비밀번호는 최소 8자 이상이어야 합니다' });
     }
+    if (password.length > 72) {
+      return res.status(400).json({ success: false, error: '비밀번호는 최대 72자까지 가능합니다' });
+    }
 
     const hasLetter = /[a-zA-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasSpecial = /[^a-zA-Z0-9\s]/.test(password);
     if ([hasLetter, hasNumber, hasSpecial].filter(Boolean).length < 2) {
       return res.status(400).json({ success: false, error: '비밀번호는 영문, 숫자, 특수문자 중 2가지 이상을 포함해야 합니다' });
     }
@@ -165,7 +192,7 @@ router.post('/register', loginLimiter, async (req, res) => {
     const result = await authService.registerWithRole({
       email, password, name, phone, organizationId,
       role: safeRole,
-      credits: credits || 0,
+      credits: Math.max(0, parseInt(credits) || 0),
       serviceType: req.body.serviceType || 'elderly_protection'
     });
 
@@ -174,9 +201,9 @@ router.post('/register', loginLimiter, async (req, res) => {
   } catch (error) {
     logger.error('회원가입 오류', { error: error.message });
     // 사용자 입력 관련 에러만 전달, 나머지는 제네릭 메시지
-    const safeErrors = ['이미 사용 중인 이메일', '비밀번호는 최소', '비밀번호는 영문'];
+    const safeErrors = ['이미 사용 중인 이메일', '비밀번호는 최소', '비밀번호는 영문', '비밀번호는 최대', '허용되지 않는 문자'];
     const isSafe = safeErrors.some(e => error.message.includes(e));
-    res.status(isSafe ? 400 : 500).json({ success: false, error: isSafe ? error.message : '계정 생성 중 오류: ' + error.message });
+    res.status(isSafe ? 400 : 500).json({ success: false, error: isSafe ? error.message : '계정 생성 중 오류가 발생했습니다.' });
   }
 });
 
@@ -190,6 +217,10 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ success: false, error: '이메일과 비밀번호를 입력해주세요' });
+    }
+
+    if (password.length > 72) {
+      return res.status(400).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다' });
     }
 
     const result = await authService.login({
@@ -218,18 +249,23 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 로그아웃
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
     const token = extractToken(req);
-    const result = await authService.logout(token);
 
-    // 쿠키 제거
+    // 토큰이 있으면 블랙리스트에 추가 (만료된 토큰이어도 처리)
+    if (token) {
+      await authService.logout(token);
+    }
+
+    // 쿠키 제거 (항상 실행)
     clearTokenCookies(res);
 
-    res.json(result);
+    res.json({ success: true, message: '로그아웃되었습니다' });
   } catch (error) {
-    logger.error('로그아웃 오류', { error: error.message });
-    res.status(500).json({ success: false, error: '로그아웃 처리 중 오류가 발생했습니다.' });
+    // 로그아웃은 항상 성공해야 함 (쿠키 제거가 중요)
+    clearTokenCookies(res);
+    res.json({ success: true, message: '로그아웃되었습니다' });
   }
 });
 
@@ -237,7 +273,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // 토큰 갱신 (리프레시 토큰 로테이션)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
     // httpOnly 쿠키 또는 body에서 리프레시 토큰 추출
     const refreshToken = (req.cookies && req.cookies.refresh_token) || req.body.refreshToken;
@@ -277,6 +313,36 @@ router.get('/me', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('사용자 정보 조회 오류', { error: error.message });
     res.status(500).json({ success: false, error: '사용자 정보 조회에 실패했습니다.' });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 비밀번호 변경
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/change-password', authenticateToken, loginLimiter, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: '현재 비밀번호와 새 비밀번호를 입력해주세요' });
+    }
+
+    const result = await authService.changePassword({
+      userId: req.user.userId,
+      currentPassword,
+      newPassword
+    });
+
+    // 비밀번호 변경 후 쿠키 제거 (재로그인 유도)
+    clearTokenCookies(res);
+
+    res.json(result);
+  } catch (error) {
+    logger.error('비밀번호 변경 오류', { error: error.message });
+    const safeErrors = ['현재 비밀번호', '비밀번호는 최소', '비밀번호는 최대', '비밀번호는 영문', '소셜 로그인', '허용되지 않는'];
+    const isSafe = safeErrors.some(e => error.message.includes(e));
+    res.status(isSafe ? 400 : 500).json({ success: false, error: isSafe ? error.message : '비밀번호 변경 중 오류가 발생했습니다.' });
   }
 });
 

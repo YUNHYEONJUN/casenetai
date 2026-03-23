@@ -35,7 +35,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://js.tosspayments.com'],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdn.tailwindcss.com', 'https://js.tosspayments.com'],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
@@ -129,6 +129,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// API 응답 캐시 방지 (로그아웃 후 뒤로가기로 인증 페이지 접근 방지)
+app.use('/api/', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  next();
+});
+
 // 요청 로깅 (Winston)
 app.use(requestLogger);
 
@@ -164,6 +171,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/audio')); // /api/upload-audio, /api/analyze-audio, /api/status 등
 app.use('/api', require('./routes/upload')); // /api/upload-blob, /api/blob-upload, /api/upload-chunk 등
 app.use('/api', require('./routes/document')); // /api/download-word
+
+// 상담일지 (북서부인트라넷 포팅)
+app.use('/api/counsel-log', require('./routes/counsel-log'));
 
 // 진술서 · 사실확인서
 app.use('/api/statement', require('./routes/statement'));
@@ -215,9 +225,10 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
   const key = req.body.key;
   const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
   if (!MASTER_PASSWORD) return res.status(500).json({ error: '서버 설정 오류가 발생했습니다.' });
-  const keyBuf = Buffer.from(String(key || ''));
-  const correctBuf = Buffer.from(String(MASTER_PASSWORD));
-  if (keyBuf.length !== correctBuf.length || !crypto.timingSafeEqual(keyBuf, correctBuf)) {
+  // HMAC 해시 후 비교: 입력 길이와 무관하게 항상 같은 길이로 비교 (타이밍 공격 방지)
+  const keyHash = crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(key || '')).digest();
+  const correctHash = crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(MASTER_PASSWORD)).digest();
+  if (!crypto.timingSafeEqual(keyHash, correctHash)) {
     return res.status(403).json({ error: '인증에 실패했습니다.' });
   }
 
@@ -238,14 +249,21 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
   }
 });
 
-// 서버 시작 시 필수 DB 스키마 보정 (oauth_provider에 'local' 허용)
+// 서버 시작 시 필수 DB 스키마 보정
 (async () => {
   try {
     const { getDB } = require('./database/db-postgres');
     const db = getDB();
+
+    // oauth_provider에 'local' 허용
     await db.run("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_oauth_provider_check");
     await db.run("ALTER TABLE users ADD CONSTRAINT users_oauth_provider_check CHECK (oauth_provider IN ('kakao', 'naver', 'google', 'local'))");
-    require('./lib/logger').logger.info('DB 스키마 보정 완료 (oauth_provider local 허용)');
+
+    // Refresh token rotation race condition 방지용 컬럼 추가
+    await db.run("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS previous_refresh_token TEXT");
+    await db.run("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS refresh_rotated_at TIMESTAMPTZ");
+
+    require('./lib/logger').logger.info('DB 스키마 보정 완료');
   } catch (e) {
     // 이미 적용되어 있거나 DB 연결 전이면 무시 (서버 시작 차단 방지)
     if (!e.message.includes('already exists')) {
@@ -253,6 +271,22 @@ app.post('/api/setup-admin', setupAdminLimiter, async (req, res) => {
     }
   }
 })();
+
+// Vercel Cron: 만료 세션 정리 (6시간마다)
+app.get('/api/cron/cleanup-sessions', async (req, res) => {
+  // Vercel Cron 인증 (CRON_SECRET 필수)
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const { cleanExpiredSessions } = require('./lib/sessionCleanup');
+    await cleanExpiredSessions();
+    res.json({ success: true, message: '세션 정리 완료' });
+  } catch (error) {
+    res.status(500).json({ error: '세션 정리 실패' });
+  }
+});
 
 // 헬스체크 엔드포인트 (모니터링용)
 app.get('/api/health', async (req, res) => {

@@ -163,8 +163,7 @@
     <script>
         const esc = SecurityUtils.escapeHtml;
         // 인증 체크
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!document.cookie.includes('is_logged_in=1')) {
             window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
         }
 
@@ -172,7 +171,7 @@
         async function checkUserRoleAndRedirect() {
             try {
                 const response = await fetch('/api/auth/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -193,27 +192,10 @@
         // 페이지 로드 시 역할 확인
         checkUserRoleAndRedirect();
 
-        // API 호출 헬퍼
+        // API 호출 헬퍼 (AuthUtils 자동 토큰 갱신 활용)
         async function apiCall(url, options = {}) {
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers
-            };
-
-            const response = await fetch(url, {
-                ...options,
-                headers
-            });
-
-            if (response.status === 401 || response.status === 403) {
-                // 토큰 만료
-                localStorage.removeItem('token');
-                localStorage.removeItem('authProvider');
-                window.location.href = '/login.html';
-                return;
-            }
-
+            var response = await AuthUtils.authenticatedFetch(url, options);
+            if (!response) return null;
             return response.json();
         }
 
@@ -221,12 +203,9 @@
         async function logout() {
             if (!confirm('로그아웃 하시겠습니까?')) return;
             try {
-                const token = localStorage.getItem('token');
-                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
             } catch(e) {}
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('authProvider');
+            document.cookie = 'is_logged_in=; path=/; max-age=0';
             window.location.href = '/login.html';
         }
 

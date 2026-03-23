@@ -31,28 +31,40 @@ function setTextSafely(element, text) {
 }
 
 /**
- * 안전하게 HTML 설정 (제한된 태그만 허용)
+ * 안전하게 HTML 설정 (DOM 기반 새니타이징)
  */
 function setHtmlSafely(element, html) {
   if (!element) return;
 
-  // 허용할 태그만 유지하는 화이트리스트 방식
-  const allowedTags = ['b', 'i', 'u', 'strong', 'em', 'br', 'p', 'span', 'div', 'ul', 'ol', 'li'];
-  const allowedTagPattern = allowedTags.join('|');
+  const allowedTags = new Set(['b', 'i', 'u', 'strong', 'em', 'br', 'p', 'span', 'div', 'ul', 'ol', 'li']);
 
-  // 모든 태그를 제거하되, 허용 태그만 복원
-  let sanitized = html
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')  // 이벤트 핸들러 제거
-    .replace(/on\w+\s*=\s*[^\s>]*/gi, '')
-    .replace(/javascript\s*:/gi, '')                // javascript: URI 제거
-    .replace(/data\s*:/gi, 'blocked:');             // data: URI 차단
+  // DOM 파서로 안전하게 파싱
+  var doc = new DOMParser().parseFromString(html, 'text/html');
 
-  // 허용되지 않은 태그 제거
-  sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/gi, (match, tag) => {
-    return allowedTags.includes(tag.toLowerCase()) ? match.replace(/\s+(on\w+|style|class|id)\s*=\s*["'][^"']*["']/gi, '') : '';
-  });
+  function sanitizeNode(node) {
+    var fragment = document.createDocumentFragment();
+    for (var i = 0; i < node.childNodes.length; i++) {
+      var child = node.childNodes[i];
+      if (child.nodeType === Node.TEXT_NODE) {
+        fragment.appendChild(document.createTextNode(child.textContent));
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (allowedTags.has(child.tagName.toLowerCase())) {
+          var cleanEl = document.createElement(child.tagName.toLowerCase());
+          // 모든 속성 제거 (허용된 태그도 속성 없이)
+          cleanEl.appendChild(sanitizeNode(child));
+          fragment.appendChild(cleanEl);
+        } else {
+          // 허용되지 않은 태그는 자식 노드만 유지
+          fragment.appendChild(sanitizeNode(child));
+        }
+      }
+      // 다른 노드 타입(주석, CDATA 등)은 무시
+    }
+    return fragment;
+  }
 
-  element.innerHTML = sanitized;
+  element.innerHTML = '';
+  element.appendChild(sanitizeNode(doc.body));
 }
 
 /**
@@ -207,13 +219,12 @@ function safeLocalStorage() {
   function flushErrors() {
     if (errorQueue.length === 0) return;
     const batch = errorQueue.splice(0);
-    const token = localStorage.getItem('token');
     fetch('/api/error-log', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Content-Type': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({ errors: batch })
     }).catch(() => {}); // 전송 실패 무시
   }

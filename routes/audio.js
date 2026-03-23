@@ -269,17 +269,12 @@ router.post('/upload-audio-stream', authenticateToken, (req, res, next) => {
   try {
     const { consultationType, consultationStage, sttEngine } = req.body;
     blobUrl = req.body.blobUrl;
-    const serverFilePath = req.body.serverFilePath;
+    const fileId = req.body.fileId || req.body.serverFilePath;
 
-    if (serverFilePath) {
-      const resolvedPath = path.resolve(serverFilePath);
-      const tmpDir = path.resolve(os.tmpdir());
-      const relative = path.relative(tmpDir, resolvedPath);
-      if (relative.startsWith('..') || path.isAbsolute(relative)) {
-        sendEvent('error', { message: '잘못된 파일 경로입니다.' });
-        res.end();
-        return;
-      }
+    if (fileId) {
+      // fileId에서 안전한 파일명만 추출 (경로 탐색 방지)
+      const safeFileId = path.basename(fileId);
+      const resolvedPath = path.join(os.tmpdir(), safeFileId);
       if (!fs.existsSync(resolvedPath)) {
         sendEvent('error', { message: '업로드된 파일을 찾을 수 없습니다.' });
         res.end();
@@ -362,8 +357,8 @@ router.post('/upload-audio-stream', authenticateToken, (req, res, next) => {
   }
 });
 
-// API 상태 확인
-router.get('/status', async (req, res) => {
+// API 상태 확인 (시스템 관리자 전용)
+router.get('/status', authenticateToken, async (req, res) => {
   const isValid = await checkApiKey();
   const { getDB } = require('../database/db-postgres');
   const db = getDB();

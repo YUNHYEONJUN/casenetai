@@ -166,6 +166,7 @@
     </div>
 
     <script src="/js/security-utils.js"></script>
+    <script src="/js/auth.js"></script>
     <script>
         const esc = SecurityUtils.escapeHtml;
         async function confirmPayment() {
@@ -181,8 +182,7 @@
             }
 
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
+                if (!document.cookie.includes('is_logged_in=1')) {
                     alert('로그인이 필요합니다.');
                     window.location.href = '/login.html';
                     return;
@@ -192,9 +192,9 @@
                 const response = await fetch('/api/payment/confirm', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         paymentKey,
                         orderId,

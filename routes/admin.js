@@ -313,7 +313,7 @@ router.put('/organizations/:id/quota', validate(quotaSchema), async (req, res, n
       await db.run(
         `UPDATE organization_usage_quotas
          SET quota_hours = $1,
-             remaining_hours = $1 - used_hours,
+             remaining_hours = GREATEST(0, $1 - used_hours),
              updated_at = CURRENT_TIMESTAMP
          WHERE organization_id = $2 AND year = $3 AND month = $4`,
         [quotaHours, id, targetYear, targetMonth]

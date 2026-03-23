@@ -352,6 +352,7 @@
   </div>
 
   <script src="/js/security-utils.js"></script>
+  <script src="/js/auth.js"></script>
   <script>
     const esc = SecurityUtils.escapeHtml;
     // 날짜 초기값 설정 (최근 30일)
@@ -371,9 +372,8 @@
     // 기관 목록 로드
     async function loadOrganizations() {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch('/api/admin/organizations', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         });
 
         const data = await response.json();
@@ -400,7 +400,6 @@
       content.style.display = 'none';
 
       try {
-        const token = localStorage.getItem('token');
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         const organizationId = document.getElementById('organizationFilter').value;
@@ -408,19 +407,19 @@
         // 병렬 로드
         const [dashboard, methods, errors, organizations, issues] = await Promise.all([
           fetch(`/api/analytics/dashboard?startDate=${startDate}&endDate=${endDate}${organizationId ? `&organizationId=${organizationId}` : ''}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }).then(r => r.json()),
           fetch(`/api/analytics/methods?startDate=${startDate}&endDate=${endDate}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }).then(r => r.json()),
           fetch(`/api/analytics/errors?startDate=${startDate}&endDate=${endDate}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }).then(r => r.json()),
           fetch(`/api/analytics/organizations?startDate=${startDate}&endDate=${endDate}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }).then(r => r.json()),
           fetch('/api/analytics/top-issues?limit=5', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
           }).then(r => r.json())
         ]);
 

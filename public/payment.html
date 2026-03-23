@@ -380,19 +380,15 @@
         async function logout() {
             if (!confirm('로그아웃 하시겠습니까?')) return;
             try {
-                const token = localStorage.getItem('token');
-                if (token) await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' });
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
             } catch(e) {}
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('authProvider');
+            document.cookie = 'is_logged_in=; path=/; max-age=0';
             window.location.href = '/login.html';
         }
 
         // 인증 확인
         async function checkAuth() {
-            const token = localStorage.getItem('token');
-            if (!token) {
+            if (!document.cookie.includes('is_logged_in=1')) {
                 alert('로그인이 필요합니다.');
                 window.location.href = '/login.html';
                 return false;
@@ -403,11 +399,8 @@
         // 현재 잔액 조회
         async function loadBalance() {
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch('/api/payment/credit/balance', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -477,15 +470,13 @@
             paymentBtn.textContent = '처리 중...';
 
             try {
-                const token = localStorage.getItem('token');
-
                 // 1. 결제 준비 API 호출
                 const prepareResponse = await fetch('/api/payment/prepare', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         amount: selectedAmount
                     })

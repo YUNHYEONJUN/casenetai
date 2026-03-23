@@ -397,6 +397,7 @@
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ email, password })
                 });
                 const text = await res.text();
@@ -410,8 +411,7 @@
                 }
 
                 if (res.ok && data.token) {
-                    localStorage.setItem('token', data.token);
-                    // refreshToken은 httpOnly 쿠키로만 관리 (localStorage 저장 금지 — XSS 방어)
+                    // token은 서버가 httpOnly 쿠키로 설정 (localStorage 저장 금지 — XSS 방어)
                     const savedRedirect = localStorage.getItem('loginRedirect') || redirectUrl;
                     localStorage.removeItem('loginRedirect');
                     // 리다이렉트 URL 검증 (open redirect 방지)
@@ -433,35 +433,35 @@
             }
         }
 
-        // 미승인 사용자 에러 메시지 표시
-        if (errorType === 'not_approved') {
-            let providerName = '소셜 로그인';
-            if (provider === 'kakao') providerName = '카카오톡';
-            else if (provider === 'naver') providerName = '네이버';
-            else if (provider === 'google') providerName = '구글';
-            
-            showAlert(
-                `❌ 승인되지 않은 계정입니다.\\n\\n${providerName} 계정은 관리자 승인이 필요합니다.\\n소속 기관의 관리자에게 승인을 요청해주세요.`, 
-                'error'
-            );
+        // OAuth 에러 메시지 표시
+        if (errorType) {
+            const errorMessages = {
+                'not_approved': '승인되지 않은 계정입니다. 소속 기관의 관리자에게 승인을 요청해주세요.',
+                'account_disabled': '비활성화된 계정입니다. 관리자에게 문의하세요.',
+                'kakao_auth_failed': '카카오 로그인에 실패했습니다. 다시 시도해주세요.',
+                'naver_auth_failed': '네이버 로그인에 실패했습니다. 다시 시도해주세요.',
+                'google_auth_failed': '구글 로그인에 실패했습니다. 다시 시도해주세요.',
+                'kakao_callback_failed': '카카오 로그인 처리 중 오류가 발생했습니다.',
+                'naver_callback_failed': '네이버 로그인 처리 중 오류가 발생했습니다.',
+                'google_callback_failed': '구글 로그인 처리 중 오류가 발생했습니다.'
+            };
+            const msg = errorMessages[errorType] || '로그인 중 오류가 발생했습니다.';
+            showAlert(msg, 'error');
         }
 
-        // 이미 로그인되어 있으면 토큰 유효성 검증 후 리다이렉트
-        const existingToken = localStorage.getItem('token');
-        if (existingToken) {
+        // 이미 로그인되어 있으면 쿠키 유효성 검증 후 리다이렉트
+        if (document.cookie.includes('is_logged_in=1')) {
             fetch('/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${existingToken}` }
+                credentials: 'include'
             }).then(res => {
                 if (res.ok) {
                     window.location.href = redirectUrl;
                 } else {
-                    // 토큰 만료/무효 - 삭제
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('refreshToken');
+                    // 쿠키 만료/무효 - 삭제
+                    document.cookie = 'is_logged_in=; path=/; max-age=0';
                 }
             }).catch(() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('refreshToken');
+                document.cookie = 'is_logged_in=; path=/; max-age=0';
             });
         }
 

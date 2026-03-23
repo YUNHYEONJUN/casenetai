@@ -1,3 +1,11 @@
+/**
+ * 진술서 API (북서부인트라넷 포팅 + 기존 CRUD)
+ * - 음성 → 텍스트 변환 (Whisper STT)
+ * - 오디오 → 진술서 직접 생성 (GPT-4o-audio-preview)
+ * - 텍스트 → 진술서 생성 (SSE 스트리밍)
+ * - 진술서 CRUD (기존 유지)
+ */
+
 const express = require('express');
 const router = express.Router();
 const { z } = require('zod');
@@ -15,7 +23,8 @@ const OpenAI = require('openai');
 
 // OpenAI 클라이언트 초기화
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 10 * 60 * 1000
 });
 
 // Multer 설정 (음성 파일 업로드) - Vercel 서버리스 호환 (/tmp 사용)
@@ -39,24 +48,145 @@ const upload = multer({
       return cb(new Error('잘못된 파일명입니다.'));
     }
 
-    const allowedExtensions = /wav|mp3|m4a|ogg|webm/;
+    const allowedExtensions = /\.(wav|mp3|m4a|ogg|webm|aac|flac|wma)$/i;
     const allowedMimes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a',
-                          'audio/mp4', 'audio/ogg', 'audio/webm', 'video/webm'];
-    const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+                          'audio/mp4', 'audio/ogg', 'audio/webm', 'video/webm', 'audio/aac',
+                          'audio/flac', 'audio/x-flac', 'audio/x-ms-wma'];
+    const extname = allowedExtensions.test(file.originalname.toLowerCase());
     const mimetype = allowedMimes.includes(file.mimetype);
 
-    if (mimetype && extname) {
+    if (mimetype || extname) {
       return cb(null, true);
     } else {
-      cb(new Error('지원하지 않는 파일 형식입니다. (wav, mp3, m4a, ogg, webm만 가능)'));
+      cb(new Error('지원하지 않는 파일 형식입니다. (wav, mp3, m4a, ogg, webm, aac, flac, wma만 가능)'));
     }
   }
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POST /api/statement/transcribe
-// 음성 파일 → STT 변환 (로그인 필수)
+// 헬퍼 함수
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * Whisper 환각(hallucination) 제거 — 반복 텍스트 정리
+ */
+function cleanWhisperText(text) {
+  if (!text) return '';
+  // 1) 같은 단어/구절이 5회 이상 연속 반복되는 패턴 제거
+  let cleaned = text.replace(/(\S+(?:\s+\S+){0,3}?)(\s+\1){4,}/gi, '$1');
+  // 2) 같은 문장이 3회 이상 반복되는 패턴 제거
+  cleaned = cleaned.replace(/(.{4,80}?)\1{2,}/g, '$1');
+  // 3) 비한국어 문자 블록 제거 (일본어/중국어 환각)
+  cleaned = cleaned.replace(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]{10,}/g, '');
+  // 4) 연속 공백 정리
+  cleaned = cleaned.replace(/\s{3,}/g, ' ').trim();
+  return cleaned;
+}
+
+/**
+ * GPT 화자분리 — Whisper 결과를 [상담원]/[피상담자]로 분리
+ */
+async function diarizeSpeakers(rawText) {
+  const prompt = `아래는 노인보호전문기관 상담 녹취록입니다. 상담원과 피상담자(상담을 받는 사람)의 발화를 구분하여 다시 작성하세요.
+
+규칙:
+1. 각 발화 앞에 [상담원] 또는 [피상담자]를 붙이세요
+2. 상담원이 여러 명이면 [상담원1], [상담원2] 등으로 구분
+3. 피상담자가 여러 명이면 [피상담자1], [피상담자2] 등으로 구분
+4. 맥락으로 판단: 질문/안내/소개하는 쪽이 상담원, 답변/설명하는 쪽이 피상담자
+5. 원문 내용을 절대 수정/요약/삭제하지 마세요. 화자 라벨만 추가
+6. 각 발화마다 줄바꿈
+7. 녹취록에서 피상담자의 이름과 직책이 언급되면(상담원이 "OOO 선생님"으로 부르거나, 자기소개 등), 맨 마지막 줄에 다음 형식으로 정리:
+   [참고정보] 피상담자: OOO (직책), 상담원: OOO (직책)
+
+녹취록:
+${rawText}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: '당신은 녹취록 화자분리 전문가입니다. 원문을 수정하지 않고 화자 라벨만 정확히 추가합니다.' },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 8192,
+      temperature: 0.15
+    });
+    return response.choices[0]?.message?.content || rawText;
+  } catch (err) {
+    logger.error('화자분리 실패', { error: err.message });
+    return rawText;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 진술서 시스템 프롬프트
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const STATEMENT_SYSTEM_PROMPT = `당신은 경기북서부노인보호전문기관의 현장조사 담당 상담원입니다.
+주어진 녹취록(전사 텍스트)을 분석하여 아래 양식에 맞는 진술서(사실확인서)를 작성하세요.
+
+[핵심 원칙 - 절대 준수]
+1. 녹취록에 실제로 발화된 내용만 기록할 것
+2. 녹취록에 없는 내용을 추론하거나 지어내는 행위(환각)를 절대 금지
+3. 불명확하거나 전사 내용에 없는 항목은 반드시 "(녹취 내용 없음)" 또는 "(불명확)"으로 표기
+4. 진술인이 말하지 않은 직위, 소속, 날짜, 연락처 등 개인정보를 임의로 기입 금지
+
+[문체 규칙]
+- 문답은 반드시 격식체("~습니다", "~했습니다", "~입니다") 또는 서술체("~다", "~했다")로 작성할 것
+- 질문(문): "~했습니까?", "~입니까?" 등 격식체 의문형
+- 답변(답): "~했습니다", "~입니다" 등 격식체 서술형
+- 작은따옴표('') 인용 사용 금지. 진술 내용은 따옴표 없이 자연스럽게 서술할 것
+- 상담원(조사관) 질문은 간결하게 요약 정리할 것
+- 답변은 진술인이 실제로 말한 내용을 격식체로 정리하여 기록할 것
+
+[금지 사항]
+- 작은따옴표(''), 큰따옴표("") 인용 표시 사용 금지
+- 마크다운 기호(#, **, -, \` 등) 사용 금지
+- JSON 기호 사용 금지
+- 이스케이프 문자(\\n, \\t 등) 사용 금지
+- 간결체(~함, ~임) 사용 금지. 반드시 격식체(~습니다, ~했습니다) 사용
+
+[개인정보 처리]
+- 녹취록에서 확인된 정보만 기재
+- 녹취록에서 확인되지 않은 개인정보는 "(녹취 내용 없음)"으로 표기
+- 단, 사전 입력된 진술인 정보가 제공된 경우 그 값을 우선 사용할 것
+
+[출력 양식 - 이 구조를 정확히 따를 것]
+
+                    진  술  서
+
+○ 성    명 : [진술인 성명]
+○ 소    속 : [소속 기관명]
+○ 직    위 : [직위]
+○ 생년월일 : [생년월일 또는 (녹취 내용 없음)]
+○ 연  락  처 : [연락처 또는 (녹취 내용 없음)]
+○ 조  사  자 : [조사자명]
+
+상기 본인은 [소속 기관명]에서 발생한 노인학대 의심 건과 관련하여 다음과 같이 사실을 확인합니다.
+
+【 문  답  내  용 】
+
+문 1. 진술인의 소속과 담당 업무는 무엇입니까?
+답.   저는 OOO 요양원에서 근무하고 있으며, O층을 담당하고 있습니다.
+
+문 2. 해당 어르신의 멍을 언제 발견했습니까?
+답.   입사 후 어르신의 가려움증 약을 발라드리던 중 멍을 발견했습니다. 어르신께서는 침대에 부딪혀 생긴 것이라고 말씀하셨습니다.
+
+(이하 동일 구조 반복 - 녹취록에 있는 문답 수만큼 자동 생성)
+
+위 진술 내용은 사실과 다름이 없음을 확인합니다.
+
+       20    년    월    일
+
+소    속 : [소속 기관명]
+진 술 인 : [성명]            (인)`;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/statement/transcribe
+// 음성 파일 → STT 변환 (Whisper + 화자분리)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 router.post('/transcribe', authenticateToken, (req, res, next) => {
   if (req.headers['content-type']?.includes('application/json')) {
     next();
@@ -86,7 +216,7 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
       throw new ValidationError('음성 파일이 업로드되지 않았습니다.');
     }
 
-    logger.info('STT 변환 시작', { type: isChunkedFile ? 'chunked' : 'direct' });
+    logger.info('진술서 STT 변환 시작', { type: isChunkedFile ? 'chunked' : 'direct' });
 
     const audioStream = fs.createReadStream(audioFilePath);
     audioStream.on('error', (streamErr) => {
@@ -101,9 +231,16 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
       timestamp_granularities: ['word']
     });
 
-    logger.info('STT 변환 완료', { length: transcription.text.length });
+    // 환각 제거
+    const cleanedText = cleanWhisperText(transcription.text || '');
+
+    // GPT 화자분리
+    const diarizedText = await diarizeSpeakers(cleanedText);
+
+    logger.info('진술서 STT 변환 완료', { length: diarizedText.length });
 
     success(res, {
+      text: diarizedText,
       transcript: transcription.text,
       duration: transcription.duration,
       words: transcription.words || []
@@ -119,8 +256,211 @@ router.post('/transcribe', authenticateToken, (req, res, next) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/statement/generate-direct
+// 오디오 → 진술서 직접 생성 (GPT-4o-audio-preview, SSE)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/generate-direct', authenticateToken, upload.single('audio'), async (req, res) => {
+  let audioFilePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: '음성 파일이 없습니다' });
+    }
+
+    audioFilePath = req.file.path;
+    const fileSize = req.file.size;
+
+    if (fileSize === 0) {
+      return res.status(400).json({ message: '음성 파일이 비어있습니다' });
+    }
+
+    // 20MB 초과 시 fallback 안내
+    if (fileSize > 20 * 1024 * 1024) {
+      return res.status(400).json({
+        message: 'GPT 오디오 직접 입력은 20MB 이하만 가능합니다.',
+        fallback: true
+      });
+    }
+
+    logger.info('진술서 직접 생성 시작', { size: fileSize });
+
+    // 파일 읽기 및 base64 인코딩
+    const audioBuffer = fs.readFileSync(audioFilePath);
+    const audioBase64 = audioBuffer.toString('base64');
+
+    // 오디오 포맷 결정
+    const ext = (path.extname(req.file.originalname || '').replace('.', '') || 'mp3').toLowerCase();
+    const audioFormat = ext === 'wav' ? 'wav' : 'mp3';
+
+    // 사전 입력 정보 파싱
+    let userTextPrefix = '';
+    if (req.body.info) {
+      try {
+        const info = typeof req.body.info === 'string' ? JSON.parse(req.body.info) : req.body.info;
+        if (info.name || info.org || info.position || info.birthdate || info.contact || info.investigator) {
+          userTextPrefix = '사전 입력된 진술인 정보:\n';
+          if (info.name) userTextPrefix += `- 성명: ${info.name}\n`;
+          if (info.org) userTextPrefix += `- 소속: ${info.org}\n`;
+          if (info.position) userTextPrefix += `- 직위: ${info.position}\n`;
+          if (info.birthdate) userTextPrefix += `- 생년월일: ${info.birthdate}\n`;
+          if (info.contact) userTextPrefix += `- 연락처: ${info.contact}\n`;
+          if (info.investigator) userTextPrefix += `- 조사자: ${info.investigator}\n`;
+          userTextPrefix += '\n';
+        }
+      } catch (_) { /* ignore parse error */ }
+    }
+
+    const userText = userTextPrefix + '다음 녹음 파일을 듣고, 위 양식에 맞춰 진술서를 작성하세요. 음성에서 들리는 이름, 직책, 날짜, 소속 등을 정확하게 반영하세요.';
+
+    // SSE 스트리밍 응답
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    try {
+      const stream = await openai.chat.completions.create({
+        model: 'gpt-4o-audio-preview',
+        modalities: ['text'],
+        messages: [
+          { role: 'system', content: STATEMENT_SYSTEM_PROMPT },
+          { role: 'user', content: [
+            { type: 'text', text: userText },
+            { type: 'input_audio', input_audio: { data: audioBase64, format: audioFormat } }
+          ]}
+        ],
+        max_tokens: 8192,
+        temperature: 0.15,
+        stream: true
+      });
+
+      for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content || '';
+        if (token) {
+          res.write(`data: ${JSON.stringify({ token })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (streamErr) {
+      logger.error('진술서 직접생성 스트리밍 오류', { error: streamErr.message });
+      res.write(`data: ${JSON.stringify({ error: streamErr.message || '알 수 없는 오류' })}\n\n`);
+      res.end();
+    }
+
+  } catch (err) {
+    logger.error('진술서 직접 생성 오류', { error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: '진술서 생성에 실패했습니다. 잠시 후 다시 시도해주세요.' });
+    }
+  } finally {
+    if (audioFilePath) {
+      try { fs.unlinkSync(audioFilePath); } catch (_) { /* ignore */ }
+    }
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/statement/generate
+// 텍스트 → 진술서 생성 (SSE 스트리밍 지원)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.post('/generate', authenticateToken, async (req, res) => {
+  try {
+    const { transcript, name, org, position, birthdate, contact, investigator } = req.body;
+
+    if (!transcript || typeof transcript !== 'string' || transcript.trim().length < 30) {
+      return res.status(400).json({ message: '녹취록 텍스트가 너무 짧습니다 (최소 30자)' });
+    }
+
+    // 유저 메시지 구성
+    let userMsg = '';
+    if (name || org || position || birthdate || contact || investigator) {
+      userMsg += '사전 입력된 진술인 정보:\n';
+      if (name) userMsg += `- 성명: ${name}\n`;
+      if (org) userMsg += `- 소속: ${org}\n`;
+      if (position) userMsg += `- 직위: ${position}\n`;
+      if (birthdate) userMsg += `- 생년월일: ${birthdate}\n`;
+      if (contact) userMsg += `- 연락처: ${contact}\n`;
+      if (investigator) userMsg += `- 조사자: ${investigator}\n`;
+      userMsg += '\n';
+    }
+
+    const maxInput = 12000;
+    const wasTruncated = transcript.length > maxInput;
+    const trimmedTranscript = wasTruncated ? transcript.substring(0, maxInput) : transcript;
+    if (wasTruncated) {
+      logger.warn('진술서 생성: 텍스트가 절삭됨', { original: transcript.length, maxInput });
+    }
+    userMsg += '아래 전사 텍스트를 분석하여 진술서를 작성해 주세요.\n\n' + trimmedTranscript;
+    if (wasTruncated) {
+      userMsg += '\n\n[참고: 원본 텍스트가 길어 일부만 포함되었습니다]';
+    }
+
+    const useStream = req.headers['accept'] === 'text/event-stream';
+
+    if (useStream) {
+      // SSE 스트리밍 응답
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      try {
+        const stream = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: STATEMENT_SYSTEM_PROMPT },
+            { role: 'user', content: userMsg }
+          ],
+          max_tokens: 8192,
+          temperature: 0.15,
+          stream: true
+        });
+
+        for await (const chunk of stream) {
+          const token = chunk.choices[0]?.delta?.content || '';
+          if (token) {
+            res.write(`data: ${JSON.stringify({ token })}\n\n`);
+          }
+        }
+
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+      } catch (streamErr) {
+        logger.error('진술서 생성 스트리밍 오류', { error: streamErr.message });
+        res.write(`data: ${JSON.stringify({ error: streamErr.message || '스트리밍 오류' })}\n\n`);
+        res.end();
+      }
+    } else {
+      // 일반 JSON 응답 (폴백)
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: STATEMENT_SYSTEM_PROMPT },
+          { role: 'user', content: userMsg }
+        ],
+        max_tokens: 8192,
+        temperature: 0.15
+      });
+
+      const result = completion.choices[0]?.message?.content || '';
+      res.json({ result });
+    }
+
+  } catch (err) {
+    logger.error('진술서 생성 오류', { error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: '진술서 생성에 실패했습니다. 잠시 후 다시 시도해주세요.' });
+    }
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/parse
-// STT 텍스트 → AI 문답 분리 (로그인 필수)
+// STT 텍스트 → AI 문답 분리 (기존 유지)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const parseSchema = z.object({
@@ -219,7 +559,7 @@ JSON 배열로 출력하되, 각 항목은 다음 구조를 따릅니다:
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/statement/save
-// 진술서 저장
+// 진술서 저장 (기존 유지)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const saveSchema = z.object({
@@ -284,7 +624,7 @@ router.post('/save', authenticateToken, validate(saveSchema), async (req, res, n
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PUT /api/statement/:id
-// 진술서 수정
+// 진술서 수정 (기존 유지)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const updateSchema = z.object({
@@ -463,7 +803,7 @@ router.get('/list', authenticateToken, validate(listSchema), async (req, res, ne
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // GET /api/statement/:id
-// 진술서 조회
+// 진술서 조회 (기존 유지)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const idParamSchema = z.object({
@@ -500,7 +840,7 @@ router.get('/:id', authenticateToken, validate(idParamSchema), async (req, res, 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DELETE /api/statement/:id
-// 진술서 삭제
+// 진술서 삭제 (기존 유지)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.delete('/:id', authenticateToken, validate(idParamSchema), async (req, res, next) => {
   const db = getDB();
